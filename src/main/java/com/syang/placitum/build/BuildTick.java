@@ -35,6 +35,10 @@ import net.minecraft.world.entity.npc.villager.Villager;
  */
 public final class BuildTick {
 
+    /** Settlements already told they have no builder. */
+    private static final java.util.Set<java.util.UUID> WARNED =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private BuildTick() {}
 
     /** Places at most one block, on the interval, for each job being worked. */
@@ -85,14 +89,28 @@ public final class BuildTick {
 
         double reach = PlacitumConfig.BUILDER_REACH.get();
         Villager hand = nearestWithin(builders, op.pos(), reach);
-        if (hand == null) {
+        if (hand != null) {
+            hand.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        } else {
+            // Nobody in arm's reach. The block still goes down, provided somebody is working
+            // this stretch of wall, and the nearest is sent over.
+            //
+            // Requiring a villager at the block sounded right and does not survive contact with
+            // the vanilla brain, which drops a walk target the moment it would rather farm or
+            // sleep. Measured: 24 blocks of 1618, then nothing for two minutes. A settlement
+            // that cannot build because its people will not stand still is the original
+            // complaint wearing a hat.
+            //
+            // A BuilderEntity with its own AI is the real answer and is not this milestone.
+            if (nearestWithin(builders, op.pos(), PlacitumConfig.BUILDER_WORK_RADIUS.get())
+                    == null) {
+                return job;
+            }
             walkSomebodyOver(builders, op.pos());
-            return job;
         }
 
         level.setBlock(op.pos(), op.state(), 3);
         level.playSound(null, op.pos(), SoundEvents.WOOD_PLACE, SoundSource.BLOCKS, 0.8F, 1.0F);
-        hand.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
         return job.withProgress(job.progress() + 1);
     }
 
@@ -152,8 +170,12 @@ public final class BuildTick {
             }
         }
         if (builders.isEmpty() && !anyone.isEmpty()) {
-            Placitum.LOGGER.debug("'{}' has no builder; the nearest resident is laying blocks",
-                    settlement.name());
+            // Once a settlement, not once a block. The same line every ten ticks buries
+            // everything worth reading, which this project has paid to learn twice.
+            if (WARNED.add(settlement.id())) {
+                Placitum.LOGGER.info("'{}' has no builder; the nearest resident is laying blocks",
+                        settlement.name());
+            }
             return anyone;
         }
         return builders;

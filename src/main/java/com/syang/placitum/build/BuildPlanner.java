@@ -36,6 +36,9 @@ public final class BuildPlanner {
      */
     private static final int CLIFF = 5;
 
+    /** An op and where on the ring it came from, so ordering can follow the wall. */
+    private record Placed(int ringIndex, BuildOp op) {}
+
     private BuildPlanner() {}
 
     /**
@@ -59,7 +62,7 @@ public final class BuildPlanner {
 
         BlockState material = materialFor(recipe);
         Set<Integer> gates = new HashSet<>(recipe.gates());
-        List<BuildOp> ops = new ArrayList<>();
+        List<Placed> placed = new ArrayList<>();
 
         for (int i = 0; i < ring.size(); i++) {
             int ground = profile.get(i);
@@ -71,8 +74,8 @@ public final class BuildPlanner {
                 // would be a doorway with a ceiling a villager cannot path through, which is
                 // the same as no gate at all - and docs/defense.md is blunt about what happens
                 // then: a farmer standing in front of it for ever.
-                ops.add(new BuildOp(new BlockPos(ring.get(i).getX(), ground + 1,
-                        ring.get(i).getZ()), gateState(box, i)));
+                placed.add(new Placed(i, new BuildOp(new BlockPos(ring.get(i).getX(),
+                        ground + 1, ring.get(i).getZ()), gateState(box, i))));
                 continue;
             }
             int top = ground + recipe.height();
@@ -83,13 +86,22 @@ public final class BuildPlanner {
 
             BlockPos column = ring.get(i);
             for (int y = ground + 1; y <= top; y++) {
-                ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), material));
+                placed.add(new Placed(i,
+                        new BuildOp(new BlockPos(column.getX(), y, column.getZ()), material)));
             }
         }
 
-        ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())
-                .thenComparingInt(op -> op.pos().getX())
-                .thenComparingInt(op -> op.pos().getZ()));
+        // Height first, then around the ring - never by coordinate. Sorting by x and z looks
+        // tidy and scatters the work: on one course, stepping x by one gives a block on the
+        // north edge and then a block on the south edge, a hundred and sixty blocks away. A
+        // builder chasing that never places a second block. Ring order walks the wall.
+        placed.sort(Comparator.comparingInt((Placed p) -> p.op().pos().getY())
+                .thenComparingInt(Placed::ringIndex));
+
+        List<BuildOp> ops = new ArrayList<>(placed.size());
+        for (Placed p : placed) {
+            ops.add(p.op());
+        }
         return List.copyOf(ops);
     }
 

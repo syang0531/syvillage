@@ -73,6 +73,28 @@ class BuildPlannerTest {
     }
 
     @Test
+    @DisplayName("consecutive blocks are neighbours, so a builder can walk the wall")
+    void opsFollowTheRing() {
+        // Sorting by coordinate scatters the work: on one course, stepping x by one gives a
+        // block on the north edge then one on the south, a ring apart. In game that produced 24
+        // blocks and then nothing, because no villager could ever reach the next one.
+        List<BuildOp> ops = BuildPlanner.expand(recipe(flat(64), 3));
+
+        BuildOp previous = null;
+        int jumps = 0;
+        for (BuildOp op : ops) {
+            if (previous != null && previous.pos().getY() == op.pos().getY()
+                    && previous.pos().distSqr(op.pos()) > 2) {
+                jumps++;
+            }
+            previous = op;
+        }
+        assertEquals(0, jumps,
+                "every step within a course must be to an adjacent position; " + jumps
+                        + " were not");
+    }
+
+    @Test
     @DisplayName("a gate is one block tall with nothing over it")
     void gateLeavesTheWayOpen() {
         BuildRecipe recipe = withGates(flat(64), 3, List.of(2));

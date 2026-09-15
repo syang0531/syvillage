@@ -82,6 +82,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue BUILD_OP_INTERVAL_TICKS;
     public static final ModConfigSpec.DoubleValue BUILDER_REACH;
     public static final ModConfigSpec.DoubleValue BUILDER_WALK_SPEED;
+    public static final ModConfigSpec.DoubleValue BUILDER_WORK_RADIUS;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -244,6 +245,12 @@ public final class PlacitumConfig {
                         "which has to be put up, taken down, and got wrong.")
                 .defineInRange("builderReach", 5.5D, 1.0D, 16.0D);
         BUILDER_WALK_SPEED = b.defineInRange("builderWalkSpeed", 0.6D, 0.1D, 2.0D);
+        BUILDER_WORK_RADIUS = b.comment("How far from a builder a block may still be placed.",
+                        "Much wider than builderReach, and deliberately: villagers drop a walk",
+                        "target whenever vanilla would rather they farmed, so requiring one at",
+                        "the block means the wall stops. This keeps building tied to where the",
+                        "settlement is without depending on the brain to cooperate.")
+                .defineInRange("builderWorkRadius", 48.0D, 4.0D, 256.0D);
         b.pop();
 
         SPEC = b.build();
