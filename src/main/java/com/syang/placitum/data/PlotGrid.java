@@ -85,9 +85,22 @@ public record PlotGrid(BlockPos origin, int size, Map<CellPos, CellState> cells)
         return new PlotGrid(origin, size, next);
     }
 
-    /** World position of a cell's north-west corner. */
+    /**
+     * World position of a cell north-west corner.
+     *
+     * <p>Shifted half a cell so that cell (0,0) is centred on the origin rather than starting
+     * at it. Without the shift the bell sits on the corner of the middle cell and the grid
+     * leans one cell east and south - 21 cells reached 80 blocks west but 87 east, which is not
+     * what "centred on the bell" means and not how a settlement should grow.
+     */
     public BlockPos blockAt(CellPos pos) {
-        return origin.offset(pos.gx() * CELL_BLOCKS, 0, pos.gz() * CELL_BLOCKS);
+        int half = CELL_BLOCKS / 2;
+        return origin.offset(pos.gx() * CELL_BLOCKS - half, 0, pos.gz() * CELL_BLOCKS - half);
+    }
+
+    /** Centre of a cell, which is what site selection measures distances between. */
+    public BlockPos centreOf(CellPos pos) {
+        return blockAt(pos).offset(CELL_BLOCKS / 2, 0, CELL_BLOCKS / 2);
     }
 
     public int countOf(CellState state) {

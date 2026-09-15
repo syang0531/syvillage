@@ -55,6 +55,25 @@ class GridMapTest {
     }
 
     @Test
+    @DisplayName("the centre cell is centred on the bell, and the grid does not lean")
+    void theGridIsCentred() {
+        PlotGrid grid = PlotGrid.empty(new BlockPos(100, 64, -200), 21);
+        CellPos centre = new CellPos(0, 0);
+
+        BlockPos nw = grid.blockAt(centre);
+        assertTrue(nw.getX() < 100 && nw.getX() + PlotGrid.CELL_BLOCKS > 100,
+                "the bell has to be inside its own cell, not on its corner: " + nw);
+        assertEquals(100, grid.centreOf(centre).getX());
+        assertEquals(-200, grid.centreOf(centre).getZ());
+
+        // Reach in each direction, which must not differ by a whole cell.
+        int west = 100 - grid.blockAt(new CellPos(-10, 0)).getX();
+        int east = grid.blockAt(new CellPos(10, 0)).getX() + PlotGrid.CELL_BLOCKS - 1 - 100;
+        assertTrue(Math.abs(west - east) <= 1,
+                "a grid that reaches " + west + " west and " + east + " east is not centred");
+    }
+
+    @Test
     @DisplayName("the survey may overturn its own verdict, never the player one")
     void onlyThePlayerVetoIsFrozen() {
         assertTrue(GridSurvey.isFrozen(CellState.FORBIDDEN),
