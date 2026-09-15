@@ -7,6 +7,9 @@ import com.syang.placitum.data.BuildJob;
 import com.syang.placitum.data.BuildStage;
 import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Resident;
+import com.syang.placitum.data.WallState;
+import com.syang.placitum.data.WallTier;
+import net.minecraft.core.BlockPos;
 import com.syang.placitum.sim.SimModule;
 import com.syang.placitum.sim.SimParams;
 import com.syang.placitum.store.SettlementMut;
@@ -111,11 +114,32 @@ public class ConstructionModule implements SimModule {
         if (progress < total) {
             return job.withProgress(progress);
         }
+        complete(settlement, job);
         settlement.record(EntryType.BUILD, settlement.identity.name(),
                 "finished a " + job.recipe().template().getPath() + " of " + total + " blocks");
         Placitum.LOGGER.debug("  step {}: build {} complete ({} blocks)", settlement.simStep(),
                 job.id(), total);
         return job.withProgress(total).withStage(BuildStage.COMPLETE);
+    }
+
+    /**
+     * Writes the finished thing into the settlement.
+     *
+     * <p>The COMPLETE stage of docs/construction.md, and leaving it out cost 1761 logs a lap: a
+     * wall that finished without setting WallState left the tier at NONE, NeedsModule saw a
+     * settlement with no wall, and ordered another one. For ever, and the stores paid for every
+     * lap of it.
+     *
+     * <p>A build that leaves no trace is indistinguishable from a build that never happened -
+     * and the thing that decides whether to build is looking at exactly that trace.
+     */
+    private void complete(SettlementMut settlement, BuildJob job) {
+        List<BlockPos> ring = BuildPlanner.ringOf(job.recipe());
+        settlement.defense = settlement.defense.withWall(
+                new WallState(WallTier.PALISADE, ring, List.of(), true));
+        // Gates are left empty on purpose. Cutting them means knowing where the roads cross the
+        // ring and registering each one for pathfinding, and a gate that is not registered is a
+        // farmer standing in front of a wall for ever. That is its own piece of work.
     }
 
     /**

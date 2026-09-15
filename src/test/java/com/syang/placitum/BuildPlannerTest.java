@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.placitum.build.BuildPlanner;
 import com.syang.placitum.build.WallGeometry;
+import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.WallState;
+import com.syang.placitum.sim.SimParams;
+import com.syang.placitum.sim.Simulation;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
 import java.util.ArrayList;
@@ -54,6 +58,46 @@ class BuildPlannerTest {
             out.add(y);
         }
         return out;
+    }
+
+    @Test
+    @DisplayName("a finished wall is one the settlement stops wanting")
+    void completionStopsTheReorderLoop() {
+        // In-game this cost 1761 logs a lap. The wall finished, the job left the queue, nothing
+        // wrote WallState, NeedsModule saw tier NONE and ordered another one - for ever.
+        Settlement before = SettlementFixture.adopted(11, 20)
+                .withDefense(SettlementFixture.standard().defense().withWall(WallState.NONE))
+                .withBuildQueue(List.of());
+        Settlement stocked = before.withGrid(before.grid());
+
+        Settlement after = stocked;
+        for (int i = 0; i < 40; i++) {
+            after = Simulation.catchUp(SettlementFixture.SEED, after, SimParams.defaults(),
+                    after.lastSimTick() + 200L * 50);
+        }
+
+        assertTrue(after.buildQueue().size() <= 1,
+                "a settlement may want one wall at a time, not " + after.buildQueue().size());
+    }
+
+    @Test
+    @DisplayName("the ring is one position a column, not one a block")
+    void ringIsColumnsNotBlocks() {
+        List<BlockPos> ring = BuildPlanner.ringOf(recipe(flat(64), 3));
+        assertEquals(16, ring.size(), "16 columns, whatever height is stacked on them");
+        for (BlockPos p : ring) {
+            assertEquals(65, p.getY(), "the ring sits on the ground it was footed at");
+        }
+    }
+
+    @Test
+    @DisplayName("positions the wall skipped are not in its ring")
+    void ringSkipsGaps() {
+        List<Integer> wet = flat(64);
+        wet.set(2, WallGeometry.SKIP);
+        assertEquals(15, BuildPlanner.ringOf(recipe(wet, 3)).size(),
+                "a gap in the wall is a gap in the ring, or pathfinding is told about a wall"
+                        + " that is not there");
     }
 
     @Test

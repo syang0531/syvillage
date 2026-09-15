@@ -57,6 +57,11 @@ public record DefenseState(
         return sum;
     }
 
+    public DefenseState withWall(WallState newWall) {
+        return new DefenseState(alert, alertSince, newWall, lightingScore, recentCasualties,
+                famineSteps, foodWarned);
+    }
+
     public DefenseState withCasualty(int gameDay, int count) {
         if (recentCasualties.isEmpty()) {
             return this;

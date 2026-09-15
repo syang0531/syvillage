@@ -80,6 +80,29 @@ public final class BuildPlanner {
     }
 
     /**
+     * The ground-level footprint of a finished wall.
+     *
+     * <p>One position a column, not one a block: the ring is what pathfinding and the defence
+     * rating ask about, and neither of them cares how many logs are stacked on it.
+     */
+    public static List<BlockPos> ringOf(BuildRecipe recipe) {
+        List<Integer> profile = recipe.groundProfile();
+        List<BlockPos> ring = WallGeometry.perimeter(
+                new WallGeometry.Box(recipe.anchor(), recipe.width(), recipe.depth()));
+        if (ring.size() != profile.size()) {
+            return List.of();
+        }
+        List<BlockPos> out = new ArrayList<>();
+        for (int i = 0; i < ring.size(); i++) {
+            if (profile.get(i) != WallGeometry.SKIP) {
+                BlockPos column = ring.get(i);
+                out.add(new BlockPos(column.getX(), profile.get(i) + 1, column.getZ()));
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /**
      * How high this column must reach to meet a taller neighbour.
      *
      * <p>Zero when the neighbour is lower, absent, or across a cliff - a cliff is where the wall
