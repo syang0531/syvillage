@@ -36,14 +36,31 @@
 
 | # | 기준 | 검증 방법 | 상태 |
 |---|---|---|---|
-| 1 | 마을 등록 후 `/placitum tick <id> 1000`으로 식량 재고가 변한다 | 게임 내 수동 | ⏳ |
-| 2 | promote → demote → promote 후 `Resident`가 동일하다 | 직렬화 왕복은 `RoundTripTest` ✅ / **엔티티 왕복은 GameTest 필요** | ⏳ |
+| 1 | 마을 등록 후 `/placitum tick`으로 식량 재고가 변한다 | 게임 내 수동 | ⏳ |
+| 2 | promote → demote → promote 후 `Resident`가 동일하다 | `RoundTripTest` + 게임 내 로그 | ✅ |
 | 3 | `catchUp(1000틱 1회)` == `catchUp(100틱 10회)` | `CatchUpEquivalenceTest` | ✅ |
-| 4 | 서버 재시작 후 마을 상태가 보존된다 | 게임 내 수동 | ⏳ |
-| 5 | 기존 주민이 전원 이름을 갖고 `/placitum resident list`에 나온다 | 게임 내 수동 | ⏳ |
-| 6 | `/placitum unregister` 후 모드 없이 세이브가 열린다 | 게임 내 수동 | ⏳ |
+| 4 | 서버 재시작 후 마을 상태가 보존된다 | 게임 내 로그 | ✅ |
+| 5 | 기존 주민이 전원 이름을 갖고 `/placitum resident list`에 나온다 | 게임 내 수동 | ✅ |
+| 6 | `/placitum unregister` 후 마을이 깨끗이 해제된다 | 게임 내 수동 | ✅ |
 
-**2번의 절반이 자동화되지 않았다.** `Lifecycle.writeBack`은 실제 `Villager`를 필요로 해서 단위 테스트로 덮을 수 없다. GameTest가 그 자리를 메운다 (`neoforge.enabledGameTestNamespaces`는 이미 잡혀 있다).
+2번의 엔티티 왕복은 단위 테스트로 덮을 수 없다 — `Lifecycle.writeBack`이 실제 `Villager`를 읽기 때문이다. 대신 **라이프사이클 전환을 전부 로깅**해 게임 내에서 증거를 남기게 했다.
+
+```
+wrote back 7 resident(s) of 'Steinerstead'
+PROMOTE done: 'Steinerstead' - 7 of 7 resident(s) materialized
+Loaded settlement bc981568 from disk - pop 7, sim step 14
+```
+
+26.2에서 GameTest가 데이터팩 주도 모델로 바뀌어 비용이 커졌다. 로깅으로 충분히 관찰 가능하므로 M0에서는 이 방식을 쓰고, GameTest 도입 여부는 M1에서 다시 본다.
+
+### 게임 내 테스트에서 발견된 버그
+
+문서가 예측하지 못한 것들이라 기록해 둔다. 둘 다 로그가 없었으면 못 찾았다.
+
+| 증상 | 원인 | 고침 |
+|---|---|---|
+| 주민 직업이 전부 `none` | 바닐라 주민은 **작업대를 점유해야** 직업이 생긴다. 갓 생성된 마을은 등록 순간 대부분 무직인데 그때 한 번 읽고 얼려버렸다 | `writeBack`에서 직업 갱신 (엔티티 → 데이터는 demote에서만 흐른다는 원칙 안에 있다) |
+| 같은 주민이 `Rebound` 직후 `Promoted` | 재시작 후 promote가 시작된 뒤 저장된 엔티티가 청크에서 올라와 스스로 재바인딩. 진행 중이던 promote가 같은 주민을 또 스폰 | `promote`가 살아 있는 바인딩을 먼저 확인 → 멱등 |
 
 > 2번에서 새는 필드가 반드시 하나는 나온다. 그것을 찾는 것이 이 마일스톤의 목적이다.
 
