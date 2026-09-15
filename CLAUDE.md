@@ -19,11 +19,14 @@
 | 항목 | 값 |
 |---|---|
 | Minecraft | 26.2 (Java Edition) |
-| 모드로더 | NeoForge |
-| Java | 25 |
+| 모드로더 | NeoForge 26.2.0.88 |
+| Java | 25 (26.2의 요구 버전) |
 | modid | `placitum` |
-| 패키지 루트 | `com.placitum` |
+| 패키지 루트 | `com.syang.placitum` |
 | 빌드 | `./gradlew build` / 실행 `./gradlew runClient` |
+| 배포 | CurseForge. `PUBLISHING.md` |
+
+Parchment 매핑은 26.2용이 아직 없다. 파라미터 이름이 `p_123456_` 형태로 나오는 것이 정상이며, 공개되면 `build.gradle`의 주석 처리된 블록을 되살린다.
 
 > **주의:** 이 문서들에 나오는 Mojang·NeoForge 클래스명과 메서드 시그니처는 1.21.x 기준 참고값이다. 26.2에서 이름이 바뀌었을 수 있으므로 **실제 매핑을 반드시 확인하고 쓸 것.** 문서와 실제가 다르면 실제를 따르고, 문서를 고쳐라.
 
@@ -81,7 +84,7 @@
 ## 패키지 구조
 
 ```
-com.placitum
+com.syang.placitum
 ├─ Placitum.java          @Mod 진입점
 ├─ registry/              ModBlocks, ModItems, ModEntities, ModAttachments
 ├─ data/                  record + Codec (Settlement, Resident, Plot, BuildJob, ...)

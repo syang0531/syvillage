@@ -185,9 +185,9 @@ void materializedStateIsResetOnBoot() {
 코드 리뷰에서 최우선으로 확인한다. 전부 `CLAUDE.md`의 "절대 금지"에 대응한다.
 
 ```
-grep -r "Math.random()\|new Random(\|level.random" src/main/java/com/placitum/sim/
-grep -r "getEntitiesOfClass" src/main/java/com/placitum/
-grep -rn "setBlock" src/main/java/com/placitum/sim/
+grep -r "Math.random()\|new Random(\|level.random" src/main/java/com/syang/placitum/sim/
+grep -r "getEntitiesOfClass" src/main/java/com/syang/placitum/
+grep -rn "setBlock" src/main/java/com/syang/placitum/sim/
 ```
 
 - `sim/` 패키지 안에 비결정적 난수 → 즉시 수정
@@ -199,7 +199,7 @@ grep으로는 간접 호출을 못 잡는다. `strictDeterminism = true`(`docs/c
 ### 밸런스 감시
 
 ```
-grep -rn "PerStep" src/main/resources/ src/main/java/com/placitum/config/
+grep -rn "PerStep" src/main/resources/ src/main/java/com/syang/placitum/config/
 ```
 
 `...PerStep` 값을 보면 **반드시 120을 곱해 게임일 환산값을 확인한다.** 0.02는 하루 2.4회다. 이 단위 착각은 코드가 아니라 밸런스를 조용히 망가뜨린다.

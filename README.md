@@ -4,7 +4,7 @@
 
 > *placitum* — 카롤링거 시대의 공개 집회. 영주와 자유민이 모여 안건을 다루던 자리.
 
-현재 상태: **설계 단계.** 이 저장소에는 아직 코드가 없고 설계 문서만 있다.
+현재 상태: **M0 착수 전.** 빌드 스캐폴딩과 배포 파이프라인만 있고 게임 내 기능은 아직 없다.
 
 ---
 
@@ -27,9 +27,16 @@
 | 항목 | 값 |
 |---|---|
 | Minecraft | 26.2 (Java Edition) |
-| 모드로더 | NeoForge |
+| 모드로더 | NeoForge 26.2.0.88 |
 | Java | 25 |
 | modid | `placitum` |
+| 배포 | CurseForge — [PUBLISHING.md](PUBLISHING.md) |
+
+```bash
+./gradlew build        # 빌드
+./gradlew runClient    # 클라이언트 실행
+./gradlew test         # 왕복 무결성 / 정산 등가성 테스트
+```
 
 ---
 

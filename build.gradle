@@ -1,0 +1,130 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'eclipse'
+    id 'net.neoforged.moddev' version '2.0.147'
+    id 'net.darkhax.curseforgegradle' version '1.1.26'
+}
+
+import net.darkhax.curseforgegradle.TaskPublishCurseForge
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java {
+    // Minecraft 26.2 runs on Java 25. The foojay resolver in settings.gradle
+    // provisions the toolchain automatically if it isn't installed.
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.neoforged.net/releases' }
+    maven { url = 'https://maven.parchmentmc.org' }
+}
+
+neoForge {
+    version = project.neo_version
+
+    // Parchment has no 26.2 release yet — parameter names stay obfuscated until it does.
+    // parchment {
+    //     minecraftVersion = project.parchment_minecraft_version
+    //     mappingsVersion = project.parchment_mappings_version
+    // }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        // Runs the data generators: ./gradlew runData
+        data {
+            clientData()
+            programArguments.addAll '--mod', project.mod_id,
+                    '--all',
+                    '--output', file('src/generated/resources/').getAbsolutePath(),
+                    '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+// Generated resources (models, lang, recipes) live alongside hand-written ones.
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// The round-trip and catch-up equivalence tests (docs/testing.md) run as plain
+// JUnit against the record layer. They need Bootstrap.bootStrap() for the
+// registry-backed codecs; see PlacitumTestBootstrap.
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    testLogging { events 'passed', 'skipped', 'failed' }
+}
+
+// Expand ${...} placeholders in neoforge.mods.toml at build time.
+tasks.withType(ProcessResources).configureEach {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description,
+            mod_homepage           : mod_homepage,
+    ]
+    inputs.properties replaceProperties
+    filteringCharset = 'UTF-8'
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replaceProperties
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// CurseForge upload task (CurseForgeGradle).
+// Run locally with:  CURSEFORGE_TOKEN=xxxx ./gradlew publishCurseForge
+// In CI the release workflow supplies CURSEFORGE_TOKEN, CHANGELOG, and -Pmod_version from the git tag.
+tasks.register('publishCurseForge', TaskPublishCurseForge) {
+    dependsOn tasks.named('jar')
+
+    apiToken = providers.environmentVariable('CURSEFORGE_TOKEN').getOrElse('')
+
+    // project.curseforge_project_id comes from gradle.properties — set it to the real numeric ID.
+    def mainFile = upload(project.curseforge_project_id, tasks.named('jar'))
+    mainFile.releaseType = providers.environmentVariable('RELEASE_TYPE').getOrElse('release') // release | beta | alpha
+    mainFile.changelog = providers.environmentVariable('CHANGELOG').getOrElse('See the GitHub release for changes.')
+    mainFile.changelogType = 'markdown'
+    mainFile.addModLoader('NeoForge')
+    mainFile.addGameVersion(minecraft_version)
+    mainFile.addJavaVersion('Java 25')
+}

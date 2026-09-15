@@ -1,0 +1,8 @@
+# Generated files always emit LF; keep git from reporting them as changed.
+src/generated/**/.cache/* text eol=lf
+src/generated/**/*.json text eol=lf
+
+# Gradle wrapper scripts
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+*.jar binary
