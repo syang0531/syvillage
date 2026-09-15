@@ -16,6 +16,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
@@ -66,7 +67,7 @@ public final class Lifecycle {
         villager.setCustomName(Component.literal(resident.lineage().fullName()));
         villager.setCustomNameVisible(false);
         villager.setHealth(Math.max(1, resident.vitals().health()));
-        readOffers(level, resident.offers()).ifPresent(villager::setOffers);
+        applyVanillaState(level, villager, resident.vanillaState());
 
         level.addFreshEntity(villager);
         manager.bind(resident.id(), villager.getUUID());
@@ -103,7 +104,7 @@ public final class Lifecycle {
                 .withVitals(vitals)
                 .withCoarsePos(villager.blockPosition())
                 .withAssignment(refreshJob(resident, villager))
-                .withOffers(writeOffers(level, villager.getOffers()));
+                .withVanillaState(writeVanillaState(level, villager));
     }
 
     /**
@@ -128,31 +129,51 @@ public final class Lifecycle {
     }
 
     /**
-     * Trade lists cross the entity boundary as an opaque tag.
+     * Copies out everything vanilla owns about this villager.
      *
-     * <p>Encoding here, once, is the whole of the exception to principle 1. Nothing downstream
-     * unpacks it, which is why it can never drift out of agreement with anything.
+     * <p>Promote builds a brand new entity, so whatever is not captured here is destroyed on
+     * every round trip. Trades were the obvious one; VillagerData is the one that bit us -
+     * without it a farmer came back unemployed, and since the write-back re-reads the
+     * profession, the settlement quietly lost a farmer every time the player left.
+     *
+     * <p>Encoding here and decoding in {@link #applyVanillaState} is the whole of the exception
+     * to principle 1. Nothing else unpacks this tag, so it cannot drift out of agreement with
+     * anything.
      */
-    public static CompoundTag writeOffers(ServerLevel level, MerchantOffers offers) {
-        if (offers.isEmpty()) {
-            return new CompoundTag();
-        }
+    public static CompoundTag writeVanillaState(ServerLevel level, Villager villager) {
         RegistryOps<Tag> ops = level.registryAccess().createSerializationContext(NbtOps.INSTANCE);
         CompoundTag out = new CompoundTag();
-        MerchantOffers.CODEC.encodeStart(ops, offers)
-                .resultOrPartial(error -> Placitum.LOGGER.warn("Could not store trades: {}", error))
-                .ifPresent(tag -> out.put("offers", tag));
+
+        MerchantOffers offers = villager.getOffers();
+        if (!offers.isEmpty()) {
+            MerchantOffers.CODEC.encodeStart(ops, offers)
+                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not store trades: {}", error))
+                    .ifPresent(tag -> out.put("offers", tag));
+        }
+        VillagerData.CODEC.encodeStart(ops, villager.getVillagerData())
+                .resultOrPartial(error -> Placitum.LOGGER.warn("Could not store villager data: {}", error))
+                .ifPresent(tag -> out.put("villager_data", tag));
         return out;
     }
 
-    public static java.util.Optional<MerchantOffers> readOffers(ServerLevel level, CompoundTag tag) {
-        Tag stored = tag.get("offers");
-        if (stored == null) {
-            return java.util.Optional.empty();
+    public static void applyVanillaState(ServerLevel level, Villager villager, CompoundTag tag) {
+        if (tag.isEmpty()) {
+            return;
         }
         RegistryOps<Tag> ops = level.registryAccess().createSerializationContext(NbtOps.INSTANCE);
-        return MerchantOffers.CODEC.parse(ops, stored)
-                .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore trades: {}", error));
+
+        Tag offers = tag.get("offers");
+        if (offers != null) {
+            MerchantOffers.CODEC.parse(ops, offers)
+                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore trades: {}", error))
+                    .ifPresent(villager::setOffers);
+        }
+        Tag data = tag.get("villager_data");
+        if (data != null) {
+            VillagerData.CODEC.parse(ops, data)
+                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore villager data: {}", error))
+                    .ifPresent(villager::setVillagerData);
+        }
     }
 
     public static @Nullable Entity findEntity(ServerLevel level, SettlementManager manager, Resident resident) {

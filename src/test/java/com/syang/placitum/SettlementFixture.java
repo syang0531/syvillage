@@ -68,15 +68,19 @@ public final class SettlementFixture {
     }
 
     public static Resident resident(int n, ResidentState state) {
-        // The trade blob is stored opaquely, so the fixture can fill it with a stand-in rather
-        // than a real MerchantOffers. That is deliberate: since 26.2 item data components bind
-        // at datapack reload, so an ItemStack cannot be built in a unit test at all.
-        CompoundTag offers = new CompoundTag();
+        // The vanilla blob is stored opaquely, so the fixture can fill it with a stand-in
+        // rather than real MerchantOffers and VillagerData. That is deliberate: since 26.2 item
+        // data components bind at datapack reload, an ItemStack cannot be built in a unit test.
+        CompoundTag vanillaState = new CompoundTag();
         if (n % 2 == 0) {
             CompoundTag inner = new CompoundTag();
             inner.putString("stub", "offer-" + n);
             inner.putInt("uses", 3 + n);
-            offers.put("offers", inner);
+            vanillaState.put("offers", inner);
+            CompoundTag data = new CompoundTag();
+            data.putString("profession", "minecraft:farmer");
+            data.putInt("level", 2);
+            vanillaState.put("villager_data", data);
         }
         return new Resident(
                 id(100 + n),
@@ -94,7 +98,7 @@ public final class SettlementFixture {
                         Optional.of(id(300))),
                 new BlockPos(112 + n, 68, -304 + n),
                 state,
-                offers);
+                vanillaState);
     }
 
     public static List<Resident> residents(int count, ResidentState state) {

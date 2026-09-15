@@ -171,7 +171,7 @@ public record Resident(
     BlockPos coarsePos,       // L2에서는 "어느 건물" 수준이면 충분
     ResidentState state,      // VIRTUAL | MATERIALIZED
 
-    CompoundTag offers        // 원칙 1의 유일한 예외. 아래 참조
+    CompoundTag vanillaState  // 원칙 1의 유일한 예외. 아래 참조
 ) {}
 
 public record Lineage(
@@ -216,9 +216,13 @@ V1의 직업은 여섯 개다. `farmer`, `woodcutter`, `builder`, `smith`, `scho
 
 바닐라 직업을 그대로 옮기지 않는 이유는 `JobDef` 하나마다 생산 공식과 밸런스 곡선이 따라붙기 때문이다. **거래는 계속 바닐라 직업이 결정한다.** `JobDef`는 시뮬레이션 전용이다.
 
-### offers — 예외를 명시한다
+### vanillaState — 예외를 명시한다
 
-demote하면 엔티티가 사라지고, 그와 함께 `MerchantOffers`도 사라진다. 거래 목록을 우리가 `Resident`의 정규 필드로 **분해해서** 옮기면 원칙 1이 `MerchantOffer` 전체(아이템, 가격, 사용 횟수, 수요, 경험치)에 적용되어야 해서 범위가 폭발한다.
+promote는 **새 엔티티를 만든다.** 여기서 옮기지 않은 것은 왕복마다 전부 파괴된다.
+
+거래 목록이 눈에 띄는 예지만, 실제로 물린 것은 `VillagerData`(직업·타입·레벨)였다. 복원하지 않으면 농부가 무직으로 돌아오고, demote가 직업을 다시 읽으므로 **플레이어가 떠났다 올 때마다 마을이 농부를 하나씩 잃는다.** 게임 안에서만 드러났다.
+
+이것들을 `Resident`의 정규 필드로 **분해해서** 옮기면 원칙 1이 `MerchantOffer` 전체(아이템, 가격, 사용 횟수, 수요, 경험치)와 `VillagerData`에까지 적용되어야 해서 범위가 폭발한다.
 
 타협은 **불투명한 태그 하나**다.
 
@@ -227,8 +231,8 @@ demote하면 엔티티가 사라지고, 그와 함께 `MerchantOffers`도 사라
 검증할 수 없는 필드는 조용히 썩는다. 불투명한 blob이 설계 의도에도 맞고 테스트도 된다.
 
 - 시뮬레이션은 이 필드를 절대 읽지 않는다. 우리에게는 불투명한 blob이다
-- demote 시 `MerchantOffers.CODEC`으로 인코딩해 넣고, promote 시 디코딩해 되돌리는 것이 전부다
-- 인코딩·디코딩 지점은 `lifecycle/Lifecycle.java` 두 함수뿐이다
+- demote 시 `MerchantOffers.CODEC` / `VillagerData.CODEC`으로 인코딩해 넣고, promote 시 디코딩해 되돌리는 것이 전부다
+- 인코딩·디코딩 지점은 `lifecycle/Lifecycle.java`의 `writeVanillaState` / `applyVanillaState` 둘뿐이다
 - 이것이 원칙 1의 유일한 예외이며, 필드 주석에 그 사실을 적는다
 
 예외를 늘리지 않기 위해 예외임을 명시한다. 자세한 배경은 `docs/vanilla-interop.md`.

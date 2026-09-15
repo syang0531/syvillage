@@ -82,15 +82,18 @@ class RoundTripTest {
     }
 
     @Test
-    @DisplayName("merchant offers survive, since demote is the only thing holding them")
-    void tradeOffersSurvive() {
+    @DisplayName("the vanilla blob survives, since demote is the only thing holding it")
+    void vanillaStateSurvives() {
         Settlement decoded = decode(encode(SettlementFixture.standard()));
 
         Resident before = SettlementFixture.standard().residents().getFirst();
         Resident after = decoded.residents().getFirst();
-        assertEquals(before.offers(), after.offers(),
-                "trades vanish on the first demote if this codec is wrong");
-        assertTrue(before.offers().contains("offers"), "the fixture must exercise a non-empty blob");
+        assertEquals(before.vanillaState(), after.vanillaState(),
+                "trades and profession vanish on the first demote if this codec is wrong");
+        assertTrue(before.vanillaState().contains("offers"),
+                "the fixture must exercise a non-empty blob");
+        assertTrue(before.vanillaState().contains("villager_data"),
+                "VillagerData is the piece whose loss silently unemployed every farmer");
     }
 
     @Test
