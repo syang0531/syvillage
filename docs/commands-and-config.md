@@ -34,11 +34,15 @@ V1에는 축2(앵커 블록)가 없다. 성능 상한은 **플레이어의 명�
 | 명령어 | 설명 |
 |---|---|
 | `/placitum tick <id> <ticks>` | 강제 정산. 인자는 **틱**이며 `ticks / 200`스텝이 돈다. 튜닝의 핵심 도구 |
-| `/placitum promote <id>` | 수동 promote |
-| `/placitum demote <id>` | 수동 demote |
+| `/placitum promote <id>` | 수동 promote. 가상 고정을 해제한다 |
+| `/placitum demote <id>` | 수동 demote **+ 가상 고정**. 아래 참조 |
 | `/placitum debug growth <id>` | **수용력 3항목과 병목 표시.** 가장 자주 쓰게 된다 |
 | `/placitum debug sim <id>` | 각 `SimModule`의 마지막 스텝 입출력 |
 | `/placitum simulate raid <id> <threat> <n>` | 습격을 n회 굴려 생존율 통계. L0/L2 보정용 |
+
+**`demote`는 고정까지 한다.** 안 그러면 다음 틱에 취소된다 — 명령어를 친 플레이어가 마을에 서 있으므로 거리 판정이 즉시 다시 promote하기 때문이다. 그러면 이 명령어는 아무 일도 안 하는 것처럼 보이고, 정작 존재 이유인 "가상 공식이 도는 것을 관찰하기"에 쓸 수 없다.
+
+고정은 런타임 전용이다. `promote`, `unregister`, 서버 재시작이 해제한다. `info`에 `[held virtual by /placitum demote]`로 표시된다.
 
 `debug growth` 출력 예:
 

@@ -156,9 +156,11 @@ public final class PlacitumCommand {
         source.sendSuccess(() -> Component.literal("  id " + settled.id()), false);
         source.sendSuccess(() -> Component.literal("  centre " + settled.center().toShortString()
                 + " in " + settled.dimension().identifier()), false);
+        boolean held = PlacitumEvents.lifecycle().isHeld(settled.id());
         source.sendSuccess(() -> Component.literal("  population " + settled.population()
                 + " (" + settled.materializedCount() + " materialized, "
-                + settled.residentCount() + " records)"), false);
+                + settled.residentCount() + " records)"
+                + (held ? "  [held virtual by /placitum demote]" : "")), false);
         source.sendSuccess(() -> Component.literal("  jobs: " + countJob(settled, Assignment.FARMER)
                 + " farmer, " + countJob(settled, Assignment.BUILDER) + " builder, "
                 + countJob(settled, Assignment.WOODCUTTER) + " woodcutter, "
@@ -236,8 +238,8 @@ public final class PlacitumCommand {
             return 0;
         }
         PlacitumEvents.lifecycle().beginPromotion(settlement.id());
-        source.sendSuccess(() -> Component.literal(
-                "Promotion queued for " + settlement.name() + "; it runs within the tick budget"), true);
+        source.sendSuccess(() -> Component.literal("Promotion queued for " + settlement.name()
+                + "; it runs within the tick budget"), true);
         return 1;
     }
 
@@ -253,10 +255,13 @@ public final class PlacitumCommand {
             source.sendFailure(Component.literal("That dimension is not loaded"));
             return 0;
         }
-        PlacitumEvents.lifecycle().forget(settlement.id());
+        PlacitumEvents.lifecycle().hold(settlement.id());
         Settlement demoted = LifecycleManager.demoteAll(level, manager, settlement);
         manager.put(demoted);
-        source.sendSuccess(() -> Component.literal("Demoted " + demoted.name()), true);
+        source.sendSuccess(() -> Component.literal("Demoted " + demoted.name()
+                + " and holding it virtual"), true);
+        source.sendSuccess(() -> Component.literal("  It will not re-promote while you stand here."
+                + " Run /placitum promote " + shortId(demoted.id()) + " to release it."), false);
         return 1;
     }
 

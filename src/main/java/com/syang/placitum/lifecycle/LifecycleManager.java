@@ -8,9 +8,11 @@ import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.store.SettlementManager;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -28,6 +30,19 @@ public final class LifecycleManager {
 
     private final Map<UUID, PromotionTask> promoting = new LinkedHashMap<>();
     private final Map<UUID, Long> pendingDemote = new HashMap<>();
+
+    /**
+     * Settlements a player has manually demoted and told to stay down.
+     *
+     * <p>Without this, {@code /placitum demote} is undone on the very next tick: the player
+     * issuing it is standing in the village, so the distance check immediately promotes it
+     * again. The command would appear to do nothing, which makes it useless for exactly the
+     * job it exists for - watching the virtual formula run.
+     *
+     * <p>Runtime only. A restart releases every hold, because a hold is a debugging stance,
+     * not settlement state.
+     */
+    private final Set<UUID> heldVirtual = new HashSet<>();
 
     public void tick(MinecraftServer server) {
         SettlementManager manager = SettlementManager.get(server);
@@ -64,6 +79,10 @@ public final class LifecycleManager {
             if (task.done()) {
                 promoting.remove(id);
             }
+            return;
+        }
+
+        if (heldVirtual.contains(id)) {
             return;
         }
 
@@ -148,11 +167,27 @@ public final class LifecycleManager {
     public void forget(UUID settlementId) {
         promoting.remove(settlementId);
         pendingDemote.remove(settlementId);
+        heldVirtual.remove(settlementId);
+    }
+
+    /** Keeps a settlement virtual until something explicitly releases it. */
+    public void hold(UUID settlementId) {
+        promoting.remove(settlementId);
+        heldVirtual.add(settlementId);
+    }
+
+    public void release(UUID settlementId) {
+        heldVirtual.remove(settlementId);
+    }
+
+    public boolean isHeld(UUID settlementId) {
+        return heldVirtual.contains(settlementId);
     }
 
     public void reset() {
         promoting.clear();
         pendingDemote.clear();
+        heldVirtual.clear();
     }
 
     public @Nullable PromotionTask promotionOf(UUID settlementId) {
@@ -160,6 +195,7 @@ public final class LifecycleManager {
     }
 
     public void beginPromotion(UUID settlementId) {
+        heldVirtual.remove(settlementId);
         promoting.put(settlementId, new PromotionTask(settlementId));
     }
 }
