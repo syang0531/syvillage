@@ -7,7 +7,9 @@ import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.lifecycle.Lifecycle;
 import com.syang.placitum.store.SettlementManager;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.level.ServerLevel;
@@ -55,13 +57,18 @@ public final class Curfew {
             return true;   // nowhere to send anyone; M3 gives the settlement houses of its own
         }
 
+        // Shelters claimed so far tonight. Without this every villager is sent to whichever
+        // shelter happens to be nearest - which, from the bell they all gather at, is the same
+        // one for all of them. Six villagers piling onto one bed is not "everyone got indoors",
+        // and it looks exactly like the code doing nothing.
+        Set<BlockPos> taken = new HashSet<>();
         for (Resident resident : settlement.residents()) {
             if (!resident.materialized()) {
                 continue;
             }
             Entity entity = Lifecycle.findEntity(level, manager, resident);
             if (entity instanceof Villager villager) {
-                sendHome(level, villager, anchors);
+                sendHome(level, villager, anchors, taken);
             }
         }
         return true;
@@ -88,14 +95,16 @@ public final class Curfew {
         return timeOfDay >= DUSK - PlacitumConfig.CURFEW_LEAD_TICKS.get();
     }
 
-    private static void sendHome(ServerLevel level, Villager villager, AnchorSet anchors) {
+    private static void sendHome(ServerLevel level, Villager villager, AnchorSet anchors,
+            Set<BlockPos> taken) {
         if (villager.isSleeping()) {
             return;
         }
-        BlockPos target = shelterFor(villager, anchors).orElse(null);
+        BlockPos target = shelterFor(villager, anchors, taken).orElse(null);
         if (target == null) {
             return;
         }
+        taken.add(target);
         if (villager.blockPosition().closerThan(target, HOME_ENOUGH)) {
             return;   // near enough; vanilla takes it from here
         }
@@ -116,11 +125,29 @@ public final class Curfew {
      * <p>The fallback is the whole point. A villager with no bed is exactly the one that dies,
      * and any roof will do.
      */
-    private static Optional<BlockPos> shelterFor(Villager villager, AnchorSet anchors) {
+    private static Optional<BlockPos> shelterFor(Villager villager, AnchorSet anchors,
+            Set<BlockPos> taken) {
         Optional<GlobalPos> home = villager.getBrain().getMemory(MemoryModuleType.HOME);
         if (home.isPresent()) {
-            return Optional.of(home.get().pos());
+            return Optional.of(home.get().pos());   // its own bed always wins
         }
-        return anchors.nearestShelter(villager.blockPosition());
+
+        // Nearest shelter nobody has been sent to yet, so a bedless crowd spreads out instead
+        // of following each other to the same doorway.
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (BlockPos shelter : anchors.shelters()) {
+            if (taken.contains(shelter)) {
+                continue;
+            }
+            double dist = shelter.distSqr(villager.blockPosition());
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = shelter;
+            }
+        }
+        // More villagers than shelters is normal and not a reason to leave anyone outside:
+        // sharing a roof beats standing in the dark.
+        return best != null ? Optional.of(best) : anchors.nearestShelter(villager.blockPosition());
     }
 }
