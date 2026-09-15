@@ -31,6 +31,9 @@ public final class SettlementManager {
     private final SettlementIndex index;
     private final Map<UUID, Settlement> loaded = new LinkedHashMap<>();
 
+    /** Settlements already reported as unreadable, so the log says it once. */
+    private final java.util.Set<UUID> unreadable = new java.util.HashSet<>();
+
     /** residentId -> entity UUID. Runtime only; empty at boot. */
     private final Map<UUID, UUID> residentToEntity = new HashMap<>();
     private final Map<UUID, UUID> entityToResident = new HashMap<>();
@@ -91,10 +94,17 @@ public final class SettlementManager {
             // Either genuinely empty or refused by the strict codec. Either way it stays out of
             // memory: a settlement that cannot be read is not the same as a settlement that is
             // empty, and treating them alike is how the file gets overwritten with nothing.
-            Placitum.LOGGER.error("Settlement {} is indexed but could not be read. It will be "
-                    + "skipped until this is fixed; the file has not been modified.", shortId(id));
+            //
+            // Reported once. Every tick that touches the settlement list comes through here, so
+            // the first run of this printed the same line 1147 times and buried everything else
+            // in the log - including whatever the player actually needed to see.
+            if (unreadable.add(id)) {
+                Placitum.LOGGER.error("Settlement {} is indexed but could not be read. It will be "
+                        + "skipped until this is fixed; the file has not been modified.", shortId(id));
+            }
             return Optional.empty();
         }
+        unreadable.remove(id);
         loaded.put(id, settlement);
         // Logged because this is the only visible evidence that a settlement survived a
         // restart: it gets read back from disk the first time anything touches it.

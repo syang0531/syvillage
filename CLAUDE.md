@@ -75,6 +75,7 @@ Parchment 매핑은 26.2용이 아직 없다. 파라미터 이름이 `p_123456_`
 - 시드를 XOR로 합치기 → `mix64`로 섞는다
 - `Chronicle`을 시뮬레이션 입력으로 사용 (200줄에서 잘리는 손실 로그다)
 - 기존 저장 포맷에 **필수** 필드 추가하거나 필드 이름 바꾸기 → `optionalFieldOf` + 기본값. `SavedDataStorage`는 부분 디코딩을 삼키므로 주민 명부가 조용히 비워진다
+- 저장된 필드의 **타입 바꾸기** → `Codec.withAlternative`로 옛 모양도 읽는다. 이름 변경과 똑같이 세이브를 깬다 (`ScaleTier` → `ScaleState`로 실제로 깼다)
 - `HashMap`/`HashSet` 순회 순서에 의존
 - 하드코딩된 밸런스 상수 → 전부 config로
 
