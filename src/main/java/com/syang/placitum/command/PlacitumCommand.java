@@ -220,8 +220,8 @@ public final class PlacitumCommand {
                 + ", shelters " + settled.anchors().shelters().size() + ")"), false);
         source.sendSuccess(() -> Component.literal("  alert " + settled.alert()
                 + ", plots " + settled.plots().size()
-                + ", beds in plots " + settled.bedCount()
-                + (settled.plots().isEmpty() ? "  (no plots until M3 builds houses)" : "")), false);
+                + ", beds " + settled.bedCount()
+                + (settled.plots().isEmpty() ? "  (from village beds; M3 builds its own)" : "")), false);
         source.sendSuccess(() -> Component.literal("  stock " + describeStock(settled)), false);
         return 1;
     }
@@ -349,7 +349,10 @@ public final class PlacitumCommand {
         double survivalRate = 100.0 * repelled / trials;
         double avgDead = (double) casualties / trials;
         source.sendSuccess(() -> Component.literal(settlement.name() + ": threat " + threat
-                + " vs rating " + rating).withStyle(ChatFormatting.GOLD), false);
+                + " vs rating " + rating + String.format(java.util.Locale.ROOT,
+                        " (formula says %.1f%% to hold)",
+                        100.0 * RaidResolver.chanceToHold(rating, threat)))
+                .withStyle(ChatFormatting.GOLD), false);
         source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
                 "  repelled %.1f%% of %d trial(s), %.2f dead on average",
                 survivalRate, trials, avgDead)), false);

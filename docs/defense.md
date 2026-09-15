@@ -162,6 +162,10 @@ int defenseRating(Settlement s) {
 
 ### L2 해소
 
+> **정정 (M1 계측).** 위 형태는 `threat`가 `defenseRating`을 넘는 순간 확률이기를 멈춘다. 비율 1.25에서는 조건이 절대 참이 될 수 없어 마을이 **매번** 진다. `/placitum simulate raid 20 500`이 `repelled 0.0%`를 내놓았다 — 굴림이 아니라 판정문이다.
+>
+> 실제 구현은 `rating / (rating + threat)`을 쓰고 양 끝을 5~95%로 자른다. 순서는 그대로다(방어가 강할수록 더 자주 이긴다). 다만 열세인 마을이 **대체로 지되 가끔 버틴다.** 그 차이가 시뮬레이션과 선고를 가른다.
+
 ```java
 double ratio = threat / (double) Math.max(1, defenseRating(s));
 if (rng.nextDouble() > ratio) {

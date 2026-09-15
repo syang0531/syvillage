@@ -37,6 +37,26 @@ public final class RaidResolver {
     }
 
     /**
+     * Odds the settlement holds.
+     *
+     * <p>docs/defense.md writes this as {@code rng.nextDouble() > threat / rating}, which stops
+     * being a probability the moment threat passes rating: at a ratio of 1.25 the comparison can
+     * never be true and the village loses every single time. Measured over 500 trials it read
+     * "repelled 0.0%", which is a verdict, not a roll.
+     *
+     * <p>Strength over total strength keeps the same ordering - stronger defences win more - but
+     * leaves both outcomes reachable everywhere. An outmatched village usually falls and
+     * occasionally holds, which is the difference between a simulation and a sentence.
+     *
+     * <p>Clamped away from certainty at both ends: no defence should make a settlement
+     * untouchable, and none should make it doomed.
+     */
+    public static double chanceToHold(int rating, int threat) {
+        double raw = rating / (double) Math.max(1, rating + threat);
+        return Math.clamp(raw, 0.05, 0.95);
+    }
+
+    /**
      * Rolls a raid and applies it.
      *
      * <p>Casualties are proportional to how badly the settlement was outmatched, so a
@@ -48,7 +68,7 @@ public final class RaidResolver {
         double ratio = threat / (double) Math.max(1, rating);
         int militia = Math.max(1, DefenseRating.eligibleCount(settlement.freezeView()));
 
-        boolean repelled = rng.nextDouble() > ratio;
+        boolean repelled = rng.nextDouble() < chanceToHold(rating, threat);
         int casualties = (int) Math.round(Math.min(1.0, ratio) * militia
                 * (repelled ? 0.3 : 0.7));
         casualties = Math.min(casualties, settlement.population());
