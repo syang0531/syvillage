@@ -34,14 +34,24 @@
 
 ### 완료 기준
 
+**M0 완료 (게임 내 검증 통과).**
+
 | # | 기준 | 검증 방법 | 상태 |
 |---|---|---|---|
-| 1 | 마을 등록 후 `/placitum tick`으로 식량 재고가 변한다 | 게임 내 수동 | ⏳ |
+| 1 | 마을 등록 후 `/placitum tick`으로 식량 재고가 변한다 | 게임 내 수동 | ✅ |
 | 2 | promote → demote → promote 후 `Resident`가 동일하다 | `RoundTripTest` + 게임 내 로그 | ✅ |
 | 3 | `catchUp(1000틱 1회)` == `catchUp(100틱 10회)` | `CatchUpEquivalenceTest` | ✅ |
 | 4 | 서버 재시작 후 마을 상태가 보존된다 | 게임 내 로그 | ✅ |
 | 5 | 기존 주민이 전원 이름을 갖고 `/placitum resident list`에 나온다 | 게임 내 수동 | ✅ |
 | 6 | `/placitum unregister` 후 마을이 깨끗이 해제된다 | 게임 내 수동 | ✅ |
+
+1번 최종 확인 (왕복 5회 후):
+
+```
+Advanced 2000 tick(s) = 10 step(s). Stock: wheat 39
+  3 farmer(s), 6 mouth(s) to feed
+jobs: 3 farmer, 0 builder, 1 woodcutter, 0 smith, 0 scholar, 2 none
+```
 
 2번의 엔티티 왕복은 단위 테스트로 덮을 수 없다 — `Lifecycle.writeBack`이 실제 `Villager`를 읽기 때문이다. 대신 **라이프사이클 전환을 전부 로깅**해 게임 내에서 증거를 남기게 했다.
 
@@ -60,7 +70,13 @@ Loaded settlement bc981568 from disk - pop 7, sim step 14
 | 증상 | 원인 | 고침 |
 |---|---|---|
 | 주민 직업이 전부 `none` | 바닐라 주민은 **작업대를 점유해야** 직업이 생긴다. 갓 생성된 마을은 등록 순간 대부분 무직인데 그때 한 번 읽고 얼려버렸다 | `writeBack`에서 직업 갱신 (엔티티 → 데이터는 demote에서만 흐른다는 원칙 안에 있다) |
-| 같은 주민이 `Rebound` 직후 `Promoted` | 재시작 후 promote가 시작된 뒤 저장된 엔티티가 청크에서 올라와 스스로 재바인딩. 진행 중이던 promote가 같은 주민을 또 스폰 | `promote`가 살아 있는 바인딩을 먼저 확인 → 멱등 |
+| `demote`가 다음 틱에 취소됨 | 명령어를 친 플레이어가 마을에 서 있으므로 거리 판정이 즉시 재promote | `demote`가 가상 고정까지 한다 |
+| `unregister`가 주민을 **죽임** | `demoteAll`을 불렀는데 demote는 `entity.discard()`를 한다. 레코드를 버리는 경로에서는 치명적 | `Lifecycle.release` — 엔티티를 살려두고 부착물만 제거 |
+| 저장/로드 사이에 **명부가 통째로 비워짐** | 필드 이름을 바꿨더니 `Resident` 전원이 디코딩 실패. `SavedDataStorage`가 `resultOrPartial`이라 빈 명부를 정상으로 받아들이고 덮어씀 | 새 필드는 `optionalFieldOf` + 기본값. `SettlementData`가 부분 디코딩 거부 |
+| 왕복마다 직업·거래 소실 | promote가 **새 엔티티**를 만드는데 필드를 손으로 옮기고 있었다. `VillagerData` → 순서 → `JOB_SITE`+XP 순으로 세 번 빠뜨렸다 | 바닐라 직렬화(`saveWithoutId`/`load`)로 통째 왕복 |
+| `Rebound` 직후 `Promoted` (중복처럼 보임) | `addFreshEntity`가 우리 이벤트 핸들러를 동기 호출. 중복이 아니라 **자기 스폰**이었다 | 자기 스폰 중에는 핸들러를 건너뛴다 (성능 + 로그 정확성) |
+
+마지막 항목은 버그가 아니라 **로그가 거짓말한 사례**다. 없는 중복을 한참 쫓았다. 진단 로그도 틀릴 수 있다는 것을 기록해 둔다.
 
 > 2번에서 새는 필드가 반드시 하나는 나온다. 그것을 찾는 것이 이 마일스톤의 목적이다.
 
