@@ -19,6 +19,7 @@ import com.syang.placitum.defense.RaidResolver;
 import com.syang.placitum.event.PlacitumEvents;
 import com.syang.placitum.lifecycle.LifecycleManager;
 import com.syang.placitum.settlement.Registration;
+import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.sim.SimParams;
 import com.syang.placitum.sim.Simulation;
 import com.syang.placitum.store.SettlementManager;
@@ -236,6 +237,10 @@ public final class PlacitumCommand {
                 + ", beds " + settled.bedCount()
                 + (settled.plots().isEmpty() ? "  (from village beds; M3 builds its own)" : "")), false);
         source.sendSuccess(() -> Component.literal("  stock " + describeStock(settled)), false);
+        if (!SimParams.fromConfig(source.getServer().overworld()).hostilesExist()) {
+            source.sendSuccess(() -> Component.literal(
+                    "  raids disabled - the world is on Peaceful").withStyle(ChatFormatting.GRAY), false);
+        }
         return 1;
     }
 
@@ -276,6 +281,20 @@ public final class PlacitumCommand {
         int farmers = countJob(advanced, Assignment.FARMER);
         source.sendSuccess(() -> Component.literal("  " + farmers + " farmer(s), "
                 + advanced.population() + " mouth(s) to feed"), false);
+
+        // "I ran a thousand steps and no raid happened" has exactly two explanations and the
+        // player cannot tell them apart from the outside. Say which one it is.
+        SimParams params = SimParams.fromConfig(source.getServer().overworld());
+        if (!params.hostilesExist()) {
+            source.sendSuccess(() -> Component.literal(
+                    "  No raids rolled: the world is on Peaceful, so none could happen for real"
+                            + " either."), false);
+        } else {
+            double perDay = PlacitumConfig.RAID_CHANCE_PER_STEP.get() * params.stepsPerDay();
+            source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
+                    "  raid chance %.4f/step (about %.2f a game day)",
+                    PlacitumConfig.RAID_CHANCE_PER_STEP.get(), perDay)), false);
+        }
         return (int) steps;
     }
 
@@ -330,7 +349,9 @@ public final class PlacitumCommand {
                     + " has no history yet"), false);
             return 0;
         }
-        long now = source.getServer().overworld().getGameTime();
+        // Measured against the settlement's own clock, not the world's. The two drift apart
+        // as soon as /placitum tick is used, and "3 days ago" computed across the gap is a lie.
+        long now = settlement.lastSimTick();
         source.sendSuccess(() -> Component.literal(settlement.name() + " - last "
                 + entries.size() + " entries").withStyle(ChatFormatting.GOLD), false);
         for (ChronicleEntry entry : entries) {
