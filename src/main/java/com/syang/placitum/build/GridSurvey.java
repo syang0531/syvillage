@@ -37,8 +37,22 @@ public final class GridSurvey {
      */
     private static final int SAMPLE_STRIDE = 2;
 
-    /** What the survey found, including what it could not look at. */
-    public record Result(PlotGrid grid, int scanned, int skipped) {
+    /** Slope thresholds the report costs out, so tuning is a measurement and not an argument. */
+    public static final int[] SLOPE_LADDER = {2, 3, 4, 5, 6, 8};
+
+    /**
+     * What the survey found, including what it could not look at and why it said no.
+     *
+     * <p>A single blocked count is the mistake this milestone keeps relearning: it conflates
+     * water with gradient, and gradient with the threshold gradient is measured against. Three
+     * different fixes, one indistinguishable symptom.
+     *
+     * <p>{@code freeAtSlope} costs out {@link #SLOPE_LADDER} against the terrain actually
+     * surveyed - what the free count would have been at each threshold. maxCellSlope is a config
+     * number, and this is how it gets chosen from evidence rather than taste.
+     */
+    public record Result(PlotGrid grid, int scanned, int skipped, int blockedWet,
+            int blockedSlope, int[] freeAtSlope) {
 
         public boolean complete() {
             return skipped == 0;
@@ -68,6 +82,9 @@ public final class GridSurvey {
         Map<CellPos, CellState> cells = new LinkedHashMap<>(grid.cells());
         int scanned = 0;
         int skipped = 0;
+        int blockedWet = 0;
+        int blockedSlope = 0;
+        int[] freeAtSlope = new int[SLOPE_LADDER.length];
 
         for (int gz = -radius; gz <= radius; gz++) {
             for (int gx = -radius; gx <= radius; gx++) {
@@ -87,8 +104,22 @@ public final class GridSurvey {
                     scanned++;
                     continue;
                 }
-                cells.put(cell, classify(level, nw, maxSlope, scanHeight));
+                Reading read = read(level, nw, scanHeight);
+                cells.put(cell, read.verdict(maxSlope));
                 scanned++;
+
+                if (read.blocksAt(maxSlope)) {
+                    if (read.wet()) {
+                        blockedWet++;
+                    } else {
+                        blockedSlope++;
+                    }
+                }
+                for (int i = 0; i < SLOPE_LADDER.length; i++) {
+                    if (read.verdict(SLOPE_LADDER[i]) == CellState.FREE) {
+                        freeAtSlope[i]++;
+                    }
+                }
             }
         }
 
@@ -98,18 +129,39 @@ public final class GridSurvey {
                 surveyed.countOf(CellState.FREE), surveyed.countOf(CellState.BUILT),
                 surveyed.countOf(CellState.ROAD), surveyed.countOf(CellState.BLOCKED),
                 scanned, skipped);
-        return new Result(surveyed, scanned, skipped);
+        return new Result(surveyed, scanned, skipped, blockedWet, blockedSlope, freeAtSlope);
     }
 
     /**
-     * One cell.
+     * What one cell is, separated from what to make of it.
      *
-     * <p>Order matters: something built on it beats a path across it, and either beats the
-     * terrain underneath. A cell with a house on a slope is occupied, not unbuildable, and
-     * calling it BLOCKED would mean the settlement forgets the house is there.
+     * <p>Reading the world and judging it are split so the judgement can be re-run at other
+     * thresholds without touching a chunk again. That is the whole trick behind costing out a
+     * slope ladder: 441 cells read once, judged six times.
      */
-    private static CellState classify(ServerLevel level, BlockPos nw, int maxSlope,
-            int scanHeight) {
+    private record Reading(int relief, boolean wet, boolean built, boolean road) {
+
+        /**
+         * Order matters: something built on it beats a path across it, and either beats the
+         * terrain underneath. A cell with a house on a slope is occupied, not unbuildable, and
+         * calling it BLOCKED would mean the settlement forgets the house is there.
+         */
+        CellState verdict(int maxSlope) {
+            if (built) {
+                return CellState.BUILT;
+            }
+            if (road) {
+                return CellState.ROAD;
+            }
+            return blocksAt(maxSlope) ? CellState.BLOCKED : CellState.FREE;
+        }
+
+        boolean blocksAt(int maxSlope) {
+            return !built && !road && (wet || relief > maxSlope);
+        }
+    }
+
+    private static Reading read(ServerLevel level, BlockPos nw, int scanHeight) {
         int lowest = Integer.MAX_VALUE;
         int highest = Integer.MIN_VALUE;
         boolean wet = false;
@@ -139,16 +191,7 @@ public final class GridSurvey {
             }
         }
 
-        if (built) {
-            return CellState.BUILT;
-        }
-        if (road) {
-            return CellState.ROAD;
-        }
-        if (wet || highest - lowest > maxSlope) {
-            return CellState.BLOCKED;
-        }
-        return CellState.FREE;
+        return new Reading(highest - lowest, wet, built, road);
     }
 
     /**

@@ -740,7 +740,34 @@ public final class PlacitumCommand {
         for (Component line : GridMap.render(updated)) {
             source.sendSuccess(() -> line, false);
         }
+        reportBlocking(source, result);
         return result.scanned();
+    }
+
+    /**
+     * Why cells were refused, and what a different threshold would have bought.
+     *
+     * <p>Printed only when something was actually blocked. A report that says "0 blocked by
+     * slope" underneath a grid with no blocked cells in it is noise, and this milestone has
+     * already been taught what log spam costs.
+     */
+    private static void reportBlocking(CommandSourceStack source, GridSurvey.Result result) {
+        if (result.blockedWet() + result.blockedSlope() == 0) {
+            return;
+        }
+        source.sendSuccess(() -> Component.literal("  blocked by water " + result.blockedWet()
+                + ", by slope " + result.blockedSlope()), false);
+
+        int current = PlacitumConfig.MAX_CELL_SLOPE.get();
+        StringBuilder ladder = new StringBuilder("  free at maxCellSlope");
+        for (int i = 0; i < GridSurvey.SLOPE_LADDER.length; i++) {
+            int threshold = GridSurvey.SLOPE_LADDER[i];
+            ladder.append("  ").append(threshold)
+                    .append(threshold == current ? "*" : "")
+                    .append(":").append(result.freeAtSlope()[i]);
+        }
+        source.sendSuccess(() -> Component.literal(ladder.toString())
+                .withStyle(ChatFormatting.DARK_GRAY), false);
     }
 
     /**
