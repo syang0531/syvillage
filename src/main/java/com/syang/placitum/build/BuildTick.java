@@ -61,7 +61,18 @@ public final class BuildTick {
                 next.add(job);
                 continue;
             }
-            BuildJob advanced = lay(level, settlement, job, builders);
+            // Same rate rule as the virtual side: one builder's worth if nobody holds the
+            // job. Two paths that built at different speeds would make walking away from a
+            // half-built wall a way to finish it faster.
+            BuildJob advanced = job;
+            int hands = Math.max(1, countBuilders(settlement));
+            for (int i = 0; i < hands; i++) {
+                BuildJob stepped = lay(level, settlement, advanced, builders);
+                if (stepped == advanced) {
+                    break;
+                }
+                advanced = stepped;
+            }
             changed |= advanced != job;
             next.add(advanced);
         }
@@ -87,25 +98,21 @@ public final class BuildTick {
             return job;   // the far side of the ring is not loaded; it will come round again
         }
 
-        double reach = PlacitumConfig.BUILDER_REACH.get();
-        Villager hand = nearestWithin(builders, op.pos(), reach);
+        // Loaded chunks are the only thing that actually has to be true, and it was checked
+        // above. Villager proximity was tried twice as a gate and failed twice: at arm's reach
+        // the wall stopped after 24 blocks of 1618, because the vanilla brain drops a walk
+        // target the moment it would rather farm; at 48 blocks it stopped after 97, because the
+        // ring is 168 across and the far side is outside any radius centred on the village.
+        //
+        // The settlement is building its wall. Where its people happen to be standing is
+        // presentation, so the nearest is still sent over and swings if it arrives - but a
+        // village that cannot build because nobody will stand still is the complaint this mod
+        // exists to remove, wearing a hat. A BuilderEntity with AI of its own is the honest fix
+        // and is not this milestone.
+        Villager hand = nearestWithin(builders, op.pos(), PlacitumConfig.BUILDER_REACH.get());
         if (hand != null) {
             hand.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
         } else {
-            // Nobody in arm's reach. The block still goes down, provided somebody is working
-            // this stretch of wall, and the nearest is sent over.
-            //
-            // Requiring a villager at the block sounded right and does not survive contact with
-            // the vanilla brain, which drops a walk target the moment it would rather farm or
-            // sleep. Measured: 24 blocks of 1618, then nothing for two minutes. A settlement
-            // that cannot build because its people will not stand still is the original
-            // complaint wearing a hat.
-            //
-            // A BuilderEntity with its own AI is the real answer and is not this milestone.
-            if (nearestWithin(builders, op.pos(), PlacitumConfig.BUILDER_WORK_RADIUS.get())
-                    == null) {
-                return job;
-            }
             walkSomebodyOver(builders, op.pos());
         }
 
@@ -114,6 +121,16 @@ public final class BuildTick {
         return job.withProgress(job.progress() + 1);
     }
 
+
+    private static int countBuilders(Settlement settlement) {
+        int n = 0;
+        for (Resident resident : settlement.residents()) {
+            if (resident.counts() && resident.assignment().job().equals(Assignment.BUILDER)) {
+                n++;
+            }
+        }
+        return n;
+    }
 
     private static Villager nearestWithin(List<Villager> builders, BlockPos pos, double reach) {
         Villager best = null;

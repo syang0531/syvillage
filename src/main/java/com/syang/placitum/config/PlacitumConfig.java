@@ -245,11 +245,9 @@ public final class PlacitumConfig {
                         "which has to be put up, taken down, and got wrong.")
                 .defineInRange("builderReach", 5.5D, 1.0D, 16.0D);
         BUILDER_WALK_SPEED = b.defineInRange("builderWalkSpeed", 0.6D, 0.1D, 2.0D);
-        BUILDER_WORK_RADIUS = b.comment("How far from a builder a block may still be placed.",
-                        "Much wider than builderReach, and deliberately: villagers drop a walk",
-                        "target whenever vanilla would rather they farmed, so requiring one at",
-                        "the block means the wall stops. This keeps building tied to where the",
-                        "settlement is without depending on the brain to cooperate.")
+        BUILDER_WORK_RADIUS = b.comment("Unused since builder proximity stopped gating",
+                        "placement. Kept so an existing config file does not lose a key, and",
+                        "because a BuilderEntity with real AI will want it back.")
                 .defineInRange("builderWorkRadius", 48.0D, 4.0D, 256.0D);
         b.pop();
 

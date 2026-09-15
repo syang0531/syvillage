@@ -843,7 +843,8 @@ public final class PlacitumCommand {
                     + " blocks  (" + cost + ")"), false);
             source.sendSuccess(() -> Component.literal("    " + explain(job, total)
                             + (job.stage() == com.syang.placitum.data.BuildStage.EXECUTING
-                                    ? embodiedNote(settlement) : ""))
+                                    ? embodiedNote(settlement) + loadedNote(source, settlement, job)
+                                    : ""))
                     .withStyle(ChatFormatting.DARK_GRAY), false);
         }
         return settlement.buildQueue().size();
@@ -861,6 +862,29 @@ public final class PlacitumCommand {
                     : "expands to nothing, which should not happen";
             case COMPLETE -> "done";
         };
+    }
+
+    /**
+     * Whether the next block is somewhere the server can currently write.
+     *
+     * <p>Progress is a strict index, so one op in an unloaded chunk blocks everything behind it
+     * until somebody walks over there. That is a stall with a cause and a cure, and this
+     * milestone has now spent three rounds on stalls that looked identical from outside.
+     */
+    private static String loadedNote(CommandSourceStack source, Settlement settlement,
+            BuildJob job) {
+        ServerLevel level = source.getServer().getLevel(settlement.identity().dimension());
+        if (level == null) {
+            return "";
+        }
+        java.util.List<com.syang.placitum.data.BuildOp> ops = BuildPlanner.expand(job.recipe());
+        if (job.progress() >= ops.size()) {
+            return "";
+        }
+        BlockPos next = ops.get(job.progress()).pos();
+        return level.isLoaded(next) ? ""
+                : "  (next block " + next.toShortString() + " is in an unloaded chunk - walk"
+                        + " that way, or raise your simulation distance)";
     }
 
     /**
