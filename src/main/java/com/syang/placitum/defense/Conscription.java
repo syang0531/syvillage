@@ -125,7 +125,7 @@ public final class Conscription {
 
         replace(level, manager, resident, villager, militia);
         Placitum.LOGGER.info("  {} took up {} at {}", resident.lineage().fullName(),
-                militia.getMainHandItem().getItem().getName().getString(),
+                militia.getMainHandItem().getHoverName().getString(),
                 militia.blockPosition().toShortString());
         return resident.withVanillaState(snapshot);
     }
