@@ -100,19 +100,25 @@ public final class Curfew {
         if (villager.isSleeping()) {
             return;
         }
+        boolean ownBed = villager.getBrain().getMemory(MemoryModuleType.HOME).isPresent();
         BlockPos target = shelterFor(villager, anchors, taken).orElse(null);
         if (target == null) {
             return;
         }
+        boolean sharing = !ownBed && taken.contains(target);
         taken.add(target);
         if (villager.blockPosition().closerThan(target, HOME_ENOUGH)) {
             return;   // near enough; vanilla takes it from here
         }
         // Logged once per villager per night, not once per pass. The first version wrote six
         // lines a second and drowned the log it was meant to explain.
+        // Says which of the three cases this is. "Sent to a position" on its own cannot
+        // distinguish a villager walking to its own bed from one with nowhere to sleep, and
+        // that distinction is the entire point of the feature.
         if (announced.add(villager.getUUID())) {
-            Placitum.LOGGER.debug("Curfew: sending {} to {}", villager.getUUID(),
-                    target.toShortString());
+            Placitum.LOGGER.debug("Curfew: {} -> {} ({})", villager.getUUID(),
+                    target.toShortString(),
+                    ownBed ? "own bed" : sharing ? "sharing, no bed free" : "nearest free shelter");
         }
         villager.getBrain().setMemory(MemoryModuleType.WALK_TARGET,
                 new WalkTarget(target, (float) (double) PlacitumConfig.CURFEW_WALK_SPEED.get(),
