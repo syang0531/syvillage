@@ -90,12 +90,7 @@ public final class Lifecycle {
         villager.setCustomNameVisible(false);
         villager.setHealth(Math.max(1, resident.vitals().health()));
 
-        spawningOurOwn = true;
-        try {
-            level.addFreshEntity(villager);
-        } finally {
-            spawningOurOwn = false;
-        }
+        addSilently(level, villager);
         manager.bind(resident.id(), villager.getUUID());
         Placitum.LOGGER.debug("Promoted {} ({}) at {}", resident.lineage().fullName(),
                 resident.id(), pos.toShortString());
@@ -110,26 +105,42 @@ public final class Lifecycle {
      * professions, trades and job sites.
      */
     private static @Nullable Villager restore(ServerLevel level, Resident resident) {
-        CompoundTag saved = resident.vanillaState();
-        if (!saved.isEmpty()) {
-            try (ProblemReporter.ScopedCollector reporter =
-                         new ProblemReporter.ScopedCollector(Placitum.LOGGER)) {
-                Entity loaded = EntityTypes.VILLAGER.create(level,
-                        EntitySpawnReason.LOAD);
-                if (loaded instanceof Villager villager) {
-                    villager.load(TagValueInput.create(reporter, level.registryAccess(), saved));
-                    return villager;
-                }
-            } catch (Exception e) {
-                Placitum.LOGGER.warn("Could not restore the saved villager for {}; "
-                        + "falling back to a fresh one", resident.id(), e);
-            }
-        }
-        Villager fresh = EntityTypes.VILLAGER.create(level, EntitySpawnReason.LOAD);
-        if (fresh == null) {
+        Villager villager = EntityTypes.VILLAGER.create(level, EntitySpawnReason.LOAD);
+        if (villager == null) {
             Placitum.LOGGER.warn("Could not create a villager for resident {}", resident.id());
+            return null;
         }
-        return fresh;
+        restoreInto(level, villager, resident.vanillaState());
+        return villager;
+    }
+
+    /**
+     * Pours a saved villager into an entity that already exists.
+     *
+     * <p>Shared with conscription, where the target is a MilitiaEntity rather than a Villager.
+     * Both are Villagers as far as the NBT is concerned, which is exactly why the militia
+     * subclasses one - the swap carries everything without a field list to keep in step.
+     */
+    public static void restoreInto(ServerLevel level, Villager target, CompoundTag saved) {
+        if (saved.isEmpty()) {
+            return;
+        }
+        try (ProblemReporter.ScopedCollector reporter =
+                     new ProblemReporter.ScopedCollector(Placitum.LOGGER)) {
+            target.load(TagValueInput.create(reporter, level.registryAccess(), saved));
+        } catch (Exception e) {
+            Placitum.LOGGER.warn("Could not restore saved villager state; using a blank one", e);
+        }
+    }
+
+    /** Adds an entity without our own join handler treating it as an arrival to rebind. */
+    public static void addSilently(ServerLevel level, Entity entity) {
+        spawningOurOwn = true;
+        try {
+            level.addFreshEntity(entity);
+        } finally {
+            spawningOurOwn = false;
+        }
     }
 
     /**

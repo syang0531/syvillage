@@ -133,6 +133,11 @@ public record Settlement(
                 pendingOps, defense, newAnchors, chronicle, clock, ruler, parentId, forceLoadCore);
     }
 
+    public Settlement withChronicle(Chronicle newChronicle) {
+        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
+                pendingOps, defense, anchors, newChronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
     public Settlement withDefense(DefenseState newDefense) {
         return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
                 pendingOps, newDefense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);

@@ -194,7 +194,11 @@ grep -rn "setBlock" src/main/java/com/syang/placitum/sim/
 - 클레임 전체 범위 `getEntitiesOfClass` → 감시 지점 스캔으로 대체
 - `sim/` 안에 `setBlock` / `getBlockState` → `BuildOp` 큐로 대체
 
-**`getEntitiesOfClass`의 유일한 예외는 `settlement/Registration.java`다.** 마을 등록 시 기존 주민을 흡수할 때 한 번 돈다. 플레이어가 그 자리에 서 있어 청크가 이미 로드되어 있고, 반복되지 않는다. 금지 대상은 **주기적인 클레임 전방위 위협 탐지**이며 그건 감시 지점으로 푼다.
+**`getEntitiesOfClass`가 허용되는 곳은 둘뿐이다.**
+
+`defense/ThreatWatch.java` — 감시 지점마다 `watchRadius` 상자를 건다. 이것이 **설계가 지시한 형태**다. 금지 대상은 클레임 전체에 상자 하나를 거는 것이고, 그건 비용이 마을 크기에 비례해 커진다. 지점 수는 `maxWatchPoints`로 묶여 있다.
+
+`settlement/Registration.java` —  마을 등록 시 기존 주민을 흡수할 때 한 번 돈다. 플레이어가 그 자리에 서 있어 청크가 이미 로드되어 있고, 반복되지 않는다. 금지 대상은 **주기적인 클레임 전방위 위협 탐지**이며 그건 감시 지점으로 푼다.
 
 grep이 이 한 줄을 잡는 것은 정상이다. 늘어나면 비정상이다.
 

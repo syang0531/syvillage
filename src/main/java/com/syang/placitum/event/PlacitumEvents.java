@@ -2,10 +2,13 @@ package com.syang.placitum.event;
 
 import com.syang.placitum.Placitum;
 import com.syang.placitum.command.PlacitumCommand;
+import com.syang.placitum.data.ChronicleEntry;
+import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.ResidentState;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
+import com.syang.placitum.defense.DefenseTick;
 import com.syang.placitum.lifecycle.Lifecycle;
 import com.syang.placitum.lifecycle.LifecycleManager;
 import com.syang.placitum.registry.ModAttachments;
@@ -30,6 +33,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -233,6 +237,55 @@ public final class PlacitumEvents {
         Placitum.LOGGER.info("Released orphaned villager {} back to vanilla", villager.getUUID());
     }
 
+    /**
+     * A resident died where we could see it.
+     *
+     * <p>Recorded with a cause, always. The original complaint was never that villagers died -
+     * it was never learning why, and a death that leaves no trace is the bug this whole mod is
+     * arguing against.
+     */
+    @SubscribeEvent
+    public static void onLivingDeath(LivingDeathEvent event) {
+        if (!(event.getEntity().level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (!(event.getEntity() instanceof Villager villager)) {
+            return;
+        }
+        SettlementManager manager = SettlementManager.peek();
+        if (manager == null) {
+            return;
+        }
+        UUID residentId = manager.residentOf(villager.getUUID());
+        if (residentId == null) {
+            return;
+        }
+        for (Settlement settlement : manager.all()) {
+            Resident resident = settlement.resident(residentId).orElse(null);
+            if (resident == null) {
+                continue;
+            }
+            String cause = event.getSource().getLocalizedDeathMessage(villager).getString();
+            List<Resident> survivors = new ArrayList<>();
+            for (Resident r : settlement.residents()) {
+                if (!r.id().equals(residentId)) {
+                    survivors.add(r);
+                }
+            }
+            int gameDay = (int) (level.getGameTime() / 24000L);
+            Settlement next = settlement.withResidents(survivors)
+                    .withDefense(settlement.defense().withCasualty(gameDay, 1));
+            next = next.withChronicle(next.chronicle().with(new ChronicleEntry(
+                    level.getGameTime(), EntryType.DEATH, resident.lineage().fullName(), cause)));
+
+            manager.unbind(residentId);
+            manager.put(next);
+            Placitum.LOGGER.info("DEATH in '{}': {} - {}", settlement.name(),
+                    resident.lineage().fullName(), cause);
+            return;
+        }
+    }
+
     /** Right-click the bell to register. One interaction, and nothing else in the world changes. */
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -246,7 +299,11 @@ public final class PlacitumEvents {
             return;
         }
         if (!player.isShiftKeyDown()) {
-            return;   // plain right-click still rings the bell
+            // Plain right-click still rings the bell, and now that is the alarm: for a
+            // registered settlement, ringing turns the militia out. The interaction a player
+            // already reaches for does the thing they already meant by it.
+            raiseAlarmAt(level, event.getPos(), player);
+            return;
         }
         BlockPos pos = event.getPos();
         if (!(level.getBlockState(pos).getBlock() instanceof BellBlock)) {
@@ -259,6 +316,32 @@ public final class PlacitumEvents {
         SettlementManager manager = SettlementManager.get(level.getServer());
         Registration.Result result = Registration.register(level, manager, pos);
         player.sendSystemMessage(describe(result));
+    }
+
+    /** Ringing a registered settlement's bell calls it to arms. */
+    private static void raiseAlarmAt(ServerLevel level, BlockPos pos, ServerPlayer player) {
+        if (!(level.getBlockState(pos).getBlock() instanceof BellBlock)) {
+            return;
+        }
+        SettlementManager manager = SettlementManager.peek();
+        if (manager == null) {
+            return;
+        }
+        for (Settlement settlement : manager.all()) {
+            if (!settlement.dimension().equals(level.dimension())
+                    || !settlement.center().equals(pos)) {
+                continue;
+            }
+            Settlement raised = DefenseTick.soundAlarm(settlement, level, manager);
+            manager.put(raised);
+            int armed = (int) raised.residents().stream().filter(r -> r.gear().armed()).count();
+            player.sendSystemMessage(armed > 0
+                    ? Component.literal(raised.name() + " stands to arms - " + armed + " mustered")
+                            .withStyle(ChatFormatting.GOLD)
+                    : Component.literal(raised.name() + " has nothing to fight with; everyone is hiding")
+                            .withStyle(ChatFormatting.RED));
+            return;
+        }
     }
 
     public static Component describe(Registration.Result result) {

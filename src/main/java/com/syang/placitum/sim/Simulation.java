@@ -4,6 +4,7 @@ import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.sim.module.ConsumptionModule;
 import com.syang.placitum.sim.module.ProductionModule;
+import com.syang.placitum.sim.module.ThreatModule;
 import com.syang.placitum.store.SettlementMut;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -28,6 +29,7 @@ public final class Simulation {
         List<SimModule> modules = new ArrayList<>();
         modules.add(new ProductionModule());
         modules.add(new ConsumptionModule());
+        modules.add(new ThreatModule());
         modules.sort(Comparator.comparingInt(SimModule::order));
         return List.copyOf(modules);
     }

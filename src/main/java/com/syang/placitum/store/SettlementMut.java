@@ -131,6 +131,18 @@ public final class SettlementMut {
         return false;
     }
 
+    /**
+     * A record snapshot for helpers that only read.
+     *
+     * <p>Defence rating and the raid formula are shared with the L0 side, which only ever
+     * sees the immutable record. Giving them one here keeps a single implementation.
+     */
+    public Settlement freezeView() {
+        return new Settlement(identity, scaleState, List.copyOf(residents), plots, grid,
+                PlacitumCodecs.sortItems(stock), buildQueue, pendingOps, defense, anchors,
+                chronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
     public int stockOf(Item item) {
         return stock.getOrDefault(item, 0);
     }

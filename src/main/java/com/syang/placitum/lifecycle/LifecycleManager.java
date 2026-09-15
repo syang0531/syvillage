@@ -1,7 +1,7 @@
 package com.syang.placitum.lifecycle;
 
 import com.syang.placitum.Placitum;
-import com.syang.placitum.defense.Curfew;
+import com.syang.placitum.defense.DefenseTick;
 import com.syang.placitum.settlement.AnchorScan;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.Resident;
@@ -133,8 +133,9 @@ public final class LifecycleManager {
             out = out.withAnchors(AnchorScan.scan(level, out));
             manager.put(out);
         }
-        if (now % 20L == 0L) {
-            Curfew.enforce(level, manager, out);
+        out = DefenseTick.run(level, manager, out);
+        if (out != settlement) {
+            manager.put(out);
         }
         return out;
     }

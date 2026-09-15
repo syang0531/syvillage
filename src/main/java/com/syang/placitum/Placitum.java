@@ -2,6 +2,8 @@ package com.syang.placitum;
 
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.registry.ModAttachments;
+import com.syang.placitum.event.ModBusEvents;
+import com.syang.placitum.registry.ModEntities;
 import java.util.UUID;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -29,6 +31,8 @@ public class Placitum {
 
     public Placitum(IEventBus modBus, ModContainer container) {
         ModAttachments.register(modBus);
+        ModEntities.register(modBus);
+        ModBusEvents.register(modBus);
         container.registerConfig(ModConfig.Type.COMMON, PlacitumConfig.SPEC);
     }
 }

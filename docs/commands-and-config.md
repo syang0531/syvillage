@@ -39,6 +39,9 @@ V1에는 축2(앵커 블록)가 없다. 성능 상한은 **플레이어의 명�
 | `/placitum debug growth <id>` | **수용력 3항목과 병목 표시.** 가장 자주 쓰게 된다 |
 | `/placitum debug sim <id>` | 각 `SimModule`의 마지막 스텝 입출력 |
 | `/placitum simulate raid <id> <threat> <n>` | 습격을 n회 굴려 생존율 통계. L0/L2 보정용 |
+| `/placitum alert <id> <state>` | 경보 상태를 강제로 올린다 (peace/alert/combat/rout) |
+
+`simulate raid`는 **시행마다 마을 사본을 새로 뜬다.** 공식이 사람을 죽이고 창고를 턴다 — 1000회를 한 마을에 그대로 돌리면 유령 마을이 남는다.
 
 **`demote`는 고정까지 한다.** 안 그러면 다음 틱에 취소된다 — 명령어를 친 플레이어가 마을에 서 있으므로 거리 판정이 즉시 다시 promote하기 때문이다. 그러면 이 명령어는 아무 일도 안 하는 것처럼 보이고, 정작 존재 이유인 "가상 공식이 도는 것을 관찰하기"에 쓸 수 없다.
 

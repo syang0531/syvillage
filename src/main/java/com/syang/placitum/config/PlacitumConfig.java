@@ -44,6 +44,15 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue MAX_WATCH_POINTS;
     public static final ModConfigSpec.IntValue ANCHOR_REFRESH_TICKS;
     public static final ModConfigSpec.DoubleValue CURFEW_WALK_SPEED;
+    public static final ModConfigSpec.DoubleValue MILITIA_RATIO_CAP;
+    public static final ModConfigSpec.DoubleValue ROUT_THRESHOLD;
+    public static final ModConfigSpec.DoubleValue RAID_CHANCE_PER_STEP;
+    public static final ModConfigSpec.IntValue MILITIA_WEIGHT;
+    public static final ModConfigSpec.IntValue WALL_WEIGHT;
+    public static final ModConfigSpec.IntValue WATCHTOWER_WEIGHT;
+    public static final ModConfigSpec.IntValue COMBAT_READY_BONUS;
+    public static final ModConfigSpec.IntValue GOLEM_DEFENSE_WEIGHT;
+    public static final ModConfigSpec.IntValue BASE_BIOME_DANGER;
 
     // [population]
     public static final ModConfigSpec.IntValue CONSUMPTION_PER_HEAD;
@@ -100,6 +109,28 @@ public final class PlacitumConfig {
                 .defineInRange("anchorRefreshTicks", 6000, 200, 72000);
         CURFEW_WALK_SPEED = b.comment("Walk speed modifier when heading home under curfew.")
                 .defineInRange("curfewWalkSpeed", 0.6D, 0.1D, 2.0D);
+        MILITIA_RATIO_CAP = b.comment("Most of the population that may be under arms at once.",
+                        "Arming everyone stops production, which is the trade-off.")
+                .defineInRange("militiaRatioCap", 0.3D, 0.0D, 1.0D);
+        ROUT_THRESHOLD = b.comment("Militia losses past which the settlement breaks and flees.",
+                        "A village should be able to be abandoned, not only wiped out.")
+                .defineInRange("routThreshold", 0.5D, 0.0D, 1.0D);
+        RAID_CHANCE_PER_STEP = b.comment("Chance of a raid per simulation step while virtual.",
+                        "PER STEP: one game day is 120 steps, so 0.002 is about one raid",
+                        "every four days. 0.02 would be 2.4 a day and no village would survive.")
+                .defineInRange("raidChancePerStep", 0.002D, 0.0D, 1.0D);
+
+        b.comment("defenseRating coefficients. Guesses until docs/testing.md section 4",
+                        "measures real fights and tunes them.").push("rating");
+        MILITIA_WEIGHT = b.defineInRange("militiaWeight", 2, 0, 100);
+        WALL_WEIGHT = b.defineInRange("wallWeight", 15, 0, 100);
+        WATCHTOWER_WEIGHT = b.defineInRange("watchtowerWeight", 8, 0, 100);
+        COMBAT_READY_BONUS = b.defineInRange("combatReadyBonus", 10, 0, 100);
+        GOLEM_DEFENSE_WEIGHT = b.comment("Iron golems are kept, not replaced - they already work.")
+                .defineInRange("golemDefenseWeight", 12, 0, 100);
+        BASE_BIOME_DANGER = b.comment("Baseline threat before lighting and structures apply.")
+                .defineInRange("baseBiomeDanger", 10, 0, 100);
+        b.pop();
         b.pop();
 
         b.comment("Population and food.").push("population");

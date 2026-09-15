@@ -5,15 +5,21 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.syang.placitum.data.Assignment;
+import com.syang.placitum.data.AlertState;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
+import com.syang.placitum.defense.AlertMachine;
+import com.syang.placitum.defense.Armoury;
+import com.syang.placitum.defense.DefenseRating;
+import com.syang.placitum.defense.RaidResolver;
 import com.syang.placitum.event.PlacitumEvents;
 import com.syang.placitum.lifecycle.LifecycleManager;
 import com.syang.placitum.settlement.Registration;
 import com.syang.placitum.sim.SimParams;
 import com.syang.placitum.sim.Simulation;
 import com.syang.placitum.store.SettlementManager;
+import com.syang.placitum.store.SettlementMut;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,6 +82,25 @@ public final class PlacitumCommand {
                 .then(Commands.argument("id", StringArgumentType.word())
                         .executes(ctx -> demote(ctx.getSource(),
                                 StringArgumentType.getString(ctx, "id")))));
+
+        root.then(Commands.literal("alert")
+                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("state", StringArgumentType.word())
+                                .executes(ctx -> alert(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id"),
+                                        StringArgumentType.getString(ctx, "state"))))));
+
+        root.then(Commands.literal("simulate")
+                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                .then(Commands.literal("raid")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .then(Commands.argument("threat", IntegerArgumentType.integer(1))
+                                        .then(Commands.argument("trials", IntegerArgumentType.integer(1, 100000))
+                                                .executes(ctx -> simulateRaid(ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "id"),
+                                                        IntegerArgumentType.getInteger(ctx, "threat"),
+                                                        IntegerArgumentType.getInteger(ctx, "trials"))))))));
 
         root.then(Commands.literal("resident")
                 .then(Commands.literal("list")
@@ -174,6 +199,12 @@ public final class PlacitumCommand {
         source.sendSuccess(() -> Component.literal("  sim step " + settled.simStep()
                 + ", last settled at tick " + settled.lastSimTick()
                 + " (now " + now + ")"), false);
+        source.sendSuccess(() -> Component.literal("  defence rating " + DefenseRating.of(settled)
+                + " (militia " + DefenseRating.eligibleCount(settled)
+                + ", weapons " + Armoury.armableCount(settled)
+                + ", gear tier " + Armoury.bestAvailableTier(settled)
+                + ", watch points " + settled.anchors().watchPoints().size()
+                + ", shelters " + settled.anchors().shelters().size() + ")"), false);
         source.sendSuccess(() -> Component.literal("  alert " + settled.alert()
                 + ", plots " + settled.plots().size()
                 + ", beds in plots " + settled.bedCount()
@@ -212,6 +243,79 @@ public final class PlacitumCommand {
         source.sendSuccess(() -> Component.literal("  " + farmers + " farmer(s), "
                 + advanced.population() + " mouth(s) to feed"), false);
         return (int) steps;
+    }
+
+    private static int alert(CommandSourceStack source, String rawId, String rawState) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        AlertState target;
+        try {
+            target = AlertState.valueOf(rawState.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal("Alert states: peace, alert, combat, rout"));
+            return 0;
+        }
+        ServerLevel level = source.getServer().getLevel(settlement.dimension());
+        if (level == null) {
+            source.sendFailure(Component.literal("That dimension is not loaded"));
+            return 0;
+        }
+        Settlement next = AlertMachine.raise(settlement, target, level.getGameTime(), "set by command");
+        manager.put(next);
+        source.sendSuccess(() -> Component.literal(next.name() + " is now " + next.alert()), true);
+        return 1;
+    }
+
+    /**
+     * Rolls the raid formula many times and reports what it says.
+     *
+     * <p>The tuning tool docs/testing.md section 4 asks for. Nobody can derive these
+     * coefficients; the procedure is to measure real fights and bend the formula to match, and
+     * that is unbearable one raid at a time.
+     */
+    private static int simulateRaid(CommandSourceStack source, String rawId, int threat, int trials) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+
+        int rating = DefenseRating.of(settlement);
+        int repelled = 0;
+        long casualties = 0;
+        long seed = source.getServer().overworld().getSeed();
+
+        for (int i = 0; i < trials; i++) {
+            // A fresh copy each trial: the formula kills people and loots the stores, and a
+            // thousand trials on one settlement would leave a ghost town.
+            SettlementMut trial = SettlementMut.of(settlement);
+            RaidResolver.Outcome outcome = RaidResolver.resolve(trial, threat,
+                    Simulation.rngFor(seed, settlement.id(), i));
+            if (outcome.repelled()) {
+                repelled++;
+            }
+            casualties += outcome.casualties();
+        }
+
+        double survivalRate = 100.0 * repelled / trials;
+        double avgDead = (double) casualties / trials;
+        source.sendSuccess(() -> Component.literal(settlement.name() + ": threat " + threat
+                + " vs rating " + rating).withStyle(ChatFormatting.GOLD), false);
+        source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
+                "  repelled %.1f%% of %d trial(s), %.2f dead on average",
+                survivalRate, trials, avgDead)), false);
+        source.sendSuccess(() -> Component.literal(
+                "  militia " + DefenseRating.eligibleCount(settlement)
+                        + ", gear tier " + Armoury.bestAvailableTier(settlement)
+                        + ", weapons " + Armoury.armableCount(settlement)
+                        + ", wall " + settlement.defense().wall().tier()
+                        + ", watch points " + settlement.anchors().watchPoints().size()), false);
+        return (int) survivalRate;
     }
 
     private static int residents(CommandSourceStack source, String rawId) {
