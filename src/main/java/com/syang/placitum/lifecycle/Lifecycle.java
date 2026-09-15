@@ -1,10 +1,12 @@
 package com.syang.placitum.lifecycle;
 
 import com.syang.placitum.Placitum;
+import com.syang.placitum.data.Assignment;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.ResidentState;
 import com.syang.placitum.data.Vitals;
 import com.syang.placitum.registry.ModAttachments;
+import com.syang.placitum.settlement.ProfessionMap;
 import com.syang.placitum.store.SettlementManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -17,6 +19,7 @@ import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.trading.MerchantOffers;
 import org.jspecify.annotations.Nullable;
 
@@ -56,6 +59,8 @@ public final class Lifecycle {
 
         level.addFreshEntity(villager);
         manager.bind(resident.id(), villager.getUUID());
+        Placitum.LOGGER.debug("Promoted {} ({}) at {}", resident.lineage().fullName(),
+                resident.id(), pos.toShortString());
         return resident.withState(ResidentState.MATERIALIZED);
     }
 
@@ -73,6 +78,9 @@ public final class Lifecycle {
         }
         if (entity != null) {
             entity.discard();
+        } else {
+            Placitum.LOGGER.debug("Demoting {} with no entity bound; nothing to write back",
+                    resident.id());
         }
         manager.unbind(resident.id());
         return out.withState(ResidentState.VIRTUAL);
@@ -83,7 +91,29 @@ public final class Lifecycle {
         return resident
                 .withVitals(vitals)
                 .withCoarsePos(villager.blockPosition())
+                .withAssignment(refreshJob(resident, villager))
                 .withOffers(writeOffers(level, villager.getOffers()));
+    }
+
+    /**
+     * Re-reads the villager's profession.
+     *
+     * <p>Vanilla villagers acquire professions by claiming a job site, which can happen long
+     * after registration - a freshly generated village is mostly unemployed. Freezing the job
+     * at adoption would leave those residents unemployed forever, and a settlement with no
+     * farmers can never produce anything.
+     *
+     * <p>This is allowed precisely because it happens here. Entity state flows into the record
+     * on demote and nowhere else.
+     */
+    private static Assignment refreshJob(Resident resident, Villager villager) {
+        Identifier job = ProfessionMap.of(villager);
+        if (job.equals(resident.assignment().job())) {
+            return resident.assignment();
+        }
+        Placitum.LOGGER.debug("{} is now a {} (vanilla: {})", resident.lineage().fullName(),
+                job.getPath(), ProfessionMap.vanillaName(villager));
+        return resident.assignment().withJob(job);
     }
 
     /**

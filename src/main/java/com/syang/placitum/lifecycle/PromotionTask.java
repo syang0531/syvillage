@@ -1,5 +1,6 @@
 package com.syang.placitum.lifecycle;
 
+import com.syang.placitum.Placitum;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.Resident;
@@ -58,6 +59,9 @@ public final class PromotionTask {
                         mut, SimParams.fromConfig(), now, deadlineNanos);
                 Settlement next = mut.freeze();
                 if (finished) {
+                    long steps = next.simStep() - settlement.simStep();
+                    Placitum.LOGGER.info("  caught up {} step(s), {} pending op(s) to replay",
+                            steps, next.pendingOps().size());
                     phase = Phase.REPLAYING;
                 }
                 return next;
@@ -134,6 +138,9 @@ public final class PromotionTask {
 
         if (spawnCursor >= ordered.size() || materialized >= cap) {
             phase = Phase.DONE;
+            Placitum.LOGGER.info("PROMOTE done: '{}' - {} of {} resident(s) materialized{}",
+                    settlement.name(), materialized, settlement.residentCount(),
+                    materialized >= cap ? " (hit maxMaterializedResidents)" : "");
         }
         return SettlementManager.withResidents(settlement, updated);
     }

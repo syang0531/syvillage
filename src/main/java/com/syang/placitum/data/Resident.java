@@ -64,6 +64,11 @@ public record Resident(
                 militiaEligible, zombified, gear, task, coarsePos, state, offers);
     }
 
+    public Resident withAssignment(Assignment newAssignment) {
+        return new Resident(id, lineage, stage, ageDays, newAssignment, vitals, militiaEligible,
+                zombified, gear, task, coarsePos, state, offers);
+    }
+
     public Resident withCoarsePos(BlockPos pos) {
         return new Resident(id, lineage, stage, ageDays, assignment, vitals, militiaEligible,
                 zombified, gear, task, pos, state, offers);

@@ -57,6 +57,10 @@ public final class SettlementManager {
         current = null;
     }
 
+    public static String shortId(UUID id) {
+        return id.toString().substring(0, 8);
+    }
+
     private static SavedDataStorage storage(MinecraftServer server) {
         return server.overworld().getDataStorage();
     }
@@ -88,6 +92,11 @@ public final class SettlementManager {
             return Optional.empty();
         }
         loaded.put(id, settlement);
+        // Logged because this is the only visible evidence that a settlement survived a
+        // restart: it gets read back from disk the first time anything touches it.
+        Placitum.LOGGER.info("Loaded settlement {} '{}' from disk - pop {}, sim step {}, {} stock entries",
+                shortId(id), settlement.name(), settlement.population(), settlement.simStep(),
+                settlement.stock().size());
         return Optional.of(settlement);
     }
 

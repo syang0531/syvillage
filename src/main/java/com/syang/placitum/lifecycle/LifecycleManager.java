@@ -1,5 +1,6 @@
 package com.syang.placitum.lifecycle;
 
+import com.syang.placitum.Placitum;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
@@ -69,6 +70,9 @@ public final class LifecycleManager {
         if (nearest <= promoteRadius && settlement.materializedCount() == 0
                 && !settlement.residents().isEmpty()) {
             pendingDemote.remove(id);
+            Placitum.LOGGER.info("PROMOTE start: {} '{}' - nearest player {} blocks, {} resident(s)",
+                    SettlementManager.shortId(id), settlement.name(), (int) nearest,
+                    settlement.residentCount());
             promoting.put(id, new PromotionTask(id));
             return;
         }
@@ -77,6 +81,9 @@ public final class LifecycleManager {
             long since = pendingDemote.computeIfAbsent(id, key -> now);
             if (now - since >= PlacitumConfig.DEMOTE_DELAY_TICKS.get()) {
                 pendingDemote.remove(id);
+                Placitum.LOGGER.info("DEMOTE: {} '{}' - nearest player {} blocks, {} materialized",
+                        SettlementManager.shortId(id), settlement.name(), (int) nearest,
+                        settlement.materializedCount());
                 manager.put(demoteAll(level, manager, settlement));
             }
         } else if (nearest <= demoteRadius) {
@@ -98,8 +105,17 @@ public final class LifecycleManager {
 
     public static Settlement demoteAll(ServerLevel level, SettlementManager manager, Settlement settlement) {
         List<Resident> updated = new ArrayList<>();
+        int count = 0;
         for (Resident r : settlement.residents()) {
-            updated.add(r.materialized() ? Lifecycle.demote(level, manager, r) : r);
+            if (r.materialized()) {
+                updated.add(Lifecycle.demote(level, manager, r));
+                count++;
+            } else {
+                updated.add(r);
+            }
+        }
+        if (count > 0) {
+            Placitum.LOGGER.info("  wrote back {} resident(s) of '{}'", count, settlement.name());
         }
         return SettlementManager.withResidents(settlement, updated);
     }
@@ -118,6 +134,8 @@ public final class LifecycleManager {
             BlockPos pos = r.coarsePos();
             boolean inChunk = (pos.getX() >> 4) == chunkX && (pos.getZ() >> 4) == chunkZ;
             if (r.materialized() && inChunk) {
+                Placitum.LOGGER.info("DEMOTE (chunk {},{} unloading): {} of '{}'", chunkX, chunkZ,
+                        r.lineage().fullName(), settlement.name());
                 updated.add(Lifecycle.demote(level, manager, r));
                 changed = true;
             } else {

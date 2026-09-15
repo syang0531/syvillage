@@ -85,6 +85,8 @@ public final class PlacitumEvents {
         for (Settlement settlement : manager.all()) {
             ServerLevel level = server.getLevel(settlement.dimension());
             if (level != null && settlement.materializedCount() > 0) {
+                Placitum.LOGGER.info("SHUTDOWN: writing back '{}' before the world closes",
+                        settlement.name());
                 manager.put(LifecycleManager.demoteAll(level, manager, settlement));
             }
         }
@@ -161,6 +163,8 @@ public final class PlacitumEvents {
                 return;
             }
             manager.bind(residentId, villager.getUUID());
+            Placitum.LOGGER.debug("Rebound {} to entity {}", resident.lineage().fullName(),
+                    villager.getUUID());
             if (!resident.materialized()) {
                 List<Resident> updated = new ArrayList<>();
                 for (Resident r : settlement.residents()) {

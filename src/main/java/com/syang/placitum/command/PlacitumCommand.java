@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.syang.placitum.data.Assignment;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
@@ -158,11 +159,19 @@ public final class PlacitumCommand {
         source.sendSuccess(() -> Component.literal("  population " + settled.population()
                 + " (" + settled.materializedCount() + " materialized, "
                 + settled.residentCount() + " records)"), false);
+        source.sendSuccess(() -> Component.literal("  jobs: " + countJob(settled, Assignment.FARMER)
+                + " farmer, " + countJob(settled, Assignment.BUILDER) + " builder, "
+                + countJob(settled, Assignment.WOODCUTTER) + " woodcutter, "
+                + countJob(settled, Assignment.SMITH) + " smith, "
+                + countJob(settled, Assignment.SCHOLAR) + " scholar, "
+                + countJob(settled, Assignment.NONE) + " none"), false);
         source.sendSuccess(() -> Component.literal("  sim step " + settled.simStep()
                 + ", last settled at tick " + settled.lastSimTick()
                 + " (now " + now + ")"), false);
         source.sendSuccess(() -> Component.literal("  alert " + settled.alert()
-                + ", beds " + settled.bedCount()), false);
+                + ", plots " + settled.plots().size()
+                + ", beds in plots " + settled.bedCount()
+                + (settled.plots().isEmpty() ? "  (no plots until M3 builds houses)" : "")), false);
         source.sendSuccess(() -> Component.literal("  stock " + describeStock(settled)), false);
         return 1;
     }
@@ -182,6 +191,20 @@ public final class PlacitumCommand {
         long steps = advanced.simStep() - settlement.simStep();
         source.sendSuccess(() -> Component.literal("Advanced " + ticks + " tick(s) = " + steps
                 + " step(s). Stock: " + describeStock(advanced)), true);
+
+        // "Nothing happened and I do not know why" is the exact experience this mod exists to
+        // remove, so the debug command has to answer it rather than leave the player guessing.
+        int materialized = advanced.materializedCount();
+        if (materialized > 0) {
+            source.sendSuccess(() -> Component.literal("  " + materialized + " of "
+                    + advanced.residentCount() + " resident(s) are MATERIALIZED, so the simulation"
+                    + " skipped them - they act as real entities instead."), false);
+            source.sendSuccess(() -> Component.literal("  Run /placitum demote "
+                    + shortId(advanced.id()) + " first to see the virtual formula run."), false);
+        }
+        int farmers = countJob(advanced, Assignment.FARMER);
+        source.sendSuccess(() -> Component.literal("  " + farmers + " farmer(s), "
+                + advanced.population() + " mouth(s) to feed"), false);
         return (int) steps;
     }
 
@@ -255,6 +278,16 @@ public final class PlacitumCommand {
             }
         }
         return Optional.ofNullable(match);
+    }
+
+    private static int countJob(Settlement settlement, net.minecraft.resources.Identifier job) {
+        int n = 0;
+        for (Resident r : settlement.residents()) {
+            if (r.assignment().job().equals(job) && r.counts()) {
+                n++;
+            }
+        }
+        return n;
     }
 
     private static String shortId(UUID id) {

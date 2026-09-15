@@ -14,12 +14,15 @@ import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.data.SimClock;
 import com.syang.placitum.data.Vitals;
 import com.syang.placitum.registry.ModAttachments;
+import com.syang.placitum.Placitum;
 import com.syang.placitum.store.SettlementManager;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -30,7 +33,6 @@ import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.ai.village.poi.PoiType;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.entity.npc.villager.Villager;
-import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -105,11 +107,13 @@ public final class Registration {
     private static List<Resident> adopt(ServerLevel level, List<Villager> villagers,
             SettlementManager manager, RandomSource rng) {
         Set<String> takenNames = new HashSet<>();
+        Map<String, Integer> professions = new TreeMap<>();
         List<Resident> residents = new ArrayList<>();
         for (Villager villager : villagers) {
             UUID residentId = UUID.randomUUID();
             Lineage lineage = NameGenerator.founder(rng, takenNames);
-            Identifier job = mapProfession(villager);
+            Identifier job = ProfessionMap.of(villager);
+            professions.merge(ProfessionMap.vanillaName(villager), 1, Integer::sum);
 
             // First generation has no parents. Their history starts here, and pretending
             // otherwise would put births in the chronicle that nobody witnessed.
@@ -120,7 +124,7 @@ public final class Registration {
                     villager.isBaby() ? 3 : 25,
                     new Assignment(job, Optional.empty(), Optional.empty()),
                     new Vitals((int) Math.ceil(villager.getHealth()), 50, 50),
-                    militiaEligible(job),
+                    ProfessionMap.militiaEligible(job),
                     false,
                     GearSet.EMPTY,
                     ResidentTask.IDLE,
@@ -132,41 +136,12 @@ public final class Registration {
             manager.bind(residentId, villager.getUUID());
             residents.add(resident);
         }
+        // What vanilla actually reported, not what we mapped it to. A village of freshly
+        // generated villagers is mostly unemployed, and without this line that is
+        // indistinguishable from a broken mapping.
+        Placitum.LOGGER.info("Adopted {} villager(s); vanilla professions: {}",
+                residents.size(), professions);
         return residents;
-    }
-
-    /**
-     * Vanilla professions collapse onto six jobs.
-     *
-     * <p>Carrying all thirteen over would mean a production curve and a balance pass each.
-     * Trading still runs off the vanilla profession - this mapping is simulation-only.
-     */
-    public static Identifier mapProfession(Villager villager) {
-        ResourceKey<VillagerProfession> key = villager.getVillagerData().profession()
-                .unwrapKey().orElse(VillagerProfession.NONE);
-        if (key.equals(VillagerProfession.FARMER) || key.equals(VillagerProfession.FISHERMAN)
-                || key.equals(VillagerProfession.SHEPHERD) || key.equals(VillagerProfession.BUTCHER)) {
-            return Assignment.FARMER;
-        }
-        if (key.equals(VillagerProfession.TOOLSMITH) || key.equals(VillagerProfession.WEAPONSMITH)
-                || key.equals(VillagerProfession.ARMORER)) {
-            return Assignment.SMITH;
-        }
-        if (key.equals(VillagerProfession.MASON) || key.equals(VillagerProfession.CARTOGRAPHER)) {
-            return Assignment.BUILDER;
-        }
-        if (key.equals(VillagerProfession.FLETCHER) || key.equals(VillagerProfession.LEATHERWORKER)) {
-            return Assignment.WOODCUTTER;
-        }
-        if (key.equals(VillagerProfession.LIBRARIAN) || key.equals(VillagerProfession.CLERIC)) {
-            return Assignment.SCHOLAR;
-        }
-        return Assignment.NONE;
-    }
-
-    /** Scholars do not fight. That trade-off is the point of the flag. */
-    public static boolean militiaEligible(Identifier job) {
-        return !job.equals(Assignment.SCHOLAR);
     }
 
     public static long countBeds(ServerLevel level, BlockPos center, int radius) {
