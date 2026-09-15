@@ -33,6 +33,11 @@ public class ThreatModule implements SimModule {
         if (settlement.population() == 0) {
             return;
         }
+        // Peaceful spawns nothing hostile, so no raid could have reached this village in the
+        // world. Rolling one anyway would kill people to an attack that cannot exist.
+        if (!params.hostilesExist()) {
+            return;
+        }
         if (rng.nextDouble() >= PlacitumConfig.RAID_CHANCE_PER_STEP.get()) {
             return;
         }

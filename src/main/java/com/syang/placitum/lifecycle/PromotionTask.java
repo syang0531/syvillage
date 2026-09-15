@@ -66,7 +66,7 @@ public final class PromotionTask {
             case CATCHING_UP -> {
                 SettlementMut mut = SettlementMut.of(settlement);
                 boolean finished = Simulation.catchUp(level.getServer().overworld().getSeed(),
-                        mut, SimParams.fromConfig(), now, deadlineNanos);
+                        mut, SimParams.fromConfig(level), now, deadlineNanos);
                 Settlement next = mut.freeze();
                 if (finished) {
                     long steps = next.simStep() - settlement.simStep();

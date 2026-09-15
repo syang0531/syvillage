@@ -188,7 +188,7 @@ public final class LifecycleManager {
             return settlement;   // the first one through already settled it
         }
         return Simulation.catchUp(level.getServer().overworld().getSeed(), settlement,
-                SimParams.fromConfig(), level.getGameTime());
+                SimParams.fromConfig(level), level.getGameTime());
     }
 
     /**

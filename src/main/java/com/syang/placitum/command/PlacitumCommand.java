@@ -202,7 +202,7 @@ public final class PlacitumCommand {
         // Reading implies settling up first, or the numbers shown are stale by definition.
         long now = source.getServer().overworld().getGameTime();
         Settlement settled = Simulation.catchUp(source.getServer().overworld().getSeed(), settlement,
-                SimParams.fromConfig(), now);
+                SimParams.fromConfig(source.getServer().overworld()), now);
         manager.put(settled);
 
         source.sendSuccess(() -> Component.literal(settled.name() + " (" + settled.scale() + ")")
@@ -249,7 +249,7 @@ public final class PlacitumCommand {
         long seed = source.getServer().overworld().getSeed();
         long now = source.getServer().overworld().getGameTime();
         long target = settlement.lastSimTick() + ticks;
-        Settlement stepped = Simulation.catchUp(seed, settlement, SimParams.fromConfig(), target);
+        Settlement stepped = Simulation.catchUp(seed, settlement, SimParams.fromConfig(source.getServer().overworld()), target);
 
         // Put the clock back where the world is. The steps really happened - stock moved, the
         // chronicle was written - but pretending the world also moved leaves lastSimTick ahead
