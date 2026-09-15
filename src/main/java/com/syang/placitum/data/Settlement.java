@@ -128,6 +128,11 @@ public record Settlement(
                 newOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
     }
 
+    public Settlement withGrid(PlotGrid newGrid) {
+        return new Settlement(identity, scaleState, residents, plots, newGrid, stock, buildQueue,
+                pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
     public Settlement withAnchors(AnchorSet newAnchors) {
         return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
                 pendingOps, defense, newAnchors, chronicle, clock, ruler, parentId, forceLoadCore);

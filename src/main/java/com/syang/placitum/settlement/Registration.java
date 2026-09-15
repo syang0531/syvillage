@@ -1,5 +1,6 @@
 package com.syang.placitum.settlement;
 
+import com.syang.placitum.build.GridSurvey;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.Assignment;
 import com.syang.placitum.data.DefenseState;
@@ -97,6 +98,7 @@ public final class Registration {
         // Scanned now rather than on the next tick: the player is standing in the village, so
         // the chunks are loaded and this is the cheapest moment it will ever be.
         settlement = settlement.withAnchors(AnchorScan.scan(level, settlement));
+        settlement = settlement.withGrid(GridSurvey.run(level, settlement).grid());
         manager.put(settlement);
         return new Result.Success(settlement);
     }

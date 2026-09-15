@@ -4,6 +4,10 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.syang.placitum.build.GridMap;
+import com.syang.placitum.data.CellPos;
+import com.syang.placitum.data.CellState;
+import com.syang.placitum.build.GridSurvey;
 import com.syang.placitum.data.Assignment;
 import com.syang.placitum.data.AlertState;
 import com.syang.placitum.data.ChronicleEntry;
@@ -127,6 +131,37 @@ public final class PlacitumCommand {
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(ctx -> debugGrowth(ctx.getSource(),
                                         StringArgumentType.getString(ctx, "id"))))));
+
+        root.then(Commands.literal("plot")
+                .then(Commands.literal("show")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(ctx -> plotShow(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id")))))
+                .then(Commands.literal("survey")
+                        .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(ctx -> plotSurvey(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id")))))
+                .then(Commands.literal("block")
+                        .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .then(Commands.argument("gx", IntegerArgumentType.integer(-64, 64))
+                                        .then(Commands.argument("gz", IntegerArgumentType.integer(-64, 64))
+                                                .executes(ctx -> plotMark(ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "id"),
+                                                        IntegerArgumentType.getInteger(ctx, "gx"),
+                                                        IntegerArgumentType.getInteger(ctx, "gz"),
+                                                        true))))))
+                .then(Commands.literal("unblock")
+                        .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .then(Commands.argument("gx", IntegerArgumentType.integer(-64, 64))
+                                        .then(Commands.argument("gz", IntegerArgumentType.integer(-64, 64))
+                                                .executes(ctx -> plotMark(ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "id"),
+                                                        IntegerArgumentType.getInteger(ctx, "gx"),
+                                                        IntegerArgumentType.getInteger(ctx, "gz"),
+                                                        false)))))));
 
         root.then(Commands.literal("verify")
                 .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
@@ -650,6 +685,97 @@ public final class PlacitumCommand {
     }
 
     /** Accepts a full UUID or any unambiguous prefix, because nobody types a UUID twice. */
+    /** Prints the grid. The tool docs/open-questions.md asks for before M3 commits to a grid. */
+    private static int plotShow(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        if (settlement.grid().cells().isEmpty()) {
+            source.sendFailure(Component.literal(settlement.name()
+                    + " has never been surveyed. Stand in it and run /placitum plot survey "
+                    + rawId));
+            return 0;
+        }
+        for (Component line : GridMap.render(settlement)) {
+            source.sendSuccess(() -> line, false);
+        }
+        return settlement.grid().countOf(CellState.FREE);
+    }
+
+    /**
+     * Re-reads the world into the grid.
+     *
+     * <p>Normally this rides along with the anchor refresh; the command exists because a survey
+     * is only as good as the chunks that were loaded when it ran, and after building something
+     * the player wants the answer now rather than at the next refresh.
+     */
+    private static int plotSurvey(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        ServerLevel level = source.getServer().getLevel(settlement.identity().dimension());
+        if (level == null) {
+            source.sendFailure(Component.literal("That dimension is not loaded"));
+            return 0;
+        }
+        GridSurvey.Result result = GridSurvey.run(level, settlement);
+        Settlement updated = settlement.withGrid(result.grid());
+        manager.put(updated);
+
+        source.sendSuccess(() -> Component.literal("Surveyed " + result.scanned() + " cell(s) of "
+                + settlement.name()), false);
+        if (!result.complete()) {
+            // Saying "surveyed" and stopping would make a half-read grid look like a whole one.
+            source.sendSuccess(() -> Component.literal("  " + result.skipped()
+                            + " cell(s) skipped - those chunks are not loaded. Walk the edges"
+                            + " of the village and run this again.")
+                    .withStyle(ChatFormatting.YELLOW), false);
+        }
+        for (Component line : GridMap.render(updated)) {
+            source.sendSuccess(() -> line, false);
+        }
+        return result.scanned();
+    }
+
+    /**
+     * Marks a cell off limits, or lets it back in.
+     *
+     * <p>The survey guess at what counts as a building is a heuristic and will be wrong
+     * somewhere. This is the override, and {@link GridSurvey} deliberately never overwrites a
+     * BLOCKED cell so that the answer given here outlives the next refresh.
+     */
+    private static int plotMark(CommandSourceStack source, String rawId, int gx, int gz,
+            boolean block) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        CellPos cell = new CellPos(gx, gz);
+        int radius = (settlement.grid().size() - 1) / 2;
+        if (Math.abs(gx) > radius || Math.abs(gz) > radius) {
+            source.sendFailure(Component.literal("Cell " + cell.toKey() + " is outside the grid"
+                    + " (+/-" + radius + " at " + settlement.scale() + ")"));
+            return 0;
+        }
+        // Unblocking restores FREE rather than what was there before. The survey will correct
+        // it on the next pass, and guessing here would mean keeping a second history to be
+        // wrong about.
+        manager.put(settlement.withGrid(settlement.grid().with(cell,
+                block ? CellState.BLOCKED : CellState.FREE)));
+        source.sendSuccess(() -> Component.literal((block ? "Blocked " : "Unblocked ")
+                + cell.toKey() + " - world position "
+                + settlement.grid().blockAt(cell).toShortString()), false);
+        return 1;
+    }
+
     private static Optional<Settlement> resolve(SettlementManager manager, String rawId) {
         try {
             return manager.find(UUID.fromString(rawId));

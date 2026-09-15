@@ -3,6 +3,7 @@ package com.syang.placitum.lifecycle;
 import com.syang.placitum.Placitum;
 import com.syang.placitum.defense.DefenseTick;
 import com.syang.placitum.settlement.AnchorScan;
+import com.syang.placitum.build.GridSurvey;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
@@ -131,6 +132,10 @@ public final class LifecycleManager {
 
         if (out.anchors().staleAt(now, PlacitumConfig.ANCHOR_REFRESH_TICKS.get())) {
             out = out.withAnchors(AnchorScan.scan(level, out));
+            // The grid rides along with the anchors. Both need loaded chunks, both go stale for
+            // the same reason - the player has been building - and one timer for the pair beats
+            // two that can disagree about how old the world model is.
+            out = out.withGrid(GridSurvey.run(level, out).grid());
             manager.put(out);
         }
         out = DefenseTick.run(level, manager, out);

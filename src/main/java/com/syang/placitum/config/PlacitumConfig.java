@@ -73,6 +73,8 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.DoubleValue FAMINE_DEATH_CHANCE_PER_STEP;
     public static final ModConfigSpec.DoubleValue ELDER_DEATH_CHANCE_PER_STEP;
     public static final ModConfigSpec.BooleanValue ENABLE_AGING;
+    public static final ModConfigSpec.IntValue MAX_CELL_SLOPE;
+    public static final ModConfigSpec.IntValue SURVEY_SCAN_HEIGHT;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -195,6 +197,16 @@ public final class PlacitumConfig {
         FAMINE_DEATH_CHANCE_PER_STEP = b.comment("Per resident per step once the grace runs out.")
                 .defineInRange("famineDeathChancePerStep", 0.01D, 0.0D, 1.0D);
         b.pop();
+        b.pop();
+
+        b.comment("Construction. See docs/construction.md.").push("construction");
+        MAX_CELL_SLOPE = b.comment("Height difference across an 8-block cell before it is judged",
+                        "unbuildable. Raising it means more terracing and more flattening, which",
+                        "reads as griefing; lowering it means a hillside village never grows.")
+                .defineInRange("maxCellSlope", 3, 0, 32);
+        SURVEY_SCAN_HEIGHT = b.comment("How far above the surface a cell survey looks for existing",
+                        "buildings. Too low and it misses a house's walls while seeing its floor.")
+                .defineInRange("surveyScanHeight", 6, 1, 64);
         b.pop();
 
         SPEC = b.build();
