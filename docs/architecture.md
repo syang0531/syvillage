@@ -199,8 +199,36 @@ for (Settlement s : manager.all())
 | `DimensionDataStorage` | **`SavedDataStorage`** (`net.minecraft.world.level.storage`) |
 | `net.minecraft.world.entity.npc.Villager` | **`net.minecraft.world.entity.npc.villager.Villager`** |
 | `VillagerProfession` (enum 성격) | **레지스트리 record.** 직업은 `ResourceKey<VillagerProfession>` |
+| `EntityType.VILLAGER` | **`EntityTypes.VILLAGER`** — 엔티티 타입 상수가 `EntityTypes`로 분리 |
+| `src -> src.hasPermission(2)` | **`Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)`** |
+| `ResourceKey.location()` | **`identifier()`** |
+| `ChunkPos.x` / `.z` (필드) | **record.** `x()` / `z()` |
+| `AttachmentType.Builder.serialize(Codec)` | **`serialize(MapCodec)`** — `codec.fieldOf("...")` 필요 |
 
 `Identifier` 개명은 878개 MC 소스 파일에 걸쳐 있다. 설계 문서의 `ResourceLocation`은 전부 갈았다.
+
+### NeoForge가 패치한 것을 봐야 한다
+
+`SavedDataType`은 바닐라에서 `DataFixTypes`를 요구하는데, 모드에는 맞는 값이 없다. NeoForge가 이것을 **nullable로 패치하고 3인자 생성자를 추가**해 뒀다.
+
+```java
+new SavedDataType<>(Identifier id, Supplier<T> constructor, Codec<T> codec)   // 모드용
+```
+
+교훈은 API 하나가 아니다. **원본 디컴파일 소스가 아니라 `build/moddev/artifacts/minecraft-patched-*-sources.jar`를 봐야 한다.** 둘의 시그니처가 다른 지점이 있고, 원본만 보면 컴파일되지 않는 코드를 쓰게 된다.
+
+### 아이템 데이터 컴포넌트는 부트스트랩 때 바인딩되지 않는다
+
+26.2에서 `Item`의 데이터 컴포넌트는 **데이터팩 리로드**(`ReloadableServerResources`) 시점에 바인딩된다. `Bootstrap.bootStrap()`만 돌린 환경에서 `new ItemStack(item)`을 만들면 이렇게 터진다.
+
+```
+NullPointerException: Components not bound yet
+	at net.minecraft.core.Holder$Reference.components
+```
+
+설계에 영향을 준다. `Resident.offers`를 타입 있는 `MerchantOffers`로 두면 **왕복 테스트에서 그 필드를 덮을 수 없다.** 그래서 원래 설계대로 불투명한 `CompoundTag`로 되돌렸다 (`docs/data-model.md`). 검증할 수 없는 필드는 조용히 썩는다.
+
+`Item` 자체를 레지스트리에서 꺼내 쓰는 것(`GearSet`, `stock` 키)은 문제없다. 막히는 것은 `ItemStack` 생성뿐이다.
 
 ### 그대로인 것
 

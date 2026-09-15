@@ -1,0 +1,227 @@
+package com.syang.placitum.event;
+
+import com.syang.placitum.Placitum;
+import com.syang.placitum.command.PlacitumCommand;
+import com.syang.placitum.data.Resident;
+import com.syang.placitum.data.ResidentState;
+import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.SettlementId;
+import com.syang.placitum.lifecycle.LifecycleManager;
+import com.syang.placitum.registry.ModAttachments;
+import com.syang.placitum.settlement.Registration;
+import com.syang.placitum.store.SettlementManager;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.level.block.BellBlock;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.level.ChunkEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+
+/** Every game-side hook Placitum installs. */
+@EventBusSubscriber(modid = Placitum.MODID)
+public final class PlacitumEvents {
+
+    private static final LifecycleManager LIFECYCLE = new LifecycleManager();
+
+    private PlacitumEvents() {}
+
+    public static LifecycleManager lifecycle() {
+        return LIFECYCLE;
+    }
+
+    @SubscribeEvent
+    public static void onRegisterCommands(RegisterCommandsEvent event) {
+        PlacitumCommand.register(event.getDispatcher());
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        MinecraftServer server = event.getServer();
+        if (SettlementManager.peek() == null) {
+            return;
+        }
+        LIFECYCLE.tick(server);
+    }
+
+    /**
+     * Boot resync.
+     *
+     * <p>A crash can leave residents saved as MATERIALIZED whose entities either never
+     * reached disk or did. Rather than guess, everyone starts VIRTUAL and entities rebind as
+     * they load.
+     */
+    @SubscribeEvent
+    public static void onServerStarted(ServerStartedEvent event) {
+        SettlementManager manager = SettlementManager.get(event.getServer());
+        LIFECYCLE.reset();
+        int reset = manager.resetMaterializedState();
+        if (reset > 0) {
+            Placitum.LOGGER.info("Reset {} resident(s) to VIRTUAL after an unclean shutdown", reset);
+        }
+    }
+
+    /** Last chance to copy entity state back before the world closes. */
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        MinecraftServer server = event.getServer();
+        SettlementManager manager = SettlementManager.get(server);
+        for (Settlement settlement : manager.all()) {
+            ServerLevel level = server.getLevel(settlement.dimension());
+            if (level != null && settlement.materializedCount() > 0) {
+                manager.put(LifecycleManager.demoteAll(level, manager, settlement));
+            }
+        }
+        LIFECYCLE.reset();
+        SettlementManager.clear();
+    }
+
+    /**
+     * Chunk unload, with no grace period.
+     *
+     * <p>Once the unload finishes the entity is unreachable and its health, task progress and
+     * trades are gone with it. Demoting late is the same as not demoting.
+     */
+    @SubscribeEvent
+    public static void onChunkUnload(ChunkEvent.Unload event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        SettlementManager manager = SettlementManager.peek();
+        if (manager == null) {
+            return;
+        }
+        int chunkX = event.getChunk().getPos().x();
+        int chunkZ = event.getChunk().getPos().z();
+        for (SettlementId entry : manager.listed()) {
+            if (!entry.dimension().equals(level.dimension())) {
+                continue;
+            }
+            Settlement settlement = manager.find(entry.id()).orElse(null);
+            if (settlement == null || settlement.materializedCount() == 0) {
+                continue;
+            }
+            Settlement next = LIFECYCLE.demoteInChunk(level, manager, settlement, chunkX, chunkZ);
+            if (next != settlement) {
+                manager.put(next);
+            }
+        }
+    }
+
+    /**
+     * Rebinds an entity that carries a resident id.
+     *
+     * <p>Three outcomes, and the third matters most: an entity whose resident is gone is
+     * released as an ordinary villager rather than killed. To the player, a villager
+     * vanishing for no reason is exactly the bug this mod exists to fix.
+     */
+    @SubscribeEvent
+    public static void onEntityJoin(EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        Entity entity = event.getEntity();
+        if (!(entity instanceof Villager villager)) {
+            return;
+        }
+        UUID residentId = villager.getData(ModAttachments.RESIDENT_ID);
+        if (Placitum.NIL_UUID.equals(residentId)) {
+            return;
+        }
+        SettlementManager manager = SettlementManager.peek();
+        if (manager == null) {
+            return;
+        }
+
+        for (Settlement settlement : manager.all()) {
+            Resident resident = settlement.resident(residentId).orElse(null);
+            if (resident == null) {
+                continue;
+            }
+            if (resident.materialized() && manager.isBound(residentId)
+                    && !villager.getUUID().equals(manager.entityOf(residentId))) {
+                Placitum.LOGGER.warn("Duplicate entity for resident {}; discarding the newcomer", residentId);
+                event.setCanceled(true);
+                return;
+            }
+            manager.bind(residentId, villager.getUUID());
+            if (!resident.materialized()) {
+                List<Resident> updated = new ArrayList<>();
+                for (Resident r : settlement.residents()) {
+                    updated.add(r.id().equals(residentId) ? r.withState(ResidentState.MATERIALIZED) : r);
+                }
+                manager.put(SettlementManager.withResidents(settlement, updated));
+            }
+            return;
+        }
+
+        villager.removeData(ModAttachments.RESIDENT_ID);
+        Placitum.LOGGER.info("Released orphaned villager {} back to vanilla", villager.getUUID());
+    }
+
+    /** Right-click the bell to register. One interaction, and nothing else in the world changes. */
+    @SubscribeEvent
+    public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getHand() != InteractionHand.MAIN_HAND) {
+            return;
+        }
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        if (!player.isShiftKeyDown()) {
+            return;   // plain right-click still rings the bell
+        }
+        BlockPos pos = event.getPos();
+        if (!(level.getBlockState(pos).getBlock() instanceof BellBlock)) {
+            return;
+        }
+
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+
+        SettlementManager manager = SettlementManager.get(level.getServer());
+        Registration.Result result = Registration.register(level, manager, pos);
+        player.sendSystemMessage(describe(result));
+    }
+
+    public static Component describe(Registration.Result result) {
+        return switch (result) {
+            case Registration.Result.Success success -> Component
+                    .literal("Registered " + success.settlement().name() + " - "
+                            + success.settlement().residentCount() + " resident(s)")
+                    .withStyle(ChatFormatting.GREEN);
+            case Registration.Result.AlreadyRegistered already -> Component
+                    .literal("This bell already belongs to " + already.name())
+                    .withStyle(ChatFormatting.YELLOW);
+            case Registration.Result.Overlaps overlaps -> Component
+                    .literal("Too close to " + overlaps.otherName() + " - " + overlaps.distance()
+                            + " blocks away, " + overlaps.required() + " required")
+                    .withStyle(ChatFormatting.RED);
+            case Registration.Result.NotEnoughBeds beds -> Component
+                    .literal("Not enough beds: " + beds.found() + " of " + beds.required())
+                    .withStyle(ChatFormatting.RED);
+            case Registration.Result.NotEnoughVillagers villagers -> Component
+                    .literal("Not enough villagers: " + villagers.found() + " of " + villagers.required())
+                    .withStyle(ChatFormatting.RED);
+        };
+    }
+}

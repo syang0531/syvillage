@@ -65,6 +65,14 @@ neoForge {
             sourceSet sourceSets.main
         }
     }
+
+    // Runs JUnit inside the FML environment so registries and codecs are real.
+    // The round-trip and equivalence tests (docs/testing.md) need BlockState and Item codecs,
+    // which cannot work against a bare classpath.
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
 }
 
 // Generated resources (models, lang, recipes) live alongside hand-written ones.

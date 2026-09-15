@@ -68,8 +68,8 @@ V1의 직업은 여섯 개면 충분하다. 바닐라 직업 열세 개를 그�
 
 예외 하나. **demote 시 `MerchantOffers`는 엔티티와 함께 사라진다.** V1의 타협은 이렇다.
 
-- `Resident`에 `MerchantOffers offers` **하나만** 예외적으로 들고 있는다
-- 26.2에 `MerchantOffers.CODEC`이 있어 직렬화는 공짜다
+- `Resident`에 `CompoundTag offers` **하나만** 예외적으로 들고 있는다
+- 인코딩은 `MerchantOffers.CODEC`으로 하되, 저장되는 것은 타입 없는 태그다
 - 이것은 상태가 아니라 **불투명한 blob**이다. 시뮬레이션이 읽지 않는다
 - promote 시 그대로 복원한다
 

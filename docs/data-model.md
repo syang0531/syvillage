@@ -171,7 +171,7 @@ public record Resident(
     BlockPos coarsePos,       // L2에서는 "어느 건물" 수준이면 충분
     ResidentState state,      // VIRTUAL | MATERIALIZED
 
-    MerchantOffers offers     // 원칙 1의 유일한 예외. 아래 참조
+    CompoundTag offers        // 원칙 1의 유일한 예외. 아래 참조
 ) {}
 
 public record Lineage(
@@ -220,10 +220,15 @@ V1의 직업은 여섯 개다. `farmer`, `woodcutter`, `builder`, `smith`, `scho
 
 demote하면 엔티티가 사라지고, 그와 함께 `MerchantOffers`도 사라진다. 거래 목록을 우리가 `Resident`의 정규 필드로 **분해해서** 옮기면 원칙 1이 `MerchantOffer` 전체(아이템, 가격, 사용 횟수, 수요, 경험치)에 적용되어야 해서 범위가 폭발한다.
 
-타협은 **바닐라 타입을 통째로 들고 있는 것**이다. 26.2에 `MerchantOffers.CODEC`이 있으므로 `CompoundTag`로 감쌀 필요조차 없다.
+타협은 **불투명한 태그 하나**다.
+
+26.2에 `MerchantOffers.CODEC`이 있으니 타입 있는 필드로 둘 수도 있다. 그런데 그러면 **왕복 테스트가 이 필드를 덮을 수 없다.** 26.2는 아이템 데이터 컴포넌트를 데이터팩 리로드 때 바인딩하므로 단위 테스트에서 `ItemStack`을, 따라서 `MerchantOffer`를 만들 수 없다 (`docs/architecture.md`).
+
+검증할 수 없는 필드는 조용히 썩는다. 불투명한 blob이 설계 의도에도 맞고 테스트도 된다.
 
 - 시뮬레이션은 이 필드를 절대 읽지 않는다. 우리에게는 불투명한 blob이다
-- demote 시 쓰고 promote 시 그대로 복원하는 것 외의 코드가 없다
+- demote 시 `MerchantOffers.CODEC`으로 인코딩해 넣고, promote 시 디코딩해 되돌리는 것이 전부다
+- 인코딩·디코딩 지점은 `lifecycle/Lifecycle.java` 두 함수뿐이다
 - 이것이 원칙 1의 유일한 예외이며, 필드 주석에 그 사실을 적는다
 
 예외를 늘리지 않기 위해 예외임을 명시한다. 자세한 배경은 `docs/vanilla-interop.md`.
