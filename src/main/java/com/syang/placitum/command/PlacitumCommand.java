@@ -8,6 +8,7 @@ import com.syang.placitum.data.Assignment;
 import com.syang.placitum.data.AlertState;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.SimClock;
 import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.defense.AlertMachine;
 import com.syang.placitum.defense.Armoury;
@@ -211,7 +212,8 @@ public final class PlacitumCommand {
                 + countJob(settled, Assignment.NONE) + " none"), false);
         source.sendSuccess(() -> Component.literal("  sim step " + settled.simStep()
                 + ", last settled at tick " + settled.lastSimTick()
-                + " (now " + now + ")"), false);
+                + " (now " + now + ")"
+                + (settled.lastSimTick() > now ? "  [clock ahead of the world; dormant]" : "")), false);
         source.sendSuccess(() -> Component.literal("  defence rating " + DefenseRating.of(settled)
                 + " (militia " + DefenseRating.eligibleCount(settled)
                 + ", weapons " + Armoury.armableCount(settled)
@@ -234,8 +236,16 @@ public final class PlacitumCommand {
             return 0;
         }
         long seed = source.getServer().overworld().getSeed();
+        long now = source.getServer().overworld().getGameTime();
         long target = settlement.lastSimTick() + ticks;
-        Settlement advanced = Simulation.catchUp(seed, settlement, SimParams.fromConfig(), target);
+        Settlement stepped = Simulation.catchUp(seed, settlement, SimParams.fromConfig(), target);
+
+        // Put the clock back where the world is. The steps really happened - stock moved, the
+        // chronicle was written - but pretending the world also moved leaves lastSimTick ahead
+        // of game time, and then elapsed is negative and the settlement sleeps until the world
+        // catches up. One /placitum tick 20000 put a village to sleep for fifteen real minutes.
+        Settlement advanced = stepped.withClock(
+                new SimClock(Math.min(stepped.lastSimTick(), now), stepped.simStep()));
         manager.put(advanced);
 
         long steps = advanced.simStep() - settlement.simStep();

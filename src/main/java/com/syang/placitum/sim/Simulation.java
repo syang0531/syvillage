@@ -1,7 +1,9 @@
 package com.syang.placitum.sim;
 
 import com.syang.placitum.data.EntryType;
+import com.syang.placitum.Placitum;
 import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.SimClock;
 import com.syang.placitum.sim.module.ConsumptionModule;
 import com.syang.placitum.sim.module.ProductionModule;
 import com.syang.placitum.sim.module.ThreatModule;
@@ -102,6 +104,16 @@ public final class Simulation {
         // nobody thought of as simulation entry points.
         if (settlement.anyMaterialized()) {
             skipWholeSteps(settlement, now, stepTicks);
+            return true;
+        }
+
+        // A clock ahead of the world means something set it there - /placitum tick used to.
+        // Left alone the settlement sleeps until game time catches up, which looks exactly like
+        // the simulation having died.
+        if (settlement.lastSimTick() > now) {
+            Placitum.LOGGER.warn("Settlement clock was {} tick(s) ahead of the world; resetting",
+                    settlement.lastSimTick() - now);
+            settlement.clock = new SimClock(now, settlement.simStep());
             return true;
         }
 
