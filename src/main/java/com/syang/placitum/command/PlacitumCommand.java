@@ -25,7 +25,9 @@ import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.item.ItemArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -42,7 +44,8 @@ public final class PlacitumCommand {
 
     private PlacitumCommand() {}
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher,
+            CommandBuildContext buildContext) {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("placitum");
 
         root.then(Commands.literal("register")
@@ -101,6 +104,16 @@ public final class PlacitumCommand {
                                                         StringArgumentType.getString(ctx, "id"),
                                                         IntegerArgumentType.getInteger(ctx, "threat"),
                                                         IntegerArgumentType.getInteger(ctx, "trials"))))))));
+
+        root.then(Commands.literal("stock")
+                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("item", ItemArgument.item(buildContext))
+                                .then(Commands.argument("count", IntegerArgumentType.integer(-4096, 4096))
+                                        .executes(ctx -> stock(ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "id"),
+                                                ItemArgument.getItem(ctx, "item").item().value(),
+                                                IntegerArgumentType.getInteger(ctx, "count")))))));
 
         root.then(Commands.literal("resident")
                 .then(Commands.literal("list")
@@ -243,6 +256,37 @@ public final class PlacitumCommand {
         source.sendSuccess(() -> Component.literal("  " + farmers + " farmer(s), "
                 + advanced.population() + " mouth(s) to feed"), false);
         return (int) steps;
+    }
+
+    /**
+     * Puts things into, or takes them out of, the settlement stores.
+     *
+     * <p>Stands in for the warehouse block until construction builds one. Without some way in,
+     * the militia can never be armed - production only ever makes food - so "ring the bell and
+     * watch them muster" would be untestable and, worse, unreachable in an actual game.
+     *
+     * <p>Negative counts take things out, which is the other half the warehouse will need.
+     */
+    private static int stock(CommandSourceStack source, String rawId, Item item, int count) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        SettlementMut mut = SettlementMut.of(settlement);
+        if (count >= 0) {
+            mut.addStock(item, count);
+        } else {
+            mut.takeStock(item, -count);
+        }
+        Settlement next = mut.freeze();
+        manager.put(next);
+
+        String name = com.syang.placitum.data.PlacitumCodecs.itemId(item).getPath();
+        source.sendSuccess(() -> Component.literal(next.name() + " stores: " + name + " "
+                + next.stockOf(item) + " (" + (count >= 0 ? "+" : "") + count + ")"), true);
+        return next.stockOf(item);
     }
 
     private static int alert(CommandSourceStack source, String rawId, String rawState) {

@@ -54,7 +54,7 @@ public final class PlacitumEvents {
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
-        PlacitumCommand.register(event.getDispatcher());
+        PlacitumCommand.register(event.getDispatcher(), event.getBuildContext());
     }
 
     @SubscribeEvent
