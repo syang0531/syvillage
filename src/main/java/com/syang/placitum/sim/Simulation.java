@@ -89,6 +89,20 @@ public final class Simulation {
         int stepTicks = params.stepTicks();
         long maxCatchup = params.maxCatchupTicks();
 
+        // Time a settlement spends embodied is not virtual time - the entities are living it,
+        // in the world, and write-back collects the result. Simulating it anyway skips every
+        // materialized resident in the production modules while settlement-wide consumption
+        // still counts them, so the stock drains for no reason.
+        //
+        // The guard lives here rather than at the call sites because the call sites are exactly
+        // what kept getting it wrong: promote had the ordering right from the start, and the
+        // damage came from rebind, from chunk unload, and from /placitum info - three paths
+        // nobody thought of as simulation entry points.
+        if (settlement.anyMaterialized()) {
+            skipWholeSteps(settlement, now, stepTicks);
+            return true;
+        }
+
         long elapsed = now - settlement.lastSimTick();
         if (elapsed > maxCatchup) {
             // Skip in whole steps so the remainder never gets mixed into the skipped span.
@@ -107,6 +121,14 @@ public final class Simulation {
             settlement.clock = settlement.clock.advanced(1, stepTicks);
         }
         return true;
+    }
+
+    /** Advances the clock without simulating, keeping the step boundary intact. */
+    private static void skipWholeSteps(SettlementMut settlement, long now, int stepTicks) {
+        long whole = (now - settlement.lastSimTick()) / stepTicks * stepTicks;
+        if (whole > 0) {
+            settlement.clock = settlement.clock.skipped(whole);
+        }
     }
 
     /**

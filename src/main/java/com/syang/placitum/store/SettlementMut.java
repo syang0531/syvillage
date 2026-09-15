@@ -120,6 +120,16 @@ public final class SettlementMut {
         return n;
     }
 
+    /** True while any resident has a body, which means elapsed time is not virtual time. */
+    public boolean anyMaterialized() {
+        for (Resident r : residents) {
+            if (r.materialized()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public int stockOf(Item item) {
         return stock.getOrDefault(item, 0);
     }

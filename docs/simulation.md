@@ -46,6 +46,28 @@ public void catchUp(SettlementMut s, long now) {
 
 `simStep`은 스텝 수만큼만 증가한다. 호출 횟수에 연동시키면 RNG 스트림이 호출 패턴을 타게 되어 같은 이유로 깨진다.
 
+## 실체화된 동안은 가상 시간이 아니다
+
+`catchUp`의 첫 번째 관문이다.
+
+```java
+if (settlement.anyMaterialized()) {
+    skipWholeSteps(settlement, now, stepTicks);
+    return true;
+}
+```
+
+주민에게 몸이 있는 동안 흐른 시간은 **월드에서 실제로 살아진 시간**이고, 그 결과는 writeBack이 회수한다. 그걸 가상 공식으로 또 돌리면 생산 모듈은 `MATERIALIZED` 주민을 건너뛰는데 마을 단위 소비는 전원을 세므로 **재고만 순수하게 깎인다.**
+
+**이 판정은 호출 지점이 아니라 `catchUp` 안에 있어야 한다.** 틀린 것은 매번 다른 경로였기 때문이다. promote는 처음부터 순서가 맞았고, 피해는 재바인딩·청크 언로드·`/placitum info` 세 곳에서 나왔다 — 아무도 "시뮬레이션 진입점"이라고 생각하지 않던 곳들이다.
+
+게임 테스트 로그:
+
+```
+step 69: 4 farmer(s) of 6 resident(s) produced 12 wheat
+step 70: 0 farmer(s) of 6 resident(s) produced 0 wheat   ← 실체화 이후
+```
+
 ## catchUp 호출 지점
 
 세 군데뿐이다. 매 틱 순회는 존재하지 않는다.
