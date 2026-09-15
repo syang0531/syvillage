@@ -4,6 +4,7 @@ import com.syang.placitum.Placitum;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.SimClock;
 import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.store.SettlementManager;
 import java.util.ArrayList;
@@ -136,7 +137,43 @@ public final class LifecycleManager {
         if (count > 0) {
             Placitum.LOGGER.info("  wrote back {} resident(s) of '{}'", count, settlement.name());
         }
-        return SettlementManager.withResidents(settlement, updated);
+        return skipTimeSpentMaterialized(
+                SettlementManager.withResidents(settlement, updated), level.getGameTime());
+    }
+
+    /**
+     * Moves the clock past the stretch the settlement spent with bodies.
+     *
+     * <p>While residents are MATERIALIZED they live as entities and the virtual modules skip
+     * them - but settlement-wide consumption still counts every mouth. Leaving that stretch on
+     * the clock means the next catch-up simulates it as though nobody had been working, so a
+     * village quietly starves in proportion to how long the player stood in it. The longer you
+     * care for it, the worse it does.
+     *
+     * <p>The time is skipped, not simulated: what happened during it already happened, in the
+     * world, to real entities, and was captured on write-back.
+     *
+     * <p>Skipped in whole steps so the remainder still carries and slice-independence holds.
+     */
+    private static Settlement skipTimeSpentMaterialized(Settlement settlement, long now) {
+        if (settlement.materializedCount() > 0) {
+            return settlement;   // someone is still up; the clock keeps its place
+        }
+        int stepTicks = PlacitumConfig.STEP_TICKS.get();
+        long elapsed = now - settlement.lastSimTick();
+        long whole = elapsed / stepTicks * stepTicks;
+        if (whole <= 0) {
+            return settlement;
+        }
+        Placitum.LOGGER.debug("Skipping {} tick(s) spent materialized in '{}'", whole,
+                settlement.name());
+        return withClock(settlement, settlement.clock().skipped(whole));
+    }
+
+    private static Settlement withClock(Settlement s, SimClock clock) {
+        return new Settlement(s.identity(), s.scale(), s.scaleHoldSteps(), s.residents(), s.plots(),
+                s.grid(), s.stock(), s.buildQueue(), s.pendingOps(), s.defense(), s.chronicle(),
+                clock, s.ruler(), s.parentId(), s.forceLoadCore());
     }
 
     /**
