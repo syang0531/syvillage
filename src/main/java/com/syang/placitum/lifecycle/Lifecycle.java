@@ -41,7 +41,23 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Lifecycle {
 
+    /**
+     * Set while this class is spawning a villager itself.
+     *
+     * <p>{@code addFreshEntity} fires EntityJoinLevelEvent synchronously, so our own spawn
+     * lands in our own rebind handler: it scans every settlement and writes one back, per
+     * villager, for work that promote is already doing. It also logged a "Rebound" line right
+     * before every "Promoted" line, which reads exactly like a duplicate spawn - it cost an
+     * hour of chasing one that was never there.
+     */
+    private static boolean spawningOurOwn;
+
     private Lifecycle() {}
+
+    /** True when the entity now joining is one promote is in the middle of adding. */
+    public static boolean isSelfSpawn() {
+        return spawningOurOwn;
+    }
 
     /**
      * Spawns the entity view of a resident.
@@ -74,7 +90,12 @@ public final class Lifecycle {
         villager.setCustomNameVisible(false);
         villager.setHealth(Math.max(1, resident.vitals().health()));
 
-        level.addFreshEntity(villager);
+        spawningOurOwn = true;
+        try {
+            level.addFreshEntity(villager);
+        } finally {
+            spawningOurOwn = false;
+        }
         manager.bind(resident.id(), villager.getUUID());
         Placitum.LOGGER.debug("Promoted {} ({}) at {}", resident.lineage().fullName(),
                 resident.id(), pos.toShortString());

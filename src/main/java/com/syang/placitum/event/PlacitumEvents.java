@@ -142,6 +142,9 @@ public final class PlacitumEvents {
         if (!(entity instanceof Villager villager)) {
             return;
         }
+        if (com.syang.placitum.lifecycle.Lifecycle.isSelfSpawn()) {
+            return;   // promote is adding this one and will bind it itself
+        }
         UUID residentId = villager.getData(ModAttachments.RESIDENT_ID);
         if (Placitum.NIL_UUID.equals(residentId)) {
             return;
