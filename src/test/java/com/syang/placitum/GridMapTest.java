@@ -53,6 +53,47 @@ class GridMapTest {
     }
 
     @Test
+    @DisplayName("the grid covers the claim, not the population tier")
+    void gridCoversTheClaim() {
+        // Five chunks is 80 blocks of claim in each direction, so ten cells each way plus the
+        // centre. The tier has nothing to say about it: a village vanilla built is the size it
+        // is whether two people live in it or twenty.
+        assertEquals(21, PlotGrid.sizeForClaim(5));
+        assertEquals(5, PlotGrid.sizeForClaim(1), "one chunk is 16 blocks, so two cells each way");
+
+        int side = PlotGrid.sizeForClaim(5) * PlotGrid.CELL_BLOCKS;
+        assertTrue(side >= 5 * 16 * 2,
+                "a grid that does not reach the edge of the claim leaves ground unmapped: "
+                        + side);
+    }
+
+    @Test
+    @DisplayName("growing the grid keeps every cell already surveyed")
+    void growingPreservesCells() {
+        Map<CellPos, CellState> cells = new LinkedHashMap<>();
+        cells.put(new CellPos(-1, -1), CellState.BUILT);
+        cells.put(new CellPos(1, 1), CellState.BLOCKED);
+        PlotGrid small = new PlotGrid(new BlockPos(0, 64, 0), 3, cells);
+
+        PlotGrid grown = small.grownTo(21);
+
+        assertEquals(21, grown.size());
+        assertEquals(small.origin(), grown.origin(),
+                "the origin must not move, or every stored CellPos means somewhere else");
+        assertEquals(CellState.BUILT, grown.stateAt(new CellPos(-1, -1)));
+        assertEquals(CellState.BLOCKED, grown.stateAt(new CellPos(1, 1)),
+                "a blocked cell surviving a resize is the whole point of the override");
+    }
+
+    @Test
+    @DisplayName("the grid never shrinks")
+    void shrinkingIsRefused() {
+        PlotGrid big = PlotGrid.empty(new BlockPos(0, 64, 0), 21);
+        assertEquals(21, big.grownTo(3).size(),
+                "shrinking would drop surveyed cells outside the new bounds, silently");
+    }
+
+    @Test
     @DisplayName("cells nobody has surveyed are reported, not counted as free")
     void unsurveyedCellsAreNamed() {
         String text = render(partial());

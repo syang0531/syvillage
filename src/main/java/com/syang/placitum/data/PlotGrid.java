@@ -43,6 +43,34 @@ public record PlotGrid(BlockPos origin, int size, Map<CellPos, CellState> cells)
         return Collections.unmodifiableMap(out);
     }
 
+    /**
+     * How many cells across a grid must be to cover a settlement claim.
+     *
+     * <p>The extent of the grid is a question about ground, so it is answered by the claim -
+     * not by {@link ScaleTier#gridSize()}, which is a question about how far a settlement of
+     * that size is allowed to spread. Sizing the map from the tier is how an adopted village
+     * ends up with a 24-block grid sitting entirely inside its own market square: every cell
+     * built, nowhere to put a house, and a growth loop that can never close.
+     *
+     * <p>Always odd, so there is a centre cell for the bell to stand in.
+     */
+    public static int sizeForClaim(int claimRadiusChunks) {
+        int radiusBlocks = claimRadiusChunks * 16;
+        int radiusCells = (radiusBlocks + CELL_BLOCKS - 1) / CELL_BLOCKS;
+        return radiusCells * 2 + 1;
+    }
+
+    /**
+     * The same grid over more ground, keeping every cell already surveyed.
+     *
+     * <p>Cell coordinates are relative to the origin and the origin does not move, so growing
+     * the grid cannot invalidate what is already in it. Shrinking would, which is why this
+     * refuses to.
+     */
+    public PlotGrid grownTo(int newSize) {
+        return newSize <= size ? this : new PlotGrid(origin, newSize, cells);
+    }
+
     public static PlotGrid empty(BlockPos origin, int size) {
         return new PlotGrid(origin, size, Map.of());
     }

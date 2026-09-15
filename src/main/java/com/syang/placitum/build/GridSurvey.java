@@ -56,7 +56,11 @@ public final class GridSurvey {
      * half-surveyed grid from being read as a fully-surveyed empty one.
      */
     public static Result run(ServerLevel level, Settlement settlement) {
-        PlotGrid grid = settlement.grid();
+        // Settlements registered before the grid was sized from the claim carry a grid that
+        // covers a fraction of it. Growing here rather than in a migration keeps every cell
+        // they already have and needs no separate upgrade path.
+        PlotGrid grid = settlement.grid().grownTo(
+                PlotGrid.sizeForClaim(settlement.identity().claimRadiusChunks()));
         int radius = (grid.size() - 1) / 2;
         int maxSlope = PlacitumConfig.MAX_CELL_SLOPE.get();
         int scanHeight = PlacitumConfig.SURVEY_SCAN_HEIGHT.get();

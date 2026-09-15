@@ -107,6 +107,14 @@ data/placitum/structures/workshop/smithy_2x1.nbt
 
 `StructureTemplate`이 회전을 기본 지원하므로 4방향 회전은 공짜다. **현관이 도로를 향하도록** 회전을 선택한다.
 
+### 격자의 범위와 건축 반경은 다른 것이다
+
+`PlotGrid.size`는 **클레임 반경**에서 나온다 (`PlotGrid.sizeForClaim`). 지도는 우리가 아는 땅 전체를 덮어야 하고, 그건 주민이 몇 명인지와 무관하다.
+
+`ScaleTier.gridSize()`는 **건축 반경**이다. 부지 선정이 중심에서 그 거리 안에서만 고른다. 티어가 오르면 마을이 바깥으로 퍼진다.
+
+이 둘을 하나로 묶으면 편입된 바닐라 마을이 자기 광장 크기의 격자를 받고 영영 아무것도 못 짓는다. `docs/open-questions.md` 3번에 실측 기록이 있다.
+
 ### 부지 선정
 
 ```java
