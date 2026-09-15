@@ -134,7 +134,8 @@ public final class PlacitumEvents {
                         : r);
             }
             manager.unbind(residentId);
-            manager.put(SettlementManager.withResidents(settlement, updated));
+            manager.put(LifecycleManager.skipTimeSpentMaterialized(
+                    SettlementManager.withResidents(settlement, updated), level.getGameTime()));
             Placitum.LOGGER.debug("Wrote back {} as its entity left the level",
                     resident.lineage().fullName());
             return;
@@ -182,7 +183,7 @@ public final class PlacitumEvents {
      */
     @SubscribeEvent
     public static void onEntityJoin(EntityJoinLevelEvent event) {
-        if (event.getLevel().isClientSide()) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
         Entity entity = event.getEntity();
@@ -216,11 +217,14 @@ public final class PlacitumEvents {
             Placitum.LOGGER.debug("Rebound {} to entity {}", resident.lineage().fullName(),
                     villager.getUUID());
             if (!resident.materialized()) {
+                // Settle the absence before this resident has a body, or the modules will skip
+                // it as materialized while consumption still counts it.
+                Settlement settled = LifecycleManager.settleBeforeMaterializing(level, settlement);
                 List<Resident> updated = new ArrayList<>();
-                for (Resident r : settlement.residents()) {
+                for (Resident r : settled.residents()) {
                     updated.add(r.id().equals(residentId) ? r.withState(ResidentState.MATERIALIZED) : r);
                 }
-                manager.put(SettlementManager.withResidents(settlement, updated));
+                manager.put(SettlementManager.withResidents(settled, updated));
             }
             return;
         }

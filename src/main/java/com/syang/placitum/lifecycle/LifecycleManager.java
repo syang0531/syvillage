@@ -5,6 +5,8 @@ import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SimClock;
+import com.syang.placitum.sim.SimParams;
+import com.syang.placitum.sim.Simulation;
 import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.store.SettlementManager;
 import java.util.ArrayList;
@@ -142,6 +144,27 @@ public final class LifecycleManager {
     }
 
     /**
+     * Settles the virtual stretch before anybody gets a body.
+     *
+     * <p>Catch-up has to happen while the residents are still VIRTUAL, because the modules skip
+     * anyone who is materialized while settlement-wide consumption still counts every mouth.
+     * Settle it a moment too late and the whole absence is simulated as though nobody worked
+     * through it - the food a village earned while you were away is spent instead of banked.
+     *
+     * <p>Promote already does this. The path that did not was the quiet one: walk back and the
+     * saved villagers load from their own chunks and rebind themselves, so materializedCount is
+     * never zero, no promotion task ever starts, and the absence sits unsettled until the next
+     * command happens to trigger it - by which time everyone has a body again.
+     */
+    public static Settlement settleBeforeMaterializing(ServerLevel level, Settlement settlement) {
+        if (settlement.materializedCount() > 0) {
+            return settlement;   // the first one through already settled it
+        }
+        return Simulation.catchUp(level.getServer().overworld().getSeed(), settlement,
+                SimParams.fromConfig(), level.getGameTime());
+    }
+
+    /**
      * Moves the clock past the stretch the settlement spent with bodies.
      *
      * <p>While residents are MATERIALIZED they live as entities and the virtual modules skip
@@ -155,7 +178,7 @@ public final class LifecycleManager {
      *
      * <p>Skipped in whole steps so the remainder still carries and slice-independence holds.
      */
-    private static Settlement skipTimeSpentMaterialized(Settlement settlement, long now) {
+    public static Settlement skipTimeSpentMaterialized(Settlement settlement, long now) {
         if (settlement.materializedCount() > 0) {
             return settlement;   // someone is still up; the clock keeps its place
         }
@@ -211,7 +234,11 @@ public final class LifecycleManager {
                 updated.add(r);
             }
         }
-        return changed ? SettlementManager.withResidents(settlement, updated) : settlement;
+        if (!changed) {
+            return settlement;
+        }
+        return skipTimeSpentMaterialized(
+                SettlementManager.withResidents(settlement, updated), level.getGameTime());
     }
 
     public void forget(UUID settlementId) {
