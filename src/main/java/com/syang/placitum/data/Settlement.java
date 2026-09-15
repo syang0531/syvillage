@@ -29,8 +29,7 @@ import net.minecraft.world.level.Level;
  */
 public record Settlement(
         SettlementId identity,
-        ScaleTier scale,
-        int scaleHoldSteps,
+        ScaleState scaleState,
         List<Resident> residents,
         Map<UUID, Plot> plots,
         PlotGrid grid,
@@ -38,6 +37,7 @@ public record Settlement(
         List<BuildJob> buildQueue,
         List<BuildOp> pendingOps,
         DefenseState defense,
+        AnchorSet anchors,
         Chronicle chronicle,
         SimClock clock,
         Ruler ruler,
@@ -46,8 +46,7 @@ public record Settlement(
 
     public static final Codec<Settlement> CODEC = RecordCodecBuilder.create(i -> i.group(
             SettlementId.CODEC.fieldOf("identity").forGetter(Settlement::identity),
-            ScaleTier.CODEC.fieldOf("scale").forGetter(Settlement::scale),
-            Codec.INT.fieldOf("scale_hold_steps").forGetter(Settlement::scaleHoldSteps),
+            ScaleState.CODEC.fieldOf("scale").forGetter(Settlement::scaleState),
             Resident.CODEC.listOf().fieldOf("residents").forGetter(Settlement::residents),
             Codec.unboundedMap(UUIDUtil.STRING_CODEC, Plot.CODEC).fieldOf("plots").forGetter(Settlement::plots),
             PlotGrid.CODEC.fieldOf("grid").forGetter(Settlement::grid),
@@ -55,6 +54,7 @@ public record Settlement(
             BuildJob.CODEC.listOf().fieldOf("build_queue").forGetter(Settlement::buildQueue),
             BuildOp.CODEC.listOf().fieldOf("pending_ops").forGetter(Settlement::pendingOps),
             DefenseState.CODEC.fieldOf("defense").forGetter(Settlement::defense),
+            AnchorSet.CODEC.optionalFieldOf("anchors", AnchorSet.EMPTY).forGetter(Settlement::anchors),
             Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle),
             SimClock.CODEC.fieldOf("clock").forGetter(Settlement::clock),
             Ruler.CODEC.fieldOf("ruler").forGetter(Settlement::ruler),
@@ -94,8 +94,7 @@ public record Settlement(
         UUID headman = residents.isEmpty() ? identity.id() : residents.getFirst().id();
         return new Settlement(
                 identity,
-                ScaleTier.OUTPOST,
-                0,
+                ScaleState.OUTPOST,
                 residents,
                 Map.of(),
                 PlotGrid.empty(identity.center(), ScaleTier.OUTPOST.gridSize()),
@@ -103,6 +102,7 @@ public record Settlement(
                 List.of(),
                 List.of(),
                 DefenseState.initial(safetyWindowDays),
+                AnchorSet.EMPTY,
                 Chronicle.EMPTY,
                 clock,
                 new Ruler.Npc(headman),
@@ -110,7 +110,48 @@ public record Settlement(
                 false);
     }
 
+    // Copy helpers. Callers do not rebuild the record by hand: with fifteen components,
+    // every new field broke four call sites and each one had to remember the order.
+
+    public Settlement withResidents(List<Resident> newResidents) {
+        return new Settlement(identity, scaleState, newResidents, plots, grid, stock, buildQueue,
+                pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
+    public Settlement withClock(SimClock newClock) {
+        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
+                pendingOps, defense, anchors, chronicle, newClock, ruler, parentId, forceLoadCore);
+    }
+
+    public Settlement withPendingOps(List<BuildOp> newOps) {
+        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
+                newOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
+    public Settlement withAnchors(AnchorSet newAnchors) {
+        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
+                pendingOps, defense, newAnchors, chronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
+    public Settlement withDefense(DefenseState newDefense) {
+        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
+                pendingOps, newDefense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
+    public Settlement withIdentity(SettlementId newIdentity) {
+        return new Settlement(newIdentity, scaleState, residents, plots, grid, stock, buildQueue,
+                pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
     // Delegating accessors. s.id() is read far more often than s.identity().id().
+
+    public ScaleTier scale() {
+        return scaleState.tier();
+    }
+
+    public int scaleHoldSteps() {
+        return scaleState.holdSteps();
+    }
 
     public UUID id() {
         return identity.id();
@@ -178,11 +219,18 @@ public record Settlement(
         return stock.getOrDefault(item, 0);
     }
 
+    /**
+     * Beds available to sleep in.
+     *
+     * <p>Plots are authoritative once construction fills them; until then the anchors carry
+     * what the vanilla village already had. Without this fallback M2's carrying capacity would
+     * be zero in every settlement and no child would ever be born.
+     */
     public int bedCount() {
         int n = 0;
         for (Plot p : plots.values()) {
             n += p.bedCount();
         }
-        return n;
+        return n > 0 ? n : anchors.bedCount();
     }
 }

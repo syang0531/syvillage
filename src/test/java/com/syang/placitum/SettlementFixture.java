@@ -7,6 +7,7 @@ import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.BuildStage;
 import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.CellState;
+import com.syang.placitum.data.AnchorSet;
 import com.syang.placitum.data.Chronicle;
 import com.syang.placitum.data.ChronicleEntry;
 import com.syang.placitum.data.DefenseState;
@@ -22,6 +23,7 @@ import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.ResidentState;
 import com.syang.placitum.data.ResidentTask;
 import com.syang.placitum.data.Ruler;
+import com.syang.placitum.data.ScaleState;
 import com.syang.placitum.data.ScaleTier;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
@@ -152,8 +154,7 @@ public final class SettlementFixture {
 
         return new Settlement(
                 identity(),
-                ScaleTier.VILLAGE,
-                17,
+                new ScaleState(ScaleTier.VILLAGE, 17),
                 residents(residentCount, state),
                 plots,
                 new PlotGrid(new BlockPos(112, 68, -304), 9, cells),
@@ -161,6 +162,12 @@ public final class SettlementFixture {
                 List.of(job),
                 List.of(new BuildOp(new BlockPos(118, 69, -302), Blocks.OAK_FENCE.defaultBlockState())),
                 defense,
+                new AnchorSet(
+                        List.of(new BlockPos(110, 68, -300), new BlockPos(118, 68, -308)),
+                        List.of(new BlockPos(112, 68, -304), new BlockPos(140, 70, -280)),
+                        Optional.of(new BlockPos(112, 68, -304)),
+                        5,
+                        990_000L),
                 chronicle,
                 new SimClock(START_TICK, 4321L),
                 new Ruler.Npc(id(100)),

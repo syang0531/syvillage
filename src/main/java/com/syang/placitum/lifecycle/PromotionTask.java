@@ -109,7 +109,7 @@ public final class PromotionTask {
         if (pending.isEmpty()) {
             phase = Phase.SPAWNING;
         }
-        return withPendingOps(settlement, List.copyOf(pending));
+        return settlement.withPendingOps(List.copyOf(pending));
     }
 
     /**
@@ -182,9 +182,5 @@ public final class PromotionTask {
         }
     }
 
-    private static Settlement withPendingOps(Settlement s, List<BuildOp> ops) {
-        return new Settlement(s.identity(), s.scale(), s.scaleHoldSteps(), s.residents(), s.plots(),
-                s.grid(), s.stock(), s.buildQueue(), ops, s.defense(), s.chronicle(), s.clock(),
-                s.ruler(), s.parentId(), s.forceLoadCore());
-    }
+
 }

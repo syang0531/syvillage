@@ -191,9 +191,9 @@ public final class SettlementManager {
         return withResidents(settlement, next);
     }
 
+    /** @deprecated call {@link Settlement#withResidents} directly. */
+    @Deprecated
     public static Settlement withResidents(Settlement s, List<Resident> residents) {
-        return new Settlement(s.identity(), s.scale(), s.scaleHoldSteps(), residents, s.plots(),
-                s.grid(), s.stock(), s.buildQueue(), s.pendingOps(), s.defense(), s.chronicle(),
-                s.clock(), s.ruler(), s.parentId(), s.forceLoadCore());
+        return s.withResidents(residents);
     }
 }

@@ -79,6 +79,9 @@ class RoundTripTest {
         assertEquals(before.chronicle().entries().size(), decoded.chronicle().entries().size());
         assertEquals(before.parentId(), decoded.parentId(), "the V2 hook has to survive too");
         assertEquals(before.scaleHoldSteps(), decoded.scaleHoldSteps());
+        assertEquals(before.anchors(), decoded.anchors(),
+                "anchors are cached because POIs need loaded chunks; losing them strands M1");
+        assertEquals(before.bedCount(), decoded.bedCount());
     }
 
     @Test
@@ -103,7 +106,7 @@ class RoundTripTest {
         // Same residents, reversed. The canonical constructor must sort them back.
         java.util.List<Resident> reversed = new java.util.ArrayList<>(ordered.residents());
         java.util.Collections.reverse(reversed);
-        Settlement shuffled = SettlementManager.withResidents(ordered, reversed);
+        Settlement shuffled = ordered.withResidents(reversed);
 
         assertEquals(encode(ordered), encode(shuffled),
                 "residents must iterate in id order regardless of insertion order");
@@ -121,7 +124,7 @@ class RoundTripTest {
         assertEquals(crashed.residentCount(), recovered.residentCount(), "nobody may be dropped");
         assertTrue(recovered.residents().stream().allMatch(r -> r.state() == ResidentState.VIRTUAL));
         // Everything except the LOD flag is untouched.
-        assertEquals(encode(SettlementManager.withResidents(crashed,
+        assertEquals(encode(crashed.withResidents(
                         crashed.residents().stream().map(r -> r.withState(ResidentState.VIRTUAL)).toList())),
                 encode(recovered));
     }

@@ -12,7 +12,8 @@ import com.syang.placitum.data.Plot;
 import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Ruler;
-import com.syang.placitum.data.ScaleTier;
+import com.syang.placitum.data.AnchorSet;
+import com.syang.placitum.data.ScaleState;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.data.SimClock;
@@ -34,8 +35,7 @@ import net.minecraft.world.item.Item;
 public final class SettlementMut {
 
     public SettlementId identity;
-    public ScaleTier scale;
-    public int scaleHoldSteps;
+    public ScaleState scaleState;
     public final List<Resident> residents;
     public final Map<UUID, Plot> plots;
     public PlotGrid grid;
@@ -43,6 +43,7 @@ public final class SettlementMut {
     public final List<BuildJob> buildQueue;
     public final List<BuildOp> pendingOps;
     public DefenseState defense;
+    public AnchorSet anchors;
     public SimClock clock;
     public Ruler ruler;
     public Optional<UUID> parentId;
@@ -55,8 +56,7 @@ public final class SettlementMut {
 
     private SettlementMut(Settlement s) {
         this.identity = s.identity();
-        this.scale = s.scale();
-        this.scaleHoldSteps = s.scaleHoldSteps();
+        this.scaleState = s.scaleState();
         this.residents = new ArrayList<>(s.residents());
         this.plots = new LinkedHashMap<>(s.plots());
         this.grid = s.grid();
@@ -64,6 +64,7 @@ public final class SettlementMut {
         this.buildQueue = new ArrayList<>(s.buildQueue());
         this.pendingOps = new ArrayList<>(s.pendingOps());
         this.defense = s.defense();
+        this.anchors = s.anchors();
         this.clock = s.clock();
         this.ruler = s.ruler();
         this.parentId = s.parentId();
@@ -84,9 +85,9 @@ public final class SettlementMut {
         chronicle = out;
         // The canonical constructor re-sorts residents, plots and stock, so iteration order is
         // restored even if a module appended in arbitrary order.
-        return new Settlement(identity, scale, scaleHoldSteps, residents, plots, grid,
-                PlacitumCodecs.sortItems(stock), buildQueue, pendingOps, defense, out, clock,
-                ruler, parentId, forceLoadCore);
+        return new Settlement(identity, scaleState, residents, plots, grid,
+                PlacitumCodecs.sortItems(stock), buildQueue, pendingOps, defense, anchors, out,
+                clock, ruler, parentId, forceLoadCore);
     }
 
     public UUID id() {

@@ -1,6 +1,8 @@
 package com.syang.placitum.lifecycle;
 
 import com.syang.placitum.Placitum;
+import com.syang.placitum.defense.Curfew;
+import com.syang.placitum.settlement.AnchorScan;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
@@ -75,6 +77,10 @@ public final class LifecycleManager {
         long now = level.getGameTime();
         UUID id = settlement.id();
 
+        if (settlement.materializedCount() > 0) {
+            settlement = defenceTick(level, manager, settlement);
+        }
+
         PromotionTask task = promoting.get(id);
         if (task != null) {
             Settlement next = task.advance(level, manager, settlement, now, deadline);
@@ -111,6 +117,26 @@ public final class LifecycleManager {
         } else if (nearest <= demoteRadius) {
             pendingDemote.remove(id);
         }
+    }
+
+    /**
+     * Everything that only makes sense while a settlement has bodies.
+     *
+     * <p>Anchors are re-scanned here, not during simulation: finding beds means reading POIs,
+     * and POIs need loaded chunks. This is the one place where chunks are guaranteed loaded.
+     */
+    private Settlement defenceTick(ServerLevel level, SettlementManager manager, Settlement settlement) {
+        long now = level.getGameTime();
+        Settlement out = settlement;
+
+        if (out.anchors().staleAt(now, PlacitumConfig.ANCHOR_REFRESH_TICKS.get())) {
+            out = out.withAnchors(AnchorScan.scan(level, out));
+            manager.put(out);
+        }
+        if (now % 20L == 0L) {
+            Curfew.enforce(level, manager, out);
+        }
+        return out;
     }
 
     /**
@@ -190,13 +216,7 @@ public final class LifecycleManager {
         }
         Placitum.LOGGER.debug("Skipping {} tick(s) spent materialized in '{}'", whole,
                 settlement.name());
-        return withClock(settlement, settlement.clock().skipped(whole));
-    }
-
-    private static Settlement withClock(Settlement s, SimClock clock) {
-        return new Settlement(s.identity(), s.scale(), s.scaleHoldSteps(), s.residents(), s.plots(),
-                s.grid(), s.stock(), s.buildQueue(), s.pendingOps(), s.defense(), s.chronicle(),
-                clock, s.ruler(), s.parentId(), s.forceLoadCore());
+        return settlement.withClock(settlement.clock().skipped(whole));
     }
 
     /**

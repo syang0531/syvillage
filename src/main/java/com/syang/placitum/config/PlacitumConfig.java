@@ -36,6 +36,15 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.LongValue MAX_CATCHUP_TICKS;
     public static final ModConfigSpec.LongValue TICK_BUDGET_NANOS;
 
+    // [defense]
+    public static final ModConfigSpec.IntValue CURFEW_LEAD_TICKS;
+    public static final ModConfigSpec.IntValue ALERT_COOLDOWN_TICKS;
+    public static final ModConfigSpec.IntValue WATCH_RADIUS;
+    public static final ModConfigSpec.IntValue WATCH_INTERVAL_TICKS;
+    public static final ModConfigSpec.IntValue MAX_WATCH_POINTS;
+    public static final ModConfigSpec.IntValue ANCHOR_REFRESH_TICKS;
+    public static final ModConfigSpec.DoubleValue CURFEW_WALK_SPEED;
+
     // [population]
     public static final ModConfigSpec.IntValue CONSUMPTION_PER_HEAD;
     public static final ModConfigSpec.IntValue YIELD_RATE;
@@ -70,6 +79,27 @@ public final class PlacitumConfig {
                 .defineInRange("maxCatchupTicks", 72000L, 1200L, 1728000L);
         TICK_BUDGET_NANOS = b.comment("Simulation work allowed per server tick. 500000 = 0.5ms.")
                 .defineInRange("tickBudgetNanos", 500000L, 50000L, 20000000L);
+        b.pop();
+
+        b.comment("Keeping villagers alive. See docs/defense.md.").push("defense");
+        CURFEW_LEAD_TICKS = b.comment("How long before dusk residents start heading home.",
+                        "1200 = one minute. Vanilla leaves this far too late, which is how",
+                        "villagers end up locked outside with the mobs.")
+                .defineInRange("curfewLeadTicks", 1200, 0, 12000);
+        ALERT_COOLDOWN_TICKS = b.comment("Quiet time needed before the alarm steps back down.")
+                .defineInRange("alertCooldownTicks", 1200, 0, 24000);
+        WATCH_RADIUS = b.comment("How far a watch point can see.")
+                .defineInRange("watchRadius", 32, 8, 128);
+        WATCH_INTERVAL_TICKS = b.comment("Ticks between threat scans.")
+                .defineInRange("watchIntervalTicks", 20, 1, 200);
+        MAX_WATCH_POINTS = b.comment("Cap on watch points per settlement. Detection cost scales",
+                        "with this number, never with the size of the claim.")
+                .defineInRange("maxWatchPoints", 6, 1, 32);
+        ANCHOR_REFRESH_TICKS = b.comment("How often to re-scan shelters and watch points while a",
+                        "settlement has bodies. 6000 = five minutes.")
+                .defineInRange("anchorRefreshTicks", 6000, 200, 72000);
+        CURFEW_WALK_SPEED = b.comment("Walk speed modifier when heading home under curfew.")
+                .defineInRange("curfewWalkSpeed", 0.6D, 0.1D, 2.0D);
         b.pop();
 
         b.comment("Population and food.").push("population");
