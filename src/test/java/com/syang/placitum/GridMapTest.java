@@ -1,9 +1,11 @@
 package com.syang.placitum;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.placitum.build.GridMap;
+import com.syang.placitum.build.GridSurvey;
 import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.CellState;
 import com.syang.placitum.data.PlotGrid;
@@ -50,6 +52,33 @@ class GridMapTest {
         cells.put(new CellPos(1, 1), CellState.BLOCKED);
         return SettlementFixture.standard()
                 .withGrid(new PlotGrid(new BlockPos(0, 64, 0), 3, cells));
+    }
+
+    @Test
+    @DisplayName("the survey may overturn its own verdict, never the player one")
+    void onlyThePlayerVetoIsFrozen() {
+        assertTrue(GridSurvey.isFrozen(CellState.FORBIDDEN),
+                "a cell the player forbade must outlive every later survey");
+        assertFalse(GridSurvey.isFrozen(CellState.BLOCKED),
+                "BLOCKED is the survey own verdict: freezing it means a cell rejected once for"
+                        + " a tree stays rejected after the tree, and after the bug, are gone");
+        assertFalse(GridSurvey.isFrozen(CellState.FREE));
+        assertFalse(GridSurvey.isFrozen(CellState.BUILT));
+        assertFalse(GridSurvey.isFrozen(CellState.ROAD));
+    }
+
+    @Test
+    @DisplayName("a forbidden cell is drawn and counted apart from a blocked one")
+    void forbiddenIsReportedSeparately() {
+        Map<CellPos, CellState> cells = new LinkedHashMap<>();
+        cells.put(new CellPos(-1, -1), CellState.BLOCKED);
+        cells.put(new CellPos(1, 1), CellState.FORBIDDEN);
+        String text = render(SettlementFixture.standard()
+                .withGrid(new PlotGrid(new BlockPos(0, 64, 0), 3, cells)));
+
+        assertTrue(text.contains("1 blocked") && text.contains("1 forbidden"),
+                "two different decisions need two different counts: " + text);
+        assertTrue(text.contains("!"), "the map has to show which is which: " + text);
     }
 
     @Test

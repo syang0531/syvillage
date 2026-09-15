@@ -752,11 +752,13 @@ public final class PlacitumCommand {
      * already been taught what log spam costs.
      */
     private static void reportBlocking(CommandSourceStack source, GridSurvey.Result result) {
-        if (result.blockedWet() + result.blockedSlope() == 0) {
+        if (result.blockedWet() + result.blockedSlope() + result.forbidden() == 0) {
             return;
         }
         source.sendSuccess(() -> Component.literal("  blocked by water " + result.blockedWet()
-                + ", by slope " + result.blockedSlope()), false);
+                + ", by slope " + result.blockedSlope()
+                + (result.forbidden() > 0
+                        ? "   (" + result.forbidden() + " forbidden, left alone)" : "")), false);
 
         int current = PlacitumConfig.MAX_CELL_SLOPE.get();
         StringBuilder ladder = new StringBuilder("  free at maxCellSlope");
@@ -796,7 +798,7 @@ public final class PlacitumCommand {
         // it on the next pass, and guessing here would mean keeping a second history to be
         // wrong about.
         manager.put(settlement.withGrid(settlement.grid().with(cell,
-                block ? CellState.BLOCKED : CellState.FREE)));
+                block ? CellState.FORBIDDEN : CellState.FREE)));
         source.sendSuccess(() -> Component.literal((block ? "Blocked " : "Unblocked ")
                 + cell.toKey() + " - world position "
                 + settlement.grid().blockAt(cell).toShortString()), false);

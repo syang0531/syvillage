@@ -51,8 +51,8 @@ public final class GridSurvey {
      * surveyed - what the free count would have been at each threshold. maxCellSlope is a config
      * number, and this is how it gets chosen from evidence rather than taste.
      */
-    public record Result(PlotGrid grid, int scanned, int skipped, int blockedWet,
-            int blockedSlope, int[] freeAtSlope) {
+    public record Result(PlotGrid grid, int scanned, int skipped, int forbidden,
+            int blockedWet, int blockedSlope, int[] freeAtSlope) {
 
         public boolean complete() {
             return skipped == 0;
@@ -82,6 +82,7 @@ public final class GridSurvey {
         Map<CellPos, CellState> cells = new LinkedHashMap<>(grid.cells());
         int scanned = 0;
         int skipped = 0;
+        int skippedForbidden = 0;
         int blockedWet = 0;
         int blockedSlope = 0;
         int[] freeAtSlope = new int[SLOPE_LADDER.length];
@@ -97,11 +98,16 @@ public final class GridSurvey {
                     skipped++;
                     continue;
                 }
-                // A cell the player has marked stays marked. Manual blocking is the escape
-                // hatch for everything this heuristic gets wrong, so the survey must not
-                // silently undo it on the next refresh.
-                if (grid.stateAt(cell) == CellState.BLOCKED) {
-                    scanned++;
+                // A cell the player has forbidden stays forbidden. That is the escape hatch
+                // for everything this heuristic gets wrong, and an override the next refresh
+                // undoes is not one.
+                //
+                // Only FORBIDDEN, never BLOCKED. BLOCKED is this survey's own verdict and has
+                // to be re-winnable: skipping it made the second survey of a village silently
+                // re-report the first, identical down to the character, while claiming to have
+                // scanned 441 cells.
+                if (isFrozen(grid.stateAt(cell))) {
+                    skippedForbidden++;
                     continue;
                 }
                 Reading read = read(level, nw, scanHeight);
@@ -129,7 +135,21 @@ public final class GridSurvey {
                 surveyed.countOf(CellState.FREE), surveyed.countOf(CellState.BUILT),
                 surveyed.countOf(CellState.ROAD), surveyed.countOf(CellState.BLOCKED),
                 scanned, skipped);
-        return new Result(surveyed, scanned, skipped, blockedWet, blockedSlope, freeAtSlope);
+        return new Result(surveyed, scanned, skipped, skippedForbidden, blockedWet,
+                blockedSlope, freeAtSlope);
+    }
+
+    /**
+     * Whether a cell is the survey to leave alone.
+     *
+     * <p>Exactly one state qualifies, and the reason it is a named function rather than an
+     * inline comparison is that getting it wrong is invisible. When this also covered BLOCKED,
+     * a second survey re-reported the first one character for character while claiming to have
+     * scanned every cell - the output of a survey that skipped a third of the grid looks
+     * precisely like the output of one that did not.
+     */
+    public static boolean isFrozen(CellState state) {
+        return state == CellState.FORBIDDEN;
     }
 
     /**

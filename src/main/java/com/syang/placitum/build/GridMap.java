@@ -51,7 +51,8 @@ public final class GridMap {
         }
 
         lines.add(tally(grid));
-        lines.add(Component.literal("  . free   # built   = road   x blocked   o reserved")
+        lines.add(Component.literal(
+                        "  . free   # built   = road   x blocked   ! forbidden   o reserved")
                 .withStyle(ChatFormatting.DARK_GRAY));
         return lines;
     }
@@ -72,6 +73,8 @@ public final class GridMap {
         String text = "  " + free + " free, " + grid.countOf(CellState.BUILT) + " built, "
                 + grid.countOf(CellState.ROAD) + " road, "
                 + grid.countOf(CellState.BLOCKED) + " blocked"
+                + (grid.countOf(CellState.FORBIDDEN) > 0
+                        ? ", " + grid.countOf(CellState.FORBIDDEN) + " forbidden" : "")
                 + (unknown > 0 ? ", " + unknown + " never surveyed" : "")
                 + String.format(java.util.Locale.ROOT, "  (%.0f%% free)",
                         100.0 * free / Math.max(1, total));
@@ -86,6 +89,7 @@ public final class GridMap {
             case RESERVED -> "o";
             case BUILT -> "#";
             case BLOCKED -> "x";
+            case FORBIDDEN -> "!";
         };
     }
 
@@ -96,6 +100,7 @@ public final class GridMap {
             case RESERVED -> ChatFormatting.YELLOW;
             case BUILT -> ChatFormatting.GOLD;
             case BLOCKED -> ChatFormatting.RED;
+            case FORBIDDEN -> ChatFormatting.LIGHT_PURPLE;
         };
     }
 }
