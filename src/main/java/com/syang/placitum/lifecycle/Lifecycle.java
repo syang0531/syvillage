@@ -8,23 +8,19 @@ import com.syang.placitum.data.Vitals;
 import com.syang.placitum.registry.ModAttachments;
 import com.syang.placitum.settlement.ProfessionMap;
 import com.syang.placitum.store.SettlementManager;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.GlobalPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.npc.villager.Villager;
-import net.minecraft.world.entity.npc.villager.VillagerData;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.Identifier;
-import java.util.UUID;
-import net.minecraft.world.item.trading.MerchantOffers;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.TagValueOutput;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -33,6 +29,15 @@ import org.jspecify.annotations.Nullable;
  * <p>Data flows one way at a time: record to entity on promote, entity to record on demote.
  * There is deliberately no continuous synchronisation - that is how the two copies start
  * disagreeing.
+ *
+ * <p>The entity half of the trip uses vanilla's own serialization rather than copying fields
+ * by hand. That decision was made the expensive way. Hand-copying started with health and
+ * trades, then needed VillagerData, then the job site and XP, and each round of testing found
+ * another thing vanilla owned that we had dropped - a villager whose profession vanished, then
+ * whose trades vanished, then who was fired by vanilla seconds after arriving because the job
+ * site memory was missing. A vanilla villager is not a handful of fields; it is a brain full of
+ * memories, POI claims, gossip and inventory, and reproducing it by hand is re-implementing
+ * chunk loading badly. Chunk unload and reload is exactly this operation, so we do what it does.
  */
 public final class Lifecycle {
 
@@ -46,11 +51,8 @@ public final class Lifecycle {
     public static Resident promote(ServerLevel level, SettlementManager manager, Resident resident) {
         UUID bound = manager.entityOf(resident.id());
         if (bound != null && level.getEntity(bound) != null) {
-            // This resident already has a body. An entity carrying its id loaded from its own
-            // chunk while the promotion was still in flight, so spawning now would leave two
-            // identical villagers standing next to each other with one record between them.
-            Placitum.LOGGER.debug("{} already has entity {}; not spawning a second",
-                    resident.lineage().fullName(), bound);
+            // Already has a body, from an entity that loaded with its chunk while the promotion
+            // was in flight. A second spawn would leave two villagers sharing one record.
             return resident.withState(ResidentState.MATERIALIZED);
         }
 
@@ -58,24 +60,55 @@ public final class Lifecycle {
         if (!level.isPositionEntityTicking(pos)) {
             return resident;   // held back; the promotion task retries next pass
         }
-        Villager villager = EntityTypes.VILLAGER.create(level, EntitySpawnReason.LOAD);
+
+        Villager villager = restore(level, resident);
         if (villager == null) {
-            Placitum.LOGGER.warn("Could not create a villager for resident {}", resident.id());
             return resident;
         }
 
-        villager.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.0F, 0.0F);
+        // Our fields win over the restored copy: the record is the source of truth for anything
+        // the simulation owns, and the snapshot may be days stale in those places.
+        villager.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, villager.getYRot(), 0.0F);
         villager.setData(ModAttachments.RESIDENT_ID, resident.id());
         villager.setCustomName(Component.literal(resident.lineage().fullName()));
         villager.setCustomNameVisible(false);
         villager.setHealth(Math.max(1, resident.vitals().health()));
-        applyVanillaState(level, villager, resident.vanillaState());
 
         level.addFreshEntity(villager);
         manager.bind(resident.id(), villager.getUUID());
         Placitum.LOGGER.debug("Promoted {} ({}) at {}", resident.lineage().fullName(),
                 resident.id(), pos.toShortString());
         return resident.withState(ResidentState.MATERIALIZED);
+    }
+
+    /**
+     * Rebuilds the villager from its saved NBT, or makes a fresh one if there is none.
+     *
+     * <p>A blank villager is only correct for a resident who has never been materialized. Every
+     * other path has a snapshot, and using a blank one there is what silently destroys
+     * professions, trades and job sites.
+     */
+    private static @Nullable Villager restore(ServerLevel level, Resident resident) {
+        CompoundTag saved = resident.vanillaState();
+        if (!saved.isEmpty()) {
+            try (ProblemReporter.ScopedCollector reporter =
+                         new ProblemReporter.ScopedCollector(Placitum.LOGGER)) {
+                Entity loaded = EntityTypes.VILLAGER.create(level,
+                        EntitySpawnReason.LOAD);
+                if (loaded instanceof Villager villager) {
+                    villager.load(TagValueInput.create(reporter, level.registryAccess(), saved));
+                    return villager;
+                }
+            } catch (Exception e) {
+                Placitum.LOGGER.warn("Could not restore the saved villager for {}; "
+                        + "falling back to a fresh one", resident.id(), e);
+            }
+        }
+        Villager fresh = EntityTypes.VILLAGER.create(level, EntitySpawnReason.LOAD);
+        if (fresh == null) {
+            Placitum.LOGGER.warn("Could not create a villager for resident {}", resident.id());
+        }
+        return fresh;
     }
 
     /**
@@ -106,7 +139,7 @@ public final class Lifecycle {
                 .withVitals(vitals)
                 .withCoarsePos(villager.blockPosition())
                 .withAssignment(refreshJob(resident, villager))
-                .withVanillaState(writeVanillaState(level, villager));
+                .withVanillaState(writeVanillaState(villager));
     }
 
     /**
@@ -131,80 +164,21 @@ public final class Lifecycle {
     }
 
     /**
-     * Copies out everything vanilla owns about this villager.
+     * The villager exactly as vanilla would write it to a chunk.
      *
-     * <p>Promote builds a brand new entity, so whatever is not captured here is destroyed on
-     * every round trip. Trades were the obvious one; VillagerData is the one that bit us -
-     * without it a farmer came back unemployed, and since the write-back re-reads the
-     * profession, the settlement quietly lost a farmer every time the player left.
-     *
-     * <p>Encoding here and decoding in {@link #applyVanillaState} is the whole of the exception
-     * to principle 1. Nothing else unpacks this tag, so it cannot drift out of agreement with
-     * anything.
+     * <p>This is the single exception to principle 1, and it is opaque on purpose: the
+     * simulation never opens it. Storing everything is what makes it safe - there is no list of
+     * fields to keep in sync and therefore no field to forget.
      */
-    public static CompoundTag writeVanillaState(ServerLevel level, Villager villager) {
-        RegistryOps<Tag> ops = level.registryAccess().createSerializationContext(NbtOps.INSTANCE);
-        CompoundTag out = new CompoundTag();
-
-        MerchantOffers offers = villager.getOffers();
-        if (!offers.isEmpty()) {
-            MerchantOffers.CODEC.encodeStart(ops, offers)
-                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not store trades: {}", error))
-                    .ifPresent(tag -> out.put("offers", tag));
-        }
-        VillagerData.CODEC.encodeStart(ops, villager.getVillagerData())
-                .resultOrPartial(error -> Placitum.LOGGER.warn("Could not store villager data: {}", error))
-                .ifPresent(tag -> out.put("villager_data", tag));
-        out.putInt("villager_xp", villager.getVillagerXp());
-
-        // The job site is what makes a profession stick. Without it vanilla's ResetProfession
-        // fires the villager within seconds of promote - see applyVanillaState.
-        villager.getBrain().getMemory(MemoryModuleType.JOB_SITE).ifPresent(site ->
-                GlobalPos.CODEC.encodeStart(ops, site)
-                        .resultOrPartial(error -> Placitum.LOGGER.warn("Could not store job site: {}", error))
-                        .ifPresent(tag -> out.put("job_site", tag)));
-        return out;
-    }
-
-    /**
-     * Puts the villager back the way vanilla had it.
-     *
-     * <p>Order matters. {@code setVillagerData} clears the trade list whenever the profession
-     * changes, so restoring trades first and the profession second destroys the trades we just
-     * restored. Profession goes first.
-     *
-     * <p>The job site matters just as much. Vanilla's ResetProfession behaviour fires any
-     * villager that has no JOB_SITE memory, zero XP and level 1 - which is exactly what a
-     * freshly built entity looks like. Restoring the profession alone buys a few seconds before
-     * vanilla takes it away again, and since demote re-reads the profession, the settlement
-     * would record the firing as fact and lose the job for good.
-     */
-    public static void applyVanillaState(ServerLevel level, Villager villager, CompoundTag tag) {
-        if (tag.isEmpty()) {
-            return;
-        }
-        RegistryOps<Tag> ops = level.registryAccess().createSerializationContext(NbtOps.INSTANCE);
-
-        Tag data = tag.get("villager_data");
-        if (data != null) {
-            VillagerData.CODEC.parse(ops, data)
-                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore villager data: {}", error))
-                    .ifPresent(villager::setVillagerData);
-        }
-        villager.setVillagerXp(tag.getIntOr("villager_xp", 0));
-
-        Tag site = tag.get("job_site");
-        if (site != null) {
-            GlobalPos.CODEC.parse(ops, site)
-                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore job site: {}", error))
-                    .ifPresent(pos -> villager.getBrain().setMemory(MemoryModuleType.JOB_SITE, pos));
-        }
-
-        Tag offers = tag.get("offers");
-        if (offers != null) {
-            MerchantOffers.CODEC.parse(ops, offers)
-                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore trades: {}", error))
-                    .ifPresent(villager::setOffers);
+    public static CompoundTag writeVanillaState(Villager villager) {
+        try (ProblemReporter.ScopedCollector reporter =
+                     new ProblemReporter.ScopedCollector(Placitum.LOGGER)) {
+            TagValueOutput out = TagValueOutput.createWithContext(reporter, villager.registryAccess());
+            villager.saveWithoutId(out);
+            return out.buildResult();
+        } catch (Exception e) {
+            Placitum.LOGGER.warn("Could not snapshot villager for later restore", e);
+            return new CompoundTag();
         }
     }
 

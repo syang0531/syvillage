@@ -130,7 +130,7 @@ public final class Registration {
                     ResidentTask.IDLE,
                     villager.blockPosition(),
                     ResidentState.MATERIALIZED,
-                    com.syang.placitum.lifecycle.Lifecycle.writeVanillaState(level, villager));
+                    com.syang.placitum.lifecycle.Lifecycle.writeVanillaState(villager));
 
             villager.setData(ModAttachments.RESIDENT_ID, residentId);
             manager.bind(residentId, villager.getUUID());
