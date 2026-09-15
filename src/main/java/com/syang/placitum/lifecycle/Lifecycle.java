@@ -20,6 +20,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.Identifier;
+import java.util.UUID;
 import net.minecraft.world.item.trading.MerchantOffers;
 import org.jspecify.annotations.Nullable;
 
@@ -40,6 +41,16 @@ public final class Lifecycle {
      * @return the updated resident, or the original if the position is not entity-ticking yet
      */
     public static Resident promote(ServerLevel level, SettlementManager manager, Resident resident) {
+        UUID bound = manager.entityOf(resident.id());
+        if (bound != null && level.getEntity(bound) != null) {
+            // This resident already has a body. An entity carrying its id loaded from its own
+            // chunk while the promotion was still in flight, so spawning now would leave two
+            // identical villagers standing next to each other with one record between them.
+            Placitum.LOGGER.debug("{} already has entity {}; not spawning a second",
+                    resident.lineage().fullName(), bound);
+            return resident.withState(ResidentState.MATERIALIZED);
+        }
+
         BlockPos pos = resident.coarsePos();
         if (!level.isPositionEntityTicking(pos)) {
             return resident;   // held back; the promotion task retries next pass
@@ -145,7 +156,7 @@ public final class Lifecycle {
     }
 
     public static @Nullable Entity findEntity(ServerLevel level, SettlementManager manager, Resident resident) {
-        java.util.UUID entityId = manager.entityOf(resident.id());
+        UUID entityId = manager.entityOf(resident.id());
         return entityId == null ? null : level.getEntity(entityId);
     }
 }
