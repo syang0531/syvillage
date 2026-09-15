@@ -56,7 +56,8 @@ public record Resident(
             ResidentTask.CODEC.fieldOf("task").forGetter(Resident::task),
             BlockPos.CODEC.fieldOf("coarse_pos").forGetter(Resident::coarsePos),
             ResidentState.CODEC.fieldOf("state").forGetter(Resident::state),
-            CompoundTag.CODEC.fieldOf("vanilla_state").forGetter(Resident::vanillaState)
+            CompoundTag.CODEC.optionalFieldOf("vanilla_state", new CompoundTag())
+                    .forGetter(Resident::vanillaState)
     ).apply(i, Resident::new));
 
     public Resident withState(ResidentState newState) {

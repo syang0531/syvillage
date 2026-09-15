@@ -1,5 +1,9 @@
 package com.syang.placitum.store;
 
+import com.mojang.datafixers.util.Pair;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
 import com.syang.placitum.Placitum;
 import com.syang.placitum.data.Settlement;
 import java.util.UUID;
@@ -29,7 +33,47 @@ public class SettlementData extends SavedData {
         return new SavedDataType<>(
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "village_" + id.toString().replace('-', '_')),
                 SettlementData::new,
-                Settlement.CODEC.xmap(SettlementData::new, SettlementData::settlementOrThrow));
+                strictCodec(id));
+    }
+
+    /**
+     * Refuses a partially decoded settlement.
+     *
+     * <p>{@code SavedDataStorage} reads with {@code resultOrPartial}, so a codec error does not
+     * stop the load - it logs and hands back whatever decoded. DataFixerUpper's list codec drops
+     * the elements it could not read, so one bad field on {@code Resident} silently returns a
+     * settlement with an empty roster. Load it, touch it once, and the next save writes that
+     * emptiness over the real file.
+     *
+     * <p>That happened during M0 testing: a field rename evaporated three residents, with their
+     * names, trades and history, behind a single ERROR line. "Everyone is gone and nobody knows
+     * why" is the exact failure this mod exists to end, so it may not be how the mod itself
+     * fails.
+     *
+     * <p>Returning an error with no partial value makes the storage layer hand back null. The
+     * file on disk is then left untouched and stays recoverable once the codec is fixed.
+     */
+    private static Codec<SettlementData> strictCodec(UUID id) {
+        return new Codec<>() {
+            @Override
+            public <T> DataResult<Pair<SettlementData, T>> decode(DynamicOps<T> ops, T input) {
+                DataResult<Pair<Settlement, T>> parsed = Settlement.CODEC.decode(ops, input);
+                if (parsed.isError()) {
+                    String message = parsed.error().map(DataResult.Error::message).orElse("unknown");
+                    Placitum.LOGGER.error(
+                            "Settlement {} did not decode cleanly and will NOT be loaded. The file is "
+                                    + "left untouched, so fixing the codec recovers it. Cause: {}",
+                            id, message);
+                    return DataResult.error(() -> "Refusing a partially decoded settlement: " + message);
+                }
+                return parsed.map(pair -> pair.mapFirst(SettlementData::new));
+            }
+
+            @Override
+            public <T> DataResult<T> encode(SettlementData input, DynamicOps<T> ops, T prefix) {
+                return Settlement.CODEC.encode(input.settlementOrThrow(), ops, prefix);
+            }
+        };
     }
 
     public @Nullable Settlement settlement() {

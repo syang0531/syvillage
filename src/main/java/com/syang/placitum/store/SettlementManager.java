@@ -88,7 +88,11 @@ public final class SettlementManager {
         SettlementData data = storage(server).computeIfAbsent(SettlementData.typeFor(id));
         Settlement settlement = data.settlement();
         if (settlement == null) {
-            Placitum.LOGGER.warn("Settlement {} is in the index but its data file is empty", id);
+            // Either genuinely empty or refused by the strict codec. Either way it stays out of
+            // memory: a settlement that cannot be read is not the same as a settlement that is
+            // empty, and treating them alike is how the file gets overwritten with nothing.
+            Placitum.LOGGER.error("Settlement {} is indexed but could not be read. It will be "
+                    + "skipped until this is fixed; the file has not been modified.", shortId(id));
             return Optional.empty();
         }
         loaded.put(id, settlement);
