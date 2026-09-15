@@ -6,6 +6,8 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.syang.placitum.data.Assignment;
 import com.syang.placitum.data.AlertState;
+import com.syang.placitum.data.ChronicleEntry;
+import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SimClock;
@@ -115,6 +117,15 @@ public final class PlacitumCommand {
                                                 StringArgumentType.getString(ctx, "id"),
                                                 ItemArgument.getItem(ctx, "item").item().value(),
                                                 IntegerArgumentType.getInteger(ctx, "count")))))));
+
+        root.then(Commands.literal("chronicle")
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .executes(ctx -> chronicle(ctx.getSource(),
+                                StringArgumentType.getString(ctx, "id"), 10))
+                        .then(Commands.argument("lines", IntegerArgumentType.integer(1, 200))
+                                .executes(ctx -> chronicle(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id"),
+                                        IntegerArgumentType.getInteger(ctx, "lines"))))));
 
         root.then(Commands.literal("resident")
                 .then(Commands.literal("list")
@@ -297,6 +308,58 @@ public final class PlacitumCommand {
         source.sendSuccess(() -> Component.literal(next.name() + " stores: " + name + " "
                 + next.stockOf(item) + " (" + (count >= 0 ? "+" : "") + count + ")"), true);
         return next.stockOf(item);
+    }
+
+    /**
+     * The settlement's history, most recent last.
+     *
+     * <p>The whole argument of this mod is that a death nobody can account for is worse than
+     * the death. Recording causes and giving no way to read them would be the same failure
+     * wearing a tidier face. The bell UI in M2 shows this; until then it is a command.
+     */
+    private static int chronicle(CommandSourceStack source, String rawId, int lines) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        List<ChronicleEntry> entries = settlement.chronicle().recent(lines);
+        if (entries.isEmpty()) {
+            source.sendSuccess(() -> Component.literal(settlement.name()
+                    + " has no history yet"), false);
+            return 0;
+        }
+        long now = source.getServer().overworld().getGameTime();
+        source.sendSuccess(() -> Component.literal(settlement.name() + " - last "
+                + entries.size() + " entries").withStyle(ChatFormatting.GOLD), false);
+        for (ChronicleEntry entry : entries) {
+            source.sendSuccess(() -> Component.literal("  " + ago(now, entry.gameTime()) + "  "
+                    + entry.type() + "  " + entry.subject()
+                    + (entry.detail().isEmpty() ? "" : " - " + entry.detail()))
+                    .withStyle(styleFor(entry.type())), false);
+        }
+        return entries.size();
+    }
+
+    /** Ages read better than raw tick counts when the question is "what happened here". */
+    private static String ago(long now, long then) {
+        long ticks = Math.max(0, now - then);
+        long days = ticks / 24000L;
+        if (days > 0) {
+            return days + "d ago";
+        }
+        long minutes = ticks / 1200L;
+        return minutes > 0 ? minutes + "m ago" : "just now";
+    }
+
+    private static ChatFormatting styleFor(EntryType type) {
+        return switch (type) {
+            case DEATH, RAID_LOST, FAMINE, ZOMBIFIED -> ChatFormatting.RED;
+            case BIRTH, RAID_REPELLED, CURED, SCALE_UP -> ChatFormatting.GREEN;
+            case SCALE_DOWN -> ChatFormatting.YELLOW;
+            default -> ChatFormatting.GRAY;
+        };
     }
 
     private static int alert(CommandSourceStack source, String rawId, String rawState) {
