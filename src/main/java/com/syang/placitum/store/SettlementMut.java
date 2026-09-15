@@ -65,6 +65,8 @@ public final class SettlementMut {
         this.pendingOps = new ArrayList<>(s.pendingOps());
         this.defense = s.defense();
         this.anchors = s.anchors();
+        this.famineSteps = s.defense().famineSteps();
+        this.foodWarned = s.defense().foodWarned();
         this.clock = s.clock();
         this.ruler = s.ruler();
         this.parentId = s.parentId();
@@ -85,8 +87,10 @@ public final class SettlementMut {
         chronicle = out;
         // The canonical constructor re-sorts residents, plots and stock, so iteration order is
         // restored even if a module appended in arbitrary order.
+        DefenseState defenseOut = new DefenseState(defense.alert(), defense.alertSince(),
+                defense.wall(), defense.lightingScore(), defense.recentCasualties(), famineSteps, foodWarned);
         return new Settlement(identity, scaleState, residents, plots, grid,
-                PlacitumCodecs.sortItems(stock), buildQueue, pendingOps, defense, anchors, out,
+                PlacitumCodecs.sortItems(stock), buildQueue, pendingOps, defenseOut, anchors, out,
                 clock, ruler, parentId, forceLoadCore);
     }
 
@@ -101,6 +105,16 @@ public final class SettlementMut {
     public long lastSimTick() {
         return clock.lastSimTick();
     }
+
+    /** Steps the stores have been empty. Mirrors DefenseState so modules can just count. */
+    public int famineSteps;
+
+    /**
+     * Whether the low-food warning is currently standing.
+     *
+     * <p>Saved, not transient - see DefenseState for the argument.
+     */
+    public boolean foodWarned;
 
     public AlertState alert() {
         return defense.alert();

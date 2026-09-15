@@ -18,6 +18,8 @@ import com.syang.placitum.defense.DefenseRating;
 import com.syang.placitum.defense.RaidResolver;
 import com.syang.placitum.event.PlacitumEvents;
 import com.syang.placitum.lifecycle.LifecycleManager;
+import com.syang.placitum.population.Capacity;
+import com.syang.placitum.population.Demographics;
 import com.syang.placitum.settlement.PoiRepair;
 import com.syang.placitum.settlement.Registration;
 import com.syang.placitum.config.PlacitumConfig;
@@ -119,6 +121,12 @@ public final class PlacitumCommand {
                                                 StringArgumentType.getString(ctx, "id"),
                                                 ItemArgument.getItem(ctx, "item").item().value(),
                                                 IntegerArgumentType.getInteger(ctx, "count")))))));
+
+        root.then(Commands.literal("debug")
+                .then(Commands.literal("growth")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(ctx -> debugGrowth(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id"))))));
 
         root.then(Commands.literal("verify")
                 .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
@@ -398,6 +406,84 @@ public final class PlacitumCommand {
      * have allowed a birth there. That is fixed at source now, but the claims already made do
      * not undo themselves, and a player is owed a way back that is not "start a new village".
      */
+    /**
+     * Why the settlement is not growing.
+     *
+     * <p>Built early rather than last, on the strength of M0: the tuning command that reported
+     * a number without saying why it was that number cost an hour of chasing a bug that was not
+     * there. Population has three possible answers and no way to guess between them from the
+     * outside, so the tool names the binding one.
+     */
+    private static int debugGrowth(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        SimParams params = SimParams.fromConfig(source.getServer().overworld());
+        Capacity capacity = Capacity.of(settlement, params);
+        SettlementMut mut = SettlementMut.of(settlement);
+
+        int population = settlement.population();
+        source.sendSuccess(() -> Component.literal(settlement.name() + " (" + settlement.scale()
+                + ", population " + population + ")").withStyle(ChatFormatting.GOLD), false);
+        source.sendSuccess(() -> Component.literal("  capacity " + capacity.value()
+                + "  <-  " + describe(capacity)), false);
+
+        int consumption = population * params.consumptionPerHead();
+        int production = countJob(settlement, Assignment.FARMER) * params.yieldRate();
+        int stock = settlement.stockOf(net.minecraft.world.item.Items.WHEAT);
+        source.sendSuccess(() -> Component.literal("  food " + stock
+                + " (produces " + production + "/step, eats " + consumption + "/step"
+                + foodRunway(stock, production, consumption) + ")"), false);
+
+        double chance = Demographics.birthChance(mut, capacity, params);
+        int pairs = Demographics.fertilePairs(mut, params);
+        source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
+                "  next birth %.4f/step (about %.2f a game day), %d fertile pair(s)",
+                chance, chance * params.stepsPerDay(), pairs)), false);
+
+        if (chance <= 0.0) {
+            source.sendSuccess(() -> Component.literal("  not growing: " + whyNot(
+                    population, capacity, pairs)).withStyle(ChatFormatting.YELLOW), false);
+        }
+        if (settlement.defense().famineSteps() > 0) {
+            source.sendSuccess(() -> Component.literal("  stores have been empty for "
+                    + settlement.defense().famineSteps() + " step(s)")
+                    .withStyle(ChatFormatting.RED), false);
+        }
+        return capacity.value();
+    }
+
+    /** The three numbers side by side, with the binding one marked. */
+    private static String describe(Capacity capacity) {
+        Capacity.Bottleneck limit = capacity.bottleneck();
+        return "beds " + capacity.beds() + mark(limit == Capacity.Bottleneck.BEDS)
+                + " / food " + capacity.food() + mark(limit == Capacity.Bottleneck.FOOD)
+                + " / safety " + capacity.safety() + mark(limit == Capacity.Bottleneck.SAFETY);
+    }
+
+    private static String mark(boolean binding) {
+        return binding ? " <" : "";
+    }
+
+    private static String foodRunway(int stock, int production, int consumption) {
+        int net = production - consumption;
+        if (net >= 0) {
+            return ", net +" + net;
+        }
+        return ", " + (stock / -net) + " step(s) left at this rate";
+    }
+
+    private static String whyNot(int population, Capacity capacity, int pairs) {
+        if (pairs == 0) {
+            return "no fertile pairs - everyone is a child, elderly or zombified";
+        }
+        return "population " + population + " is at capacity " + capacity.value()
+                + ", limited by " + capacity.bottleneck().name().toLowerCase(java.util.Locale.ROOT);
+    }
+
     private static int verify(CommandSourceStack source, String rawId) {
         SettlementManager manager = SettlementManager.get(source.getServer());
         Settlement settlement = resolve(manager, rawId).orElse(null);

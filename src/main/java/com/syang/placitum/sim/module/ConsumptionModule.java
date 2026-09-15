@@ -1,6 +1,8 @@
 package com.syang.placitum.sim.module;
 
 import com.syang.placitum.Placitum;
+import com.syang.placitum.config.PlacitumConfig;
+import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Vitals;
 import com.syang.placitum.sim.SimModule;
@@ -35,6 +37,7 @@ public class ConsumptionModule implements SimModule {
                     settlement.simStep(), mouths, needed, eaten,
                     settlement.stockOf(Items.WHEAT));
         }
+        warnIfShort(settlement, needed);
 
         for (int i = 0; i < settlement.residents.size(); i++) {
             Resident r = settlement.residents.get(i);
@@ -45,6 +48,29 @@ public class ConsumptionModule implements SimModule {
             settlement.residents.set(i, r.withVitals(
                     v.withHunger(fed ? v.hunger() + 5 : v.hunger() - 5)));
         }
+    }
+
+    /**
+     * Raises the alarm about food before anyone starves.
+     *
+     * <p>docs/population.md is emphatic that the warning comes first, and it is right: a
+     * settlement that starves without notice is the original complaint wearing an apron. The
+     * entry is written once per crossing, not every step, so the chronicle stays readable.
+     */
+    private void warnIfShort(SettlementMut settlement, int perStep) {
+        int warnAt = perStep * PlacitumConfig.FOOD_WARNING_STEPS.get();
+        int stock = settlement.stockOf(Items.WHEAT);
+        boolean short_ = perStep > 0 && stock < warnAt;
+        if (short_ && !settlement.foodWarned) {
+            int stepsLeft = perStep == 0 ? 0 : stock / perStep;
+            settlement.record(EntryType.FAMINE, settlement.identity.name(),
+                    "Food is running low - about " + stepsLeft + " step(s) left for "
+                            + settlement.population() + " mouth(s)");
+            Placitum.LOGGER.info("LOW FOOD in '{}': {} wheat, {} per step",
+                    settlement.identity.name(), stock, perStep);
+        }
+        // Cleared only once the stores recover, so the warning cannot chatter on the boundary.
+        settlement.foodWarned = short_;
     }
 
     @Override

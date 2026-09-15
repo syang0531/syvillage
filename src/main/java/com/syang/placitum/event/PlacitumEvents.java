@@ -33,6 +33,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.living.BabyEntitySpawnEvent;
+import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
@@ -235,6 +237,81 @@ public final class PlacitumEvents {
 
         villager.removeData(ModAttachments.RESIDENT_ID);
         Placitum.LOGGER.info("Released orphaned villager {} back to vanilla", villager.getUUID());
+    }
+
+    /**
+     * Vanilla breeding is off in registered settlements.
+     *
+     * <p>Not because a formula is better arithmetic, but because vanilla breeding fails
+     * silently. It needs a farmer throwing bread, beds the game agrees are valid, and two
+     * villagers willing at the same moment; miss any of it and nothing happens, for ever, with
+     * nothing to say which piece is missing. A formula at least makes the reason for not
+     * growing something that can be printed.
+     *
+     * <p>Cancelled at the event, not through a Mixin. Unregistered villages never reach the
+     * check and breed exactly as they always did.
+     */
+    @SubscribeEvent
+    public static void onBabySpawn(BabyEntitySpawnEvent event) {
+        if (!(event.getParentA() instanceof Villager parent) || parent.level().isClientSide()) {
+            return;
+        }
+        SettlementManager manager = SettlementManager.peek();
+        if (manager == null || manager.residentOf(parent.getUUID()) == null) {
+            return;   // not ours; vanilla keeps its rules
+        }
+        event.setCanceled(true);
+        Placitum.LOGGER.debug("Blocked vanilla breeding for {}; births come from the formula",
+                parent.getUUID());
+    }
+
+    /**
+     * A resident was dragged down and turned.
+     *
+     * <p>The record stays, flagged. Deleting it would mean a player who cures the zombie gets a
+     * stranger back - no name, no family, no history - and curing a villager you knew is one of
+     * the few genuinely affecting things vanilla offers. The cost of keeping that is one boolean.
+     */
+    @SubscribeEvent
+    public static void onConversion(LivingConversionEvent.Post event) {
+        SettlementManager manager = SettlementManager.peek();
+        if (manager == null) {
+            return;
+        }
+        boolean toZombie = event.getEntity() instanceof Villager;
+        boolean cured = event.getOutcome() instanceof Villager;
+        if (!toZombie && !cured) {
+            return;
+        }
+        UUID residentId = manager.residentOf(event.getEntity().getUUID());
+        if (residentId == null) {
+            return;
+        }
+        for (Settlement settlement : manager.all()) {
+            Resident resident = settlement.resident(residentId).orElse(null);
+            if (resident == null) {
+                continue;
+            }
+            List<Resident> updated = new ArrayList<>();
+            for (Resident r : settlement.residents()) {
+                updated.add(r.id().equals(residentId) ? r.withZombified(toZombie) : r);
+            }
+            Settlement next = settlement.withResidents(updated);
+            next = next.withChronicle(next.chronicle().with(new ChronicleEntry(
+                    event.getEntity().level().getGameTime(),
+                    toZombie ? EntryType.ZOMBIFIED : EntryType.CURED,
+                    resident.lineage().fullName(),
+                    toZombie ? "was dragged down and turned" : "was cured and came home")));
+
+            manager.unbind(residentId);
+            if (cured) {
+                manager.bind(residentId, event.getOutcome().getUUID());
+            }
+            manager.put(next);
+            Placitum.LOGGER.info("{} in '{}': {}", toZombie ? "ZOMBIFIED" : "CURED",
+                    settlement.name(), resident.lineage().fullName());
+            return;
+        }
     }
 
     /**

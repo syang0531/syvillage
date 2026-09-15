@@ -75,6 +75,11 @@ public record Resident(
                 zombified, gear, task, coarsePos, state, vanillaState);
     }
 
+    public Resident withZombified(boolean nowZombified) {
+        return new Resident(id, lineage, stage, ageDays, assignment, vitals, militiaEligible,
+                nowZombified, gear, task, coarsePos, state, vanillaState);
+    }
+
     public Resident withGear(GearSet newGear) {
         return new Resident(id, lineage, stage, ageDays, assignment, vitals, militiaEligible,
                 zombified, newGear, task, coarsePos, state, vanillaState);

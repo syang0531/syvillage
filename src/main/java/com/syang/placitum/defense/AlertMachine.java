@@ -74,12 +74,12 @@ public final class AlertMachine {
 
     private static DefenseState withAlert(DefenseState defense, AlertState alert, long now) {
         return new DefenseState(alert, now, defense.wall(), defense.lightingScore(),
-                defense.recentCasualties());
+                defense.recentCasualties(), defense.famineSteps(), defense.foodWarned());
     }
 
     /** Restarts the cooldown without changing the stage. */
     private static DefenseState touch(DefenseState defense, long now) {
         return new DefenseState(defense.alert(), now, defense.wall(), defense.lightingScore(),
-                defense.recentCasualties());
+                defense.recentCasualties(), defense.famineSteps(), defense.foodWarned());
     }
 }

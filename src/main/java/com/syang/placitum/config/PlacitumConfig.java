@@ -58,6 +58,20 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue CONSUMPTION_PER_HEAD;
     public static final ModConfigSpec.IntValue YIELD_RATE;
     public static final ModConfigSpec.IntValue SAFETY_WINDOW_DAYS;
+    public static final ModConfigSpec.DoubleValue BASE_BIRTH_RATE;
+    public static final ModConfigSpec.IntValue ELDER_THRESHOLD_DAYS;
+    public static final ModConfigSpec.IntValue INFANT_DAYS;
+    public static final ModConfigSpec.IntValue CHILD_DAYS;
+    public static final ModConfigSpec.IntValue BASE_SAFETY;
+    public static final ModConfigSpec.IntValue MIN_SAFETY;
+    public static final ModConfigSpec.IntValue SAFETY_RATING_DIVISOR;
+    public static final ModConfigSpec.IntValue SAFETY_DEATH_PENALTY;
+    public static final ModConfigSpec.IntValue FAMINE_GRACE_STEPS;
+    public static final ModConfigSpec.IntValue FAMINE_MORALE_PENALTY;
+    public static final ModConfigSpec.IntValue FOOD_WARNING_STEPS;
+    public static final ModConfigSpec.DoubleValue FAMINE_DEATH_CHANCE_PER_STEP;
+    public static final ModConfigSpec.DoubleValue ELDER_DEATH_CHANCE_PER_STEP;
+    public static final ModConfigSpec.BooleanValue ENABLE_AGING;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -140,6 +154,42 @@ public final class PlacitumConfig {
                 .defineInRange("yieldRate", 3, 0, 64);
         SAFETY_WINDOW_DAYS = b.comment("Length of the combat-casualty ring buffer, in game days.")
                 .defineInRange("safetyWindowDays", 7, 1, 64);
+        BASE_BIRTH_RATE = b.comment("Birth chance per step in an empty settlement with good morale.",
+                        "PER STEP: 120 steps to a game day. 0.02 is roughly two births a day",
+                        "before the logistic curve damps it - lower this first if growth feels fast.")
+                .defineInRange("baseBirthRate", 0.02D, 0.0D, 1.0D);
+        ENABLE_AGING = b.comment("Residents grow old and eventually die. Some players will not want",
+                        "a villager they have grown attached to dying of old age; this is for them.")
+                .define("enableAging", true);
+        ELDER_THRESHOLD_DAYS = b.defineInRange("elderThresholdDays", 90, 10, 10000);
+        INFANT_DAYS = b.comment("Infants are records only and are never spawned as entities.")
+                .defineInRange("infantDays", 3, 0, 100);
+        CHILD_DAYS = b.defineInRange("childDays", 20, 1, 1000);
+        ELDER_DEATH_CHANCE_PER_STEP = b.comment("About 9% a game day.")
+                .defineInRange("elderDeathChancePerStep", 0.0008D, 0.0D, 1.0D);
+
+        b.comment("Safety capacity: how many will settle somewhere this dangerous.",
+                        "This is where defence feeds back into growth.").push("safety");
+        BASE_SAFETY = b.defineInRange("baseSafety", 4, 0, 1000);
+        MIN_SAFETY = b.comment("Floor, so a mauled settlement can still recover.")
+                .defineInRange("minSafety", 4, 0, 1000);
+        SAFETY_RATING_DIVISOR = b.comment("defenseRating is divided by this before being added.")
+                .defineInRange("safetyRatingDivisor", 4, 1, 100);
+        SAFETY_DEATH_PENALTY = b.comment("Capacity lost per combat death inside the window.")
+                .defineInRange("safetyDeathPenalty", 3, 0, 100);
+        b.pop();
+
+        b.comment("Famine. The warning has to come first - a village starving with no notice",
+                        "is the original complaint in another costume.").push("famine");
+        FOOD_WARNING_STEPS = b.comment("Warn when stores fall below this many steps of eating.",
+                        "180 steps is about a day and a half.")
+                .defineInRange("foodWarningSteps", 180, 0, 10000);
+        FAMINE_GRACE_STEPS = b.comment("Steps at zero food before anyone starts dying.")
+                .defineInRange("famineGraceSteps", 18, 0, 1000);
+        FAMINE_MORALE_PENALTY = b.defineInRange("famineMoralePenalty", 4, 0, 100);
+        FAMINE_DEATH_CHANCE_PER_STEP = b.comment("Per resident per step once the grace runs out.")
+                .defineInRange("famineDeathChancePerStep", 0.01D, 0.0D, 1.0D);
+        b.pop();
         b.pop();
 
         SPEC = b.build();

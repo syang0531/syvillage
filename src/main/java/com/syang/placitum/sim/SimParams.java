@@ -17,7 +17,29 @@ public record SimParams(
         long maxCatchupTicks,
         int consumptionPerHead,
         int yieldRate,
-        boolean hostilesExist) {
+        boolean hostilesExist,
+        PopulationParams population) {
+
+    /**
+     * Everything docs/population.md owns.
+     *
+     * <p>Grouped rather than flattened: SimParams would otherwise grow a dozen loose ints, and a
+     * call site passing those positionally is a bug waiting to be written.
+     */
+    public record PopulationParams(
+            double baseBirthRate,
+            int elderThresholdDays,
+            int infantDays,
+            int childDays,
+            int baseSafety,
+            int minSafety,
+            int safetyRatingDivisor,
+            int safetyDeathPenalty,
+            int famineGraceSteps,
+            int famineMoralePenalty,
+            double famineDeathChancePerStep,
+            double elderDeathChancePerStep,
+            boolean agingEnabled) {}
 
     /**
      * Reads the values, including whether this world has anything hostile in it.
@@ -33,13 +55,88 @@ public record SimParams(
                 PlacitumConfig.MAX_CATCHUP_TICKS.get(),
                 PlacitumConfig.CONSUMPTION_PER_HEAD.get(),
                 PlacitumConfig.YIELD_RATE.get(),
-                level.getDifficulty() != Difficulty.PEACEFUL);
+                level.getDifficulty() != Difficulty.PEACEFUL,
+                populationFromConfig());
+    }
+
+    private static PopulationParams populationFromConfig() {
+        return new PopulationParams(
+                PlacitumConfig.BASE_BIRTH_RATE.get(),
+                PlacitumConfig.ELDER_THRESHOLD_DAYS.get(),
+                PlacitumConfig.INFANT_DAYS.get(),
+                PlacitumConfig.CHILD_DAYS.get(),
+                PlacitumConfig.BASE_SAFETY.get(),
+                PlacitumConfig.MIN_SAFETY.get(),
+                PlacitumConfig.SAFETY_RATING_DIVISOR.get(),
+                PlacitumConfig.SAFETY_DEATH_PENALTY.get(),
+                PlacitumConfig.FAMINE_GRACE_STEPS.get(),
+                PlacitumConfig.FAMINE_MORALE_PENALTY.get(),
+                PlacitumConfig.FAMINE_DEATH_CHANCE_PER_STEP.get(),
+                PlacitumConfig.ELDER_DEATH_CHANCE_PER_STEP.get(),
+                PlacitumConfig.ENABLE_AGING.get());
     }
 
     /** Defaults matching the shipped config, for tests and for headless tooling. */
     public static SimParams defaults() {
-        return new SimParams(200, 72000L, 1, 3, true);
+        return new SimParams(200, 72000L, 1, 3, true,
+                new PopulationParams(0.02, 90, 3, 20, 4, 4, 4, 3, 18, 4, 0.01, 0.0008, true));
     }
+
+    // Delegating accessors, so modules read params.baseBirthRate() rather than
+    // params.population().baseBirthRate() on every line.
+
+    public double baseBirthRate() {
+        return population.baseBirthRate();
+    }
+
+    public int elderThresholdDays() {
+        return population.elderThresholdDays();
+    }
+
+    public int infantDays() {
+        return population.infantDays();
+    }
+
+    public int childDays() {
+        return population.childDays();
+    }
+
+    public int baseSafety() {
+        return population.baseSafety();
+    }
+
+    public int minSafety() {
+        return population.minSafety();
+    }
+
+    public int safetyRatingDivisor() {
+        return population.safetyRatingDivisor();
+    }
+
+    public int safetyDeathPenalty() {
+        return population.safetyDeathPenalty();
+    }
+
+    public int famineGraceSteps() {
+        return population.famineGraceSteps();
+    }
+
+    public int famineMoralePenalty() {
+        return population.famineMoralePenalty();
+    }
+
+    public double famineDeathChancePerStep() {
+        return population.famineDeathChancePerStep();
+    }
+
+    public double elderDeathChancePerStep() {
+        return population.elderDeathChancePerStep();
+    }
+
+    public boolean agingEnabled() {
+        return population.agingEnabled();
+    }
+
 
     /** One game day in steps. Per-step probabilities have to be read against this. */
     public int stepsPerDay() {

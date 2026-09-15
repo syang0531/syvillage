@@ -146,7 +146,9 @@ public final class SettlementFixture {
 
         DefenseState defense = new DefenseState(
                 com.syang.placitum.data.AlertState.ALERT, 999_000L, wall, 61,
-                List.of(0, 2, 0, 1, 0, 0, 3));
+                List.of(0, 2, 0, 1, 0, 0, 3),
+                11,
+                true);
 
         Chronicle chronicle = Chronicle.EMPTY
                 .with(new ChronicleEntry(900_000L, EntryType.BUILD, "Smithy", "completed"))
