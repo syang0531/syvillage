@@ -151,16 +151,22 @@ Loaded settlement bc981568 from disk - pop 7, sim step 14
 
 ## M2 — 인구
 
-- [ ] 바닐라 번식 차단
-- [ ] `carryingCapacity` 3항목 (침대/식량/안전)
-- [ ] 로지스틱 출산
-- [ ] 식량 실제 소비 + 기아 + 경고
-- [ ] 사망 4종 (`COMBAT`, `FAMINE`, `ACCIDENT`, `OLD_AGE`)
-- [ ] 좀비 주민 / 치료 복귀 (`zombified`)
-- [ ] 생애 단계 (`INFANT`는 엔티티 없음)
-- [ ] 이름·가문 생성기
-- [ ] `Chronicle` + 종 UI
-- [ ] `/placitum debug growth`
+- [x] 바닐라 번식 차단 (`BabyEntitySpawnEvent`)
+- [x] `carryingCapacity` 3항목 (침대/식량/안전) — 침대는 앵커에서
+- [x] 로지스틱 출산
+- [x] 식량 실제 소비 + 기아 + **경고 먼저**
+- [x] 사망 4종 (`COMBAT`, `FAMINE`, `ACCIDENT`, `OLD_AGE`)
+- [x] 좀비 주민 / 치료 복귀 (`zombified`)
+- [x] 생애 단계 (`INFANT`는 엔티티 없음)
+- [x] 이름·가문 생성기 (M0에서 선행, 부계 상속은 M2)
+- [x] `Chronicle` + 종 현황 — **채팅 출력.** 그래픽 GUI는 M5
+- [x] `/placitum debug growth` — **먼저 만들었다**
+
+### 종 UI를 M5로 미룬 이유
+
+26.2가 GUI를 렌더 상태 추출 모델로 갈아엎었다. `GuiGraphics`와 `drawString`이 사라지고 `GuiGraphicsExtractor` + `ActiveTextCollector`가 됐다. 패널 하나를 배치할 만큼 익히는 것이 별도 작업이고, 시간이 얼마나 들지 예측이 안 된다.
+
+**미룬 것은 화면이지 내용이 아니다.** 수용력 세 값과 병목, 최근 사망자와 원인은 종 Shift+우클릭으로 전부 나온다. 완료 기준 4가 요구하는 것은 그 정보이고, 패널은 그것을 담는 그릇이다.
 
 ### 완료 기준
 

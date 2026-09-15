@@ -10,9 +10,11 @@ import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.defense.DefenseTick;
 import com.syang.placitum.lifecycle.Lifecycle;
+import com.syang.placitum.sim.SimParams;
 import com.syang.placitum.lifecycle.LifecycleManager;
 import com.syang.placitum.registry.ModAttachments;
 import com.syang.placitum.settlement.Registration;
+import com.syang.placitum.settlement.SettlementReport;
 import com.syang.placitum.store.SettlementManager;
 import java.util.ArrayList;
 import java.util.List;
@@ -391,6 +393,18 @@ public final class PlacitumEvents {
         event.setCancellationResult(InteractionResult.SUCCESS);
 
         SettlementManager manager = SettlementManager.get(level.getServer());
+
+        // Already ours? Then this is the settlement screen, not a second registration. The
+        // interaction reads the same either way - "tell me about this village" - and it retires
+        // a message whose only content was "no".
+        for (Settlement existing : manager.all()) {
+            if (existing.dimension().equals(level.dimension()) && existing.center().equals(pos)) {
+                SettlementReport.of(existing, SimParams.fromConfig(level.getServer().overworld()))
+                        .forEach(player::sendSystemMessage);
+                return;
+            }
+        }
+
         Registration.Result result = Registration.register(level, manager, pos);
         player.sendSystemMessage(describe(result));
     }

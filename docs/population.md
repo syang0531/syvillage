@@ -132,7 +132,13 @@ record ChronicleEntry(long gameTime, EntryType type, String subject, String deta
 
 기록 대상: 출생, 사망(원인 포함), 건물 완공, 습격 격퇴/패배, 규모 승격/강등, 기아.
 
-종을 우클릭하면 마을 현황 + 최근 10줄이 뜬다. V1에서는 GUI 하나면 충분하다.
+종을 **Shift+우클릭**하면 마을 현황 + 최근 기록이 뜬다.
+
+> **구현 상태 (M2).** 그냥 우클릭은 `docs/defense.md`의 경보로 이미 쓰이고 있어, 현황 조회는 Shift+우클릭으로 갔다. 등록되지 않은 종이면 등록, 등록된 종이면 현황이다 — 같은 동작이 "이 마을을 관리한다"로 일관되게 읽힌다.
+>
+> **아직 그래픽 GUI가 아니라 채팅 출력이다.** 26.2가 GUI를 렌더 상태 추출 모델(`GuiGraphicsExtractor`, `ActiveTextCollector`)로 갈아엎어 `GuiGraphics.drawString`이 사라졌고, 패널을 배치할 만큼 익히는 것이 별도 작업이다. **M5로 미룬다.**
+>
+> 미룬 것은 화면이지 내용이 아니다. 수용력 세 값과 병목 표시, 최근 사망자와 원인은 전부 나온다.
 
 ```
 베른하르트 가의 요한 — 성문에서 전사 (3일 전)
