@@ -10,6 +10,7 @@ import com.syang.placitum.settlement.ProfessionMap;
 import com.syang.placitum.store.SettlementManager;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -18,6 +19,7 @@ import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
@@ -154,6 +156,7 @@ public final class Lifecycle {
         Resident out = resident;
         if (entity instanceof Villager villager) {
             out = writeBack(level, out, villager);
+            releasePois(level, villager);
         }
         if (entity != null) {
             entity.discard();
@@ -212,6 +215,36 @@ public final class Lifecycle {
             Placitum.LOGGER.warn("Could not snapshot villager for later restore", e);
             return new CompoundTag();
         }
+    }
+
+    /**
+     * Gives up the villager's claims on its bed, workstation and meeting point.
+     *
+     * <p>Vanilla only does this when a villager dies. Our entities leave constantly - every
+     * demote, every chunk unload, every conscription swap - and discard() releases nothing, so
+     * each round trip left a bed claimed by an entity that no longer exists.
+     *
+     * <p>After a day of testing every bed in the village was held by a ghost and all six
+     * residents reported having nowhere to sleep. Left alone it ratchets one way: villages
+     * become permanently bedless, and since M2 derives carrying capacity from beds, no child
+     * would ever be born in a village the player had visited twice.
+     *
+     * <p>The memories are kept. On promote the restored brain still remembers the bed, and with
+     * the claim actually free it can take it back.
+     */
+    public static void releasePois(ServerLevel level, Villager villager) {
+        releasePoi(level, villager, MemoryModuleType.HOME);
+        releasePoi(level, villager, MemoryModuleType.JOB_SITE);
+        releasePoi(level, villager, MemoryModuleType.MEETING_POINT);
+    }
+
+    private static void releasePoi(ServerLevel level, Villager villager,
+            MemoryModuleType<GlobalPos> memory) {
+        villager.getBrain().getMemory(memory).ifPresent(pos -> {
+            if (pos.dimension().equals(level.dimension())) {
+                level.getPoiManager().release(pos.pos());
+            }
+        });
     }
 
     /**

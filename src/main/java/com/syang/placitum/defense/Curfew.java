@@ -35,6 +35,9 @@ public final class Curfew {
     /** Villagers already asleep or already home need no help. */
     private static final int HOME_ENOUGH = 6;
 
+    /** Who has already been told to go home tonight. */
+    private static final java.util.Set<java.util.UUID> announced = new java.util.HashSet<>();
+
     private Curfew() {}
 
     /**
@@ -44,6 +47,7 @@ public final class Curfew {
      */
     public static boolean enforce(ServerLevel level, SettlementManager manager, Settlement settlement) {
         if (!curfewActive(level)) {
+            announced.clear();   // next dusk gets a fresh set of announcements
             return false;
         }
         AnchorSet anchors = settlement.anchors();
@@ -95,6 +99,12 @@ public final class Curfew {
         if (villager.blockPosition().closerThan(target, HOME_ENOUGH)) {
             return;   // near enough; vanilla takes it from here
         }
+        // Logged once per villager per night, not once per pass. The first version wrote six
+        // lines a second and drowned the log it was meant to explain.
+        if (announced.add(villager.getUUID())) {
+            Placitum.LOGGER.debug("Curfew: sending {} to {}", villager.getUUID(),
+                    target.toShortString());
+        }
         villager.getBrain().setMemory(MemoryModuleType.WALK_TARGET,
                 new WalkTarget(target, (float) (double) PlacitumConfig.CURFEW_WALK_SPEED.get(),
                         HOME_ENOUGH));
@@ -111,11 +121,6 @@ public final class Curfew {
         if (home.isPresent()) {
             return Optional.of(home.get().pos());
         }
-        Optional<BlockPos> nearest = anchors.nearestShelter(villager.blockPosition());
-        if (nearest.isPresent()) {
-            Placitum.LOGGER.debug("{} has no bed; sending it to {}", villager.getUUID(),
-                    nearest.get().toShortString());
-        }
-        return nearest;
+        return anchors.nearestShelter(villager.blockPosition());
     }
 }

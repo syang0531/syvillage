@@ -167,6 +167,11 @@ public final class Conscription {
             Entity old, Entity fresh) {
         Lifecycle.addSilently(level, fresh);
         manager.unbind(resident.id());
+        if (old instanceof Villager outgoing) {
+            // The new body carries the same memories, so the claims have to move with them
+            // rather than staying held by an entity about to stop existing.
+            Lifecycle.releasePois(level, outgoing);
+        }
         old.discard();
         manager.bind(resident.id(), fresh.getUUID());
         Placitum.LOGGER.debug("Swapped {} to {}", resident.lineage().fullName(),
