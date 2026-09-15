@@ -131,6 +131,14 @@ public final class LifecycleManager {
         long now = level.getGameTime();
         Settlement out = settlement;
 
+        // The embodied half of the simulation. catchUp keeps only the modules that would not
+        // count a resident with a body twice - which, before this call existed, meant a
+        // settlement with a player standing in it ran nothing whatsoever. Its clock stopped, it
+        // never noticed it needed anything, and the only path that could act on a need was this
+        // one. See SimModule.runsWhileEmbodied.
+        out = Simulation.catchUp(level.getServer().overworld().getSeed(), out,
+                SimParams.fromConfig(level), now);
+
         if (out.anchors().staleAt(now, PlacitumConfig.ANCHOR_REFRESH_TICKS.get())) {
             out = out.withAnchors(AnchorScan.scan(level, out));
             // The grid rides along with the anchors. Both need loaded chunks, both go stale for
@@ -211,6 +219,11 @@ public final class LifecycleManager {
      *
      * <p>The time is skipped, not simulated: what happened during it already happened, in the
      * world, to real entities, and was captured on write-back.
+     *
+     * <p>Mostly a no-op now that the heartbeat advances the clock through embodied time as
+     * well. It still earns its place for the stretches the heartbeat did not cover - a
+     * settlement outside its budget, or a server that stopped - where the alternative is
+     * simulating an absence that was not one.
      *
      * <p>Skipped in whole steps so the remainder still carries and slice-independence holds.
      */
