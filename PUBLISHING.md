@@ -9,12 +9,17 @@
 ## A. 최초 1회 준비 (웹에서 직접)
 
 ### A-1. CurseForge 프로젝트 생성
+
+폼에 넣을 내용은 [`docs/curseforge/등록정보.md`](docs/curseforge/등록정보.md)에 필드별로 정리되어 있습니다. 로고는 [`docs/curseforge/logo.png`](docs/curseforge/logo.png).
+
 1. https://console.curseforge.com → **Create Project**
 2. **Game**: Minecraft / **Project Type**: Mods / **Name**: Placitum
 3. **License**: MIT (`LICENSE`, `gradle.properties`의 `mod_license`와 일치시킬 것)
-4. Summary는 `gradle.properties`의 `mod_description`을 쓰면 됩니다
-5. 생성 후 운영진 **승인 대기** 상태가 됩니다 (몇 시간~며칠). 승인 전에도 아래 단계는 진행 가능합니다
+4. Summary·Description·카테고리는 등록정보 문서에서 복붙
+5. 생성 후 운영진 **승인 대기** 상태가 됩니다 (몇 시간~며칠). 승인 전에도 아래 단계는 진행 가능하므로 **지금 신청해두는 편이 낫습니다**
 6. 프로젝트 페이지에서 **숫자 Project ID** 확인
+
+> 등록정보 문서의 본문은 **V1 계획 기준**입니다. 첫 파일 업로드 직전에 실제 출시 범위와 대조해 고치세요.
 
 ### A-2. `gradle.properties` 채우기
 ```properties

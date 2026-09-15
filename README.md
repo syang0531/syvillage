@@ -59,6 +59,7 @@
 | [docs/testing.md](docs/testing.md) | 검증 항목 |
 | [docs/open-questions.md](docs/open-questions.md) | 미해결 문제 |
 | [docs/v2-deferred.md](docs/v2-deferred.md) | 축2 설계 — **구현 금지**, 훅만 |
+| [docs/curseforge/등록정보.md](docs/curseforge/등록정보.md) | CurseForge 프로젝트 등록 폼 내용 |
 
 `CLAUDE.md`는 매 요청마다 컨텍스트에 들어가므로 **의도적으로 짧게** 유지한다. 길어지면 지시가 희석된다. 상세 내용은 `docs/` 아래에 넣고 색인에 한 줄만 추가한다.
 
