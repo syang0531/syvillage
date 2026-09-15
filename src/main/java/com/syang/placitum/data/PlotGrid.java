@@ -98,6 +98,14 @@ public record PlotGrid(BlockPos origin, int size, Map<CellPos, CellState> cells)
         return origin.offset(pos.gx() * CELL_BLOCKS - half, 0, pos.gz() * CELL_BLOCKS - half);
     }
 
+    /** Which cell a world position falls in. The inverse of {@link #blockAt}. */
+    public CellPos cellAt(BlockPos pos) {
+        int half = CELL_BLOCKS / 2;
+        return new CellPos(
+                Math.floorDiv(pos.getX() - origin.getX() + half, CELL_BLOCKS),
+                Math.floorDiv(pos.getZ() - origin.getZ() + half, CELL_BLOCKS));
+    }
+
     /** Centre of a cell, which is what site selection measures distances between. */
     public BlockPos centreOf(CellPos pos) {
         return blockAt(pos).offset(CELL_BLOCKS / 2, 0, CELL_BLOCKS / 2);

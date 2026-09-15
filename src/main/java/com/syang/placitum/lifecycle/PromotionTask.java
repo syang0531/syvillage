@@ -2,6 +2,8 @@ package com.syang.placitum.lifecycle;
 
 import com.syang.placitum.Placitum;
 import com.syang.placitum.config.PlacitumConfig;
+import com.syang.placitum.build.BuildPlanner;
+import com.syang.placitum.data.BuildJob;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
@@ -41,6 +43,7 @@ public final class PromotionTask {
     private final java.util.UUID settlementId;
     private Phase phase = Phase.CATCHING_UP;
     private int spawnCursor;
+    private int replayCursor;
     private int deferredPasses;
 
     public PromotionTask(java.util.UUID settlementId) {
@@ -106,10 +109,42 @@ public final class PromotionTask {
             }
             applied++;
         }
-        if (pending.isEmpty()) {
+        if (pending.isEmpty() && replayBuilt(level, settlement, budget - applied)) {
             phase = Phase.SPAWNING;
         }
         return settlement.withPendingOps(List.copyOf(pending));
+    }
+
+    /**
+     * Puts back the blocks the settlement laid while nobody was here.
+     *
+     * <p>Expanded from the recipe rather than read from storage. That is the entire reason op
+     * lists are not saved: a wall is nearly two thousand blocks, the settlement file is
+     * rewritten whole whenever anything changes, and the recipe that produced them is five
+     * fields long.
+     *
+     * <p>The cursor lives on the task and not on the settlement, so an interrupted promotion
+     * starts this over. Harmless - setting a block to the state it already holds costs nothing,
+     * and a player who knocked a hole in the wall gets it back.
+     */
+    private boolean replayBuilt(ServerLevel level, Settlement settlement, int budget) {
+        int spent = 0;
+        for (BuildJob job : settlement.buildQueue()) {
+            List<BuildOp> ops = BuildPlanner.expand(job.recipe());
+            int upTo = Math.min(job.progress(), ops.size());
+            while (replayCursor < upTo) {
+                if (spent >= budget) {
+                    return false;
+                }
+                BuildOp op = ops.get(replayCursor);
+                if (level.isLoaded(op.pos())) {
+                    level.setBlock(op.pos(), op.state(), 3);
+                }
+                replayCursor++;
+                spent++;
+            }
+        }
+        return true;
     }
 
     /**

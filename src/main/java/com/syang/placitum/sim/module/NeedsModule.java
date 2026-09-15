@@ -77,7 +77,8 @@ public class NeedsModule implements SimModule {
                         Rotation.NONE,
                         Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
                         List.of(),
-                        BlockPos.ZERO),
+                        BlockPos.ZERO,
+                        List.of()),
                 0,
                 Map.of(),
                 BuildStage.PLANNED);

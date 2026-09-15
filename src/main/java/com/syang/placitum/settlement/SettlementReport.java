@@ -63,6 +63,8 @@ public final class SettlementReport {
                 .withStyle(settlement.alert() == com.syang.placitum.data.AlertState.PEACE
                         ? ChatFormatting.GRAY : ChatFormatting.RED));
 
+        buildLine(settlement).ifPresent(out::add);
+
         List<ChronicleEntry> recent = settlement.chronicle().recent(CHRONICLE_LINES);
         if (recent.isEmpty()) {
             out.add(Component.literal("  nothing has happened here yet")
@@ -90,6 +92,44 @@ public final class SettlementReport {
         long ticks = Math.max(0, now - then);
         long days = ticks / 24000L;
         return days > 0 ? days + "d" : Math.max(1, ticks / 1200L) + "m";
+    }
+
+    /**
+     * What the settlement is building, and what it is waiting for.
+     *
+     * <p>docs/construction.md is firm that a shortfall has to reach the player: "the smithy is
+     * waiting for twelve iron" is a reason to go and do something, and having a reason to act is
+     * the exact opposite of the helplessness this mod exists to answer. A build stalled for want
+     * of materials that says nothing is just the village not growing again.
+     */
+    private static java.util.Optional<Component> buildLine(Settlement settlement) {
+        for (com.syang.placitum.data.BuildJob job : settlement.buildQueue()) {
+            String what = job.recipe().template().getPath();
+            if (job.stage() == com.syang.placitum.data.BuildStage.WAITING_MATERIALS) {
+                StringBuilder missing = new StringBuilder();
+                for (var entry : job.cost().entrySet()) {
+                    int shortfall = entry.getValue() - settlement.stockOf(entry.getKey());
+                    if (shortfall > 0) {
+                        if (missing.length() > 0) {
+                            missing.append(", ");
+                        }
+                        missing.append(shortfall).append(" ")
+                                .append(entry.getKey().getDescriptionId()
+                                        .replaceAll(".*[.]", ""));
+                    }
+                }
+                return java.util.Optional.of(Component.literal("  building " + what
+                                + " - short of " + missing)
+                        .withStyle(ChatFormatting.YELLOW));
+            }
+            int total = com.syang.placitum.build.BuildPlanner.expand(job.recipe()).size();
+            if (total > 0) {
+                return java.util.Optional.of(Component.literal("  building " + what + " - "
+                        + (100 * job.progress() / total) + "% done"));
+            }
+            return java.util.Optional.of(Component.literal("  planning a " + what));
+        }
+        return java.util.Optional.empty();
     }
 
     private static ChatFormatting colour(ChronicleEntry entry) {

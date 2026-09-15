@@ -49,7 +49,19 @@ class BuildPlannerTest {
                 Rotation.NONE,
                 Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
                 profile,
-                new BlockPos(5, height, 5));
+                new BlockPos(5, height, 5),
+                List.of());
+    }
+
+    private static BuildRecipe withGates(List<Integer> profile, int height, List<Integer> gates) {
+        return new BuildRecipe(
+                Identifier.fromNamespaceAndPath("placitum", "wall/palisade"),
+                new BlockPos(0, 0, 0),
+                Rotation.NONE,
+                Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
+                profile,
+                new BlockPos(5, height, 5),
+                gates);
     }
 
     private static List<Integer> flat(int y) {
@@ -58,6 +70,63 @@ class BuildPlannerTest {
             out.add(y);
         }
         return out;
+    }
+
+    @Test
+    @DisplayName("a gate is one block tall with nothing over it")
+    void gateLeavesTheWayOpen() {
+        BuildRecipe recipe = withGates(flat(64), 3, List.of(2));
+        List<BuildOp> ops = BuildPlanner.expand(recipe);
+
+        // 15 full columns of 3, plus one gate block.
+        assertEquals(15 * 3 + 1, ops.size(), "the gate column carries a gate and nothing else");
+
+        BlockPos gatePos = new BlockPos(2, 65, 0);
+        int atGateColumn = 0;
+        for (BuildOp op : ops) {
+            if (op.pos().getX() == 2 && op.pos().getZ() == 0) {
+                atGateColumn++;
+                assertEquals(gatePos, op.pos(), "a log over the gate is a doorway with a"
+                        + " ceiling, which villagers cannot path through");
+            }
+        }
+        assertEquals(1, atGateColumn);
+    }
+
+    @Test
+    @DisplayName("a gate villagers can actually open")
+    void gateIsAFenceGate() {
+        for (BuildOp op : BuildPlanner.expand(withGates(flat(64), 3, List.of(2)))) {
+            if (op.pos().getY() == 65 && op.pos().getX() == 2 && op.pos().getZ() == 0) {
+                assertTrue(op.state().is(net.minecraft.world.level.block.Blocks.OAK_FENCE_GATE),
+                        "villagers open fence gates by themselves and mobs do not; an iron door"
+                                + " would seal the village in, since pathfinding reads it as solid");
+                return;
+            }
+        }
+        throw new AssertionError("no gate was placed at all");
+    }
+
+    @Test
+    @DisplayName("gates are registered facing out of the settlement")
+    void gatesFaceOutward() {
+        List<com.syang.placitum.data.GateNode> gates =
+                BuildPlanner.gatesOf(withGates(flat(64), 3, List.of(2)));
+        assertEquals(1, gates.size());
+        assertEquals(net.minecraft.core.Direction.NORTH, gates.get(0).facing(),
+                "index 2 is on the north edge; facing inward opens the gate into the wall");
+        assertEquals(new BlockPos(2, 65, 0), gates.get(0).pos());
+        assertTrue(gates.get(0).open());
+    }
+
+    @Test
+    @DisplayName("a gate on a skipped position is not registered")
+    void gatesOnGapsAreDropped() {
+        List<Integer> wet = flat(64);
+        wet.set(2, WallGeometry.SKIP);
+        assertTrue(BuildPlanner.gatesOf(withGates(wet, 3, List.of(2))).isEmpty(),
+                "telling pathfinding about a gate in a stretch of wall that was never built"
+                        + " sends villagers at a gap in the ring as though it were a door");
     }
 
     @Test

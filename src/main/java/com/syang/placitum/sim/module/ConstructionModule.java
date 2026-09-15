@@ -136,10 +136,8 @@ public class ConstructionModule implements SimModule {
     private void complete(SettlementMut settlement, BuildJob job) {
         List<BlockPos> ring = BuildPlanner.ringOf(job.recipe());
         settlement.defense = settlement.defense.withWall(
-                new WallState(WallTier.PALISADE, ring, List.of(), true));
-        // Gates are left empty on purpose. Cutting them means knowing where the roads cross the
-        // ring and registering each one for pathfinding, and a gate that is not registered is a
-        // farmer standing in front of a wall for ever. That is its own piece of work.
+                new WallState(WallTier.PALISADE, ring, BuildPlanner.gatesOf(job.recipe()),
+                        true));
     }
 
     /**

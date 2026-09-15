@@ -2,6 +2,10 @@ package com.syang.placitum.build;
 
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
+import com.syang.placitum.data.GateNode;
+import java.util.HashSet;
+import java.util.Set;
+import net.minecraft.core.Direction;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -54,11 +58,21 @@ public final class BuildPlanner {
         }
 
         BlockState material = materialFor(recipe);
+        Set<Integer> gates = new HashSet<>(recipe.gates());
         List<BuildOp> ops = new ArrayList<>();
 
         for (int i = 0; i < ring.size(); i++) {
             int ground = profile.get(i);
             if (ground == WallGeometry.SKIP) {
+                continue;
+            }
+            if (gates.contains(i)) {
+                // A gate is one block of fence gate and nothing above it. Logs over the top
+                // would be a doorway with a ceiling a villager cannot path through, which is
+                // the same as no gate at all - and docs/defense.md is blunt about what happens
+                // then: a farmer standing in front of it for ever.
+                ops.add(new BuildOp(new BlockPos(ring.get(i).getX(), ground + 1,
+                        ring.get(i).getZ()), gateState(box, i)));
                 continue;
             }
             int top = ground + recipe.height();
@@ -77,6 +91,40 @@ public final class BuildPlanner {
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));
         return List.copyOf(ops);
+    }
+
+    /**
+     * A fence gate lying along the wall, hinged so it opens outward.
+     *
+     * <p>A fence gate rather than a door, because villagers open and close them on their own and
+     * mobs do not. An iron door would be worse than a wall: pathfinding treats it as solid, so
+     * the village would seal itself in.
+     */
+    private static BlockState gateState(WallGeometry.Box box, int index) {
+        Direction outward = WallGeometry.outwardAt(box, index);
+        return Blocks.OAK_FENCE_GATE.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.FenceGateBlock.FACING, outward);
+    }
+
+    /** Where the gates ended up, as pathfinding nodes. */
+    public static List<GateNode> gatesOf(BuildRecipe recipe) {
+        List<Integer> profile = recipe.groundProfile();
+        WallGeometry.Box box = new WallGeometry.Box(
+                recipe.anchor(), recipe.width(), recipe.depth());
+        List<BlockPos> ring = WallGeometry.perimeter(box);
+        if (ring.size() != profile.size()) {
+            return List.of();
+        }
+        List<GateNode> out = new ArrayList<>();
+        for (int index : recipe.gates()) {
+            if (index < 0 || index >= ring.size() || profile.get(index) == WallGeometry.SKIP) {
+                continue;
+            }
+            BlockPos column = ring.get(index);
+            out.add(new GateNode(new BlockPos(column.getX(), profile.get(index) + 1,
+                    column.getZ()), WallGeometry.outwardAt(box, index), true));
+        }
+        return List.copyOf(out);
     }
 
     /**

@@ -21,7 +21,8 @@ public record BuildRecipe(
         Rotation rotation,
         Identifier palette,
         List<Integer> groundProfile,
-        BlockPos extent) {
+        BlockPos extent,
+        List<Integer> gates) {
 
     /**
      * Width, height and depth in blocks.
@@ -52,6 +53,9 @@ public record BuildRecipe(
             PlacitumCodecs.INT_LIST.fieldOf("ground_profile").forGetter(BuildRecipe::groundProfile),
             // Optional with a default: no save has ever held a build job, but the rule is the
             // rule, and a required field added to a stored shape is how a roster gets emptied.
-            BlockPos.CODEC.optionalFieldOf("extent", BlockPos.ZERO).forGetter(BuildRecipe::extent)
+            BlockPos.CODEC.optionalFieldOf("extent", BlockPos.ZERO).forGetter(BuildRecipe::extent),
+            // Frozen alongside the ground for the same reason: where the roads cross the
+            // ring is a fact about the grid, and the grid moves. Expansion may not consult it.
+            PlacitumCodecs.INT_LIST.optionalFieldOf("gates", List.of()).forGetter(BuildRecipe::gates)
     ).apply(i, BuildRecipe::new));
 }

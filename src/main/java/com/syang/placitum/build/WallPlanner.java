@@ -3,6 +3,8 @@ package com.syang.placitum.build;
 import com.syang.placitum.Placitum;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildRecipe;
+import com.syang.placitum.data.CellState;
+import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.WallTier;
 import java.util.ArrayList;
@@ -73,18 +75,69 @@ public final class WallPlanner {
             return Optional.empty();
         }
 
+        List<Integer> gates = chooseGates(settlement, box.get(), ring, profile);
+
         BuildRecipe recipe = new BuildRecipe(
                 PALISADE,
                 box.get().northWest(),
                 Rotation.NONE,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
                 List.copyOf(profile),
-                new BlockPos(box.get().width(), heightOf(WallTier.PALISADE), box.get().depth()));
+                new BlockPos(box.get().width(), heightOf(WallTier.PALISADE), box.get().depth()),
+                gates);
 
         Placitum.LOGGER.debug("Planned a wall for '{}': {}x{} box, {} of {} positions placeable"
                         + " ({} unloaded)", settlement.name(), box.get().width(),
                 box.get().depth(), placeable, ring.size(), unreadable);
         return Optional.of(recipe);
+    }
+
+    /**
+     * Where the roads already leave the village.
+     *
+     * <p>Not chosen: found. The paths through a vanilla village were laid by worldgen and are
+     * where its people already walk, so cutting the gates anywhere else would mean walling off
+     * the routes and opening new ones nobody uses.
+     *
+     * <p>One gate per run of road, taken from the middle. A run four cells wide would otherwise
+     * become four gates side by side, which is a gap, not a gate.
+     */
+    private static List<Integer> chooseGates(Settlement settlement, WallGeometry.Box box,
+            List<BlockPos> ring, List<Integer> profile) {
+        List<Integer> onRoad = new ArrayList<>();
+        for (int i = 0; i < ring.size(); i++) {
+            if (profile.get(i) == WallGeometry.SKIP) {
+                continue;
+            }
+            CellPos cell = settlement.grid().cellAt(ring.get(i));
+            if (settlement.grid().stateAt(cell) == CellState.ROAD) {
+                onRoad.add(i);
+            }
+        }
+        List<Integer> gates = new ArrayList<>();
+        int runStart = -1;
+        for (int i = 0; i < onRoad.size(); i++) {
+            if (runStart < 0) {
+                runStart = i;
+            }
+            boolean endsHere = i + 1 == onRoad.size()
+                    || onRoad.get(i + 1) != onRoad.get(i) + 1;
+            if (endsHere) {
+                gates.add(onRoad.get((runStart + i) / 2));
+                runStart = -1;
+            }
+        }
+        if (gates.isEmpty() && !ring.isEmpty()) {
+            // A village whose roads never reach the ring still needs a way out. The south side
+            // faces the way most players arrive, and any gate beats a sealed village.
+            int south = box.width() + box.depth() + box.width() / 2 - 2;
+            if (south >= 0 && south < profile.size() && profile.get(south) != WallGeometry.SKIP) {
+                gates.add(south);
+                Placitum.LOGGER.debug("No road crosses the ring of '{}'; cutting one gate south",
+                        settlement.name());
+            }
+        }
+        return List.copyOf(gates);
     }
 
     /**

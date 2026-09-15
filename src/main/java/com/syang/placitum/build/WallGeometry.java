@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 /**
  * Where a wall goes, and in what order its blocks are counted.
@@ -76,6 +77,25 @@ public final class WallGeometry {
         int width = (maxX - minX + 1) * PlotGrid.CELL_BLOCKS;
         int depth = (maxZ - minZ + 1) * PlotGrid.CELL_BLOCKS;
         return Optional.of(new Box(nw, width, depth));
+    }
+
+    /**
+     * Which way a position on the ring looks out.
+     *
+     * <p>A gate has to face out of the settlement or a villager opens it into the wall. The
+     * index alone says which edge it is on, because the walk is fixed: north edge first, then
+     * east, south, west.
+     */
+    public static Direction outwardAt(Box box, int index) {
+        int w = box.width();
+        int d = box.depth();
+        if (index < w) {
+            return Direction.NORTH;
+        }
+        if (index < w + d - 1) {
+            return Direction.EAST;
+        }
+        return index < 2 * w + d - 2 ? Direction.SOUTH : Direction.WEST;
     }
 
     /**

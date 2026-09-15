@@ -79,6 +79,9 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue PALISADE_HEIGHT;
     public static final ModConfigSpec.IntValue OPS_PER_BUILDER_STEP;
     public static final ModConfigSpec.IntValue WALL_MIN_POPULATION;
+    public static final ModConfigSpec.IntValue BUILD_OP_INTERVAL_TICKS;
+    public static final ModConfigSpec.DoubleValue BUILDER_REACH;
+    public static final ModConfigSpec.DoubleValue BUILDER_WALK_SPEED;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -232,6 +235,15 @@ public final class PlacitumConfig {
         WALL_MIN_POPULATION = b.comment("Below this, a settlement has better things to do with",
                         "its timber than fortify.")
                 .defineInRange("wallMinPopulation", 4, 1, 1000);
+        BUILD_OP_INTERVAL_TICKS = b.comment("Ticks between blocks while somebody is watching.",
+                        "10 is a block every half second: long enough to look like work and",
+                        "short enough that a wall does not take an evening.")
+                .defineInRange("buildOpIntervalTicks", 10, 1, 200);
+        BUILDER_REACH = b.comment("How far a builder can place from where it stands.",
+                        "Wider than a player arm on purpose - the alternative is scaffolding,",
+                        "which has to be put up, taken down, and got wrong.")
+                .defineInRange("builderReach", 5.5D, 1.0D, 16.0D);
+        BUILDER_WALK_SPEED = b.defineInRange("builderWalkSpeed", 0.6D, 0.1D, 2.0D);
         b.pop();
 
         SPEC = b.build();

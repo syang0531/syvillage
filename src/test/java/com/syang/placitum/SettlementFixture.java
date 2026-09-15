@@ -137,7 +137,8 @@ public final class SettlementFixture {
                         new BlockPos(120, 68, -300), Rotation.COUNTERCLOCKWISE_90,
                         Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
                         List.of(68, 69, 69, 70, 71),
-                        new BlockPos(9, 3, 7)),
+                        new BlockPos(9, 3, 7),
+                        List.of(2)),
                 42, Map.of(Items.OAK_LOG, 64), BuildStage.EXECUTING);
 
         WallState wall = new WallState(WallTier.PALISADE,
