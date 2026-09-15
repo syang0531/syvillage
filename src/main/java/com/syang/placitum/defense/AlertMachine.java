@@ -53,6 +53,25 @@ public final class AlertMachine {
         return settlement.withDefense(withAlert(defense, next, now));
     }
 
+    /**
+     * Winds the alarm down while the settlement is virtual.
+     *
+     * <p>With no entities there is nothing in sight by definition, so the cooldown simply runs.
+     * Leaving this out was a quiet disaster: an alerted settlement that the player then walked
+     * away from stayed at ALERT for ever, and since raids are suppressed during an alarm, the
+     * one village that had been warned was the one village that could never be raided again.
+     */
+    public static DefenseState relaxed(DefenseState defense, long now) {
+        if (defense.alert() == AlertState.PEACE) {
+            return defense;
+        }
+        if (now - defense.alertSince() < PlacitumConfig.ALERT_COOLDOWN_TICKS.get()) {
+            return defense;
+        }
+        AlertState next = AlertState.values()[defense.alert().ordinal() - 1];
+        return withAlert(defense, next, now);
+    }
+
     private static DefenseState withAlert(DefenseState defense, AlertState alert, long now) {
         return new DefenseState(alert, now, defense.wall(), defense.lightingScore(),
                 defense.recentCasualties());

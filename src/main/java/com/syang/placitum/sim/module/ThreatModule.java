@@ -3,6 +3,7 @@ package com.syang.placitum.sim.module;
 import com.syang.placitum.Placitum;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.AlertState;
+import com.syang.placitum.defense.AlertMachine;
 import com.syang.placitum.defense.RaidResolver;
 import com.syang.placitum.sim.SimModule;
 import com.syang.placitum.sim.SimParams;
@@ -19,8 +20,13 @@ public class ThreatModule implements SimModule {
 
     @Override
     public void step(SettlementMut settlement, SimParams params, RandomSource rng) {
-        // A vanilla raid already running owns the outcome; rolling our own on top would punish
-        // the same village twice for the same night.
+        // No entities means nothing is in sight, so the alarm winds down on its own cooldown.
+        // The live tick only runs while the settlement has bodies, so without this an alerted
+        // village that the player walked away from would stay alerted for ever.
+        settlement.defense = AlertMachine.relaxed(settlement.defense, settlement.lastSimTick());
+
+        // An alarm still up means something is being fought already - a vanilla raid, or the
+        // aftermath of one. Rolling another on top punishes the same village twice for one night.
         if (settlement.alert() != AlertState.PEACE) {
             return;
         }
