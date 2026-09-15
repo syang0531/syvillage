@@ -107,16 +107,20 @@ public final class PlacitumCommand {
             return 0;
         }
         ServerLevel level = source.getServer().getLevel(settlement.dimension());
-        if (level != null && settlement.materializedCount() > 0) {
-            // Hand the entities back before letting go, or those villagers are orphaned.
-            settlement = LifecycleManager.demoteAll(level, manager, settlement);
-            manager.put(settlement);
+        if (level != null) {
+            // Release, never demote. Demote discards the entity; here the record is what goes
+            // away, so discarding would delete the villagers from the world.
+            LifecycleManager.releaseAll(level, manager, settlement);
         }
         PlacitumEvents.lifecycle().forget(settlement.id());
         manager.unregister(settlement.id());
         String name = settlement.name();
-        source.sendSuccess(() -> Component.literal("Unregistered " + name
-                + " (its data file is kept, so re-registering restores it)"), true);
+        int freed = settlement.residentCount();
+        source.sendSuccess(() -> Component.literal("Unregistered " + name + " - " + freed
+                + " villager(s) handed back to vanilla, buildings untouched"), true);
+        source.sendSuccess(() -> Component.literal(
+                "  The old data file stays on disk but is no longer linked;"
+                        + " registering this bell again starts a fresh settlement."), false);
         return 1;
     }
 

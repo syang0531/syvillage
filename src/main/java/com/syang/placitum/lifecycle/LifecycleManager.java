@@ -140,6 +140,19 @@ public final class LifecycleManager {
     }
 
     /**
+     * Unregistering: every villager keeps its body and stops being ours.
+     *
+     * <p>The entities outlive the settlement. That is the whole point of the command.
+     */
+    public static void releaseAll(ServerLevel level, SettlementManager manager, Settlement settlement) {
+        for (Resident r : settlement.residents()) {
+            Lifecycle.release(level, manager, r);
+        }
+        Placitum.LOGGER.info("Released {} villager(s) of '{}' back to vanilla",
+                settlement.residentCount(), settlement.name());
+    }
+
+    /**
      * Demotes only the residents inside an unloading chunk, with no delay.
      *
      * <p>Waiting is not an option here: once the unload completes the entity is gone and its

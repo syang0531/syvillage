@@ -176,6 +176,26 @@ public final class Lifecycle {
         }
     }
 
+    /**
+     * Hands a villager back to vanilla, alive.
+     *
+     * <p>Emphatically not demote. Demote discards the entity because the record survives and
+     * will rebuild it later. Unregister throws the record away, so discarding here would delete
+     * the villager from the world outright - the mod would be destroying the very thing it
+     * exists to protect, in the command whose entire purpose is to undo a mistake.
+     */
+    public static void release(ServerLevel level, SettlementManager manager, Resident resident) {
+        Entity entity = findEntity(level, manager, resident);
+        if (entity != null) {
+            entity.removeData(ModAttachments.RESIDENT_ID);
+            if (entity instanceof Villager villager) {
+                villager.setCustomName(null);
+            }
+            Placitum.LOGGER.debug("Released {} back to vanilla", resident.lineage().fullName());
+        }
+        manager.unbind(resident.id());
+    }
+
     public static @Nullable Entity findEntity(ServerLevel level, SettlementManager manager, Resident resident) {
         UUID entityId = manager.entityOf(resident.id());
         return entityId == null ? null : level.getEntity(entityId);
