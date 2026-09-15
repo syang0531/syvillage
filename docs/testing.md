@@ -38,13 +38,13 @@ promote의 첫 단계가 `catchUp`이다(`docs/architecture.md`). `now > lastSim
 
 - `Resident.task` 진행도
 - `Resident.gear` 내구도
-- `Resident.morale`, `hunger`
-- `Resident.offersSnapshot` (거래 목록이 왕복에서 사라지는 것이 가장 티 나는 회귀다)
+- `Resident.vitals` 전체 (`health`, `morale`, `hunger`)
+- `Resident.offers` (거래 목록이 왕복에서 사라지는 것이 가장 티 나는 회귀다)
 - `Resident.zombified`
 - `BuildJob.progress`, `BuildJob.recipe.groundProfile`
 - `PlotGrid.cells` 상태
 - `WallState.gates[].open`
-- `Settlement.recentCasualties` 링버퍼
+- `Settlement.defense.recentCasualties` 링버퍼 (int[] — Codec에서 리스트 왕복 시 길이가 보존되는지)
 - `Chronicle` 항목 수
 
 ### 실행 시점

@@ -8,11 +8,7 @@
 
 ```java
 public record Settlement(
-    UUID id,
-    String name,
-    ResourceKey<Level> dimension,
-    BlockPos center,              // 종의 위치. 플롯 격자의 원점
-    int claimRadiusChunks,
+    SettlementId identity,        // id, name, dimension, center, claimRadiusChunks
 
     ScaleTier scale,              // 축1: 규모
     int scaleHoldSteps,           // 승격/강등 히스테리시스 카운터
@@ -23,21 +19,51 @@ public record Settlement(
     List<BuildJob> buildQueue,    // 선두가 head
     List<BuildOp> pendingOps,     // 미적용 월드 변경
 
-    AlertState alert,
-    long alertSince,
-    WallState wall,
-    int lightingScore,            // 0~100. 위협 계산에 들어간다
-    int[] recentCasualties,       // 게임일별 전투 사망자 링버퍼 (safetyCap용)
-
+    DefenseState defense,         // alert, alertSince, wall, lightingScore, recentCasualties
     Chronicle chronicle,
-    long lastSimTick,             // 마지막으로 완료된 스텝의 경계
-    long simStep,                 // 결정적 RNG 시드에 쓰인다
+    SimClock clock,               // lastSimTick, simStep
 
     Ruler ruler,                  // V2 훅. V1에서는 항상 Npc(촌장)
     UUID parentId,                // V2 훅. V1에서는 항상 null
     boolean forceLoadCore         // opt-in 강제 로딩
+) {
+    // 위임 접근자. s.id()가 s.identity().id()보다 훨씬 자주 불린다.
+    public UUID id()        { return identity.id(); }
+    public BlockPos center(){ return identity.center(); }
+    public AlertState alert(){ return defense.alert(); }
+    public long lastSimTick(){ return clock.lastSimTick(); }
+    public long simStep()   { return clock.simStep(); }
+}
+
+public record SettlementId(
+    UUID id,
+    String name,
+    ResourceKey<Level> dimension,
+    BlockPos center,              // 종의 위치. 플롯 격자의 원점
+    int claimRadiusChunks
+) {}
+
+public record DefenseState(
+    AlertState alert,
+    long alertSince,
+    WallState wall,
+    int lightingScore,            // 0~100. 위협 계산에 들어간다
+    int[] recentCasualties        // 게임일별 전투 사망자 링버퍼 (safetyCap용)
+) {}
+
+public record SimClock(
+    long lastSimTick,             // 마지막으로 완료된 스텝의 경계
+    long simStep                  // 결정적 RNG 시드에 쓰인다
 ) {}
 ```
+
+### 왜 쪼개는가 — 16필드 상한
+
+26.2는 DataFixerUpper 10.0.21을 쓰고, `Products$P16`이 최대다. 따라서 `RecordCodecBuilder.group()`은 **16개 필드까지만** 받는다. 플랫하게 두면 `Settlement`는 24개, `Resident`는 20개로 **Codec을 아예 작성할 수 없다.**
+
+쪼개는 김에 경계를 도메인에 맞춘다. `DefenseState`는 `docs/defense.md`가, `SimClock`은 `docs/simulation.md`가 통째로 소유한다. 왕복 테스트도 서브레코드 단위로 비교할 수 있어 새는 필드를 더 빨리 찾는다.
+
+현재 15필드이므로 여유가 한 칸뿐이다. **새 필드는 플랫하게 붙이지 말고 해당 서브레코드에 넣는다.**
 
 `bedCount()`, `foodProduction()`, `population()`, `defenseRating()`은 **필드가 아니라 파생 메서드**다. 저장하지 않는다. 반대로 `lightingScore`와 `recentCasualties`는 월드를 스캔해야만 알 수 있거나 시간 창을 갖는 값이므로 반드시 저장한다.
 
@@ -49,7 +75,7 @@ public record Settlement(
 |---|---|
 | `List<Resident>` | `Resident.id` 오름차순 유지. 추가 시 삽입 정렬 |
 | `Map<UUID, Plot>` | `TreeMap` 또는 순회 직전 키 정렬 |
-| `Map<Item, Integer> stock` | 순회는 `ResourceLocation` 문자열 정렬 기준. Codec은 `unboundedMap(ITEM.byNameCodec(), INT)` |
+| `Map<Item, Integer> stock` | 순회는 `Identifier` 문자열 정렬 기준. Codec은 `unboundedMap(ITEM.byNameCodec(), INT)` |
 | `PlotGrid.cells` | `CellPos` 정렬 (gz, gx 순) |
 
 `Deque`는 Codec이 없다. 저장은 `List`로 하고 큐 조작이 필요하면 `store` 패키지의 가변 미러에서만 `ArrayDeque`로 감싼다.
@@ -129,21 +155,13 @@ public sealed interface Ruler {
 ```java
 public record Resident(
     UUID id,
-    String givenName,
-    String familyName,        // 가문 단위로 상속된다
-    UUID motherId,            // null 가능
-    UUID fatherId,
+    Lineage lineage,          // givenName, familyName, motherId, fatherId
 
     LifeStage stage,          // INFANT, CHILD, ADULT, ELDER
     int ageDays,              // 게임일
 
-    ResourceKey<JobDef> job,
-    UUID homePlot,
-    UUID workPlot,
-
-    int health,               // 0~20
-    int morale,               // 0~100
-    int hunger,               // 0~100
+    Assignment assignment,    // job, homePlot, workPlot
+    Vitals vitals,            // health, morale, hunger
 
     boolean militiaEligible,
     boolean zombified,        // 좀비 주민. 집계 제외, 치료 시 복귀
@@ -153,7 +171,26 @@ public record Resident(
     BlockPos coarsePos,       // L2에서는 "어느 건물" 수준이면 충분
     ResidentState state,      // VIRTUAL | MATERIALIZED
 
-    CompoundTag offersSnapshot   // 원칙 1의 유일한 예외. 아래 참조
+    MerchantOffers offers     // 원칙 1의 유일한 예외. 아래 참조
+) {}
+
+public record Lineage(
+    String givenName,
+    String familyName,        // 가문 단위로 상속된다
+    UUID motherId,            // null 가능
+    UUID fatherId
+) {}
+
+public record Assignment(
+    ResourceKey<JobDef> job,
+    UUID homePlot,
+    UUID workPlot
+) {}
+
+public record Vitals(
+    int health,               // 0~20
+    int morale,               // 0~100
+    int hunger                // 0~100
 ) {}
 ```
 
@@ -165,13 +202,13 @@ public record Resident(
 
 ```java
 public record JobDef(
-    ResourceLocation id,
+    Identifier id,
     ScaleTier minScale,           // 이 규모부터 해금
     Block workstation,            // POI 블록
     boolean militiaEligible,      // 농부 true, 사서 false
     boolean producesFood,
     int productionPerStep,
-    ResourceLocation output        // 생산물
+    Identifier output        // 생산물
 ) {}
 ```
 
@@ -179,13 +216,13 @@ V1의 직업은 여섯 개다. `farmer`, `woodcutter`, `builder`, `smith`, `scho
 
 바닐라 직업을 그대로 옮기지 않는 이유는 `JobDef` 하나마다 생산 공식과 밸런스 곡선이 따라붙기 때문이다. **거래는 계속 바닐라 직업이 결정한다.** `JobDef`는 시뮬레이션 전용이다.
 
-### offersSnapshot — 예외를 명시한다
+### offers — 예외를 명시한다
 
-demote하면 엔티티가 사라지고, 그와 함께 `MerchantOffers`도 사라진다. 거래 목록을 `Resident`의 정규 필드로 옮기면 원칙 1이 `MerchantOffers` 전체에 적용되어야 해서 범위가 폭발한다.
+demote하면 엔티티가 사라지고, 그와 함께 `MerchantOffers`도 사라진다. 거래 목록을 우리가 `Resident`의 정규 필드로 **분해해서** 옮기면 원칙 1이 `MerchantOffer` 전체(아이템, 가격, 사용 횟수, 수요, 경험치)에 적용되어야 해서 범위가 폭발한다.
 
-타협은 **불투명한 blob 하나**다.
+타협은 **바닐라 타입을 통째로 들고 있는 것**이다. 26.2에 `MerchantOffers.CODEC`이 있으므로 `CompoundTag`로 감쌀 필요조차 없다.
 
-- 시뮬레이션은 이 필드를 절대 읽지 않는다
+- 시뮬레이션은 이 필드를 절대 읽지 않는다. 우리에게는 불투명한 blob이다
 - demote 시 쓰고 promote 시 그대로 복원하는 것 외의 코드가 없다
 - 이것이 원칙 1의 유일한 예외이며, 필드 주석에 그 사실을 적는다
 
@@ -225,7 +262,7 @@ public record Plot(
     CellPos anchor,
     int cellW, int cellH,      // 1×1, 2×1, 2×2
     Rotation rotation,         // 현관이 도로를 향하도록
-    ResourceLocation template, // .nbt 구조물
+    Identifier template, // .nbt 구조물
     PlotKind kind,             // HOUSE, FARM, WORKSHOP, ARMORY, WATCHTOWER, GRAVEYARD
     int bedCount,
     List<UUID> occupants
@@ -263,10 +300,10 @@ List<BuildOp> ops = BuildPlanner.expand(job.recipe(), heightSample);
 
 ```java
 public record BuildRecipe(
-    ResourceLocation template,   // 또는 절차 생성기 id (밭, 성벽 세그먼트)
+    Identifier template,   // 또는 절차 생성기 id (밭, 성벽 세그먼트)
     BlockPos anchor,
     Rotation rotation,
-    ResourceLocation palette,    // 바이옴 치환 맵
+    Identifier palette,    // 바이옴 치환 맵
     int[] groundProfile          // QUEUE 시점에 확정한 지면 높이. 지형 정리 op의 입력
 ) {}
 ```

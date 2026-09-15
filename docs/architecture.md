@@ -5,9 +5,13 @@
 플레이어가 없어도 마을이 살아 있어야 한다. 순진한 해법은 마을 주변 청크를 강제 로딩하는 것인데, 이건 실패한다.
 
 - 반경 5청크 = 마을당 121청크. 마을 10개면 1210청크가 상시 풀 틱 → 서버 붕괴
-- 게다가 **강제 로딩된 청크에는 자연 몹 스폰이 오지 않는다.** 스폰 후보 청크 집합이 플레이어 위치 기준으로 만들어지기 때문. 원격 마을에는 싸울 대상조차 생기지 않는다
+- 바닐라 티켓으로 강제 로딩된 청크에는 자연 몹 스폰이 오지 않는다. 스폰 후보 청크 집합이 플레이어 위치 기준으로 만들어지기 때문
 
 따라서 강제 로딩이 아니라 **해상도를 낮춘 시뮬레이션(LOD)** 으로 간다.
+
+> **정정 (26.2 실사):** 두 번째 이유는 절대적이지 않다. NeoForge의 `TicketController.forceChunk(..., boolean forceNaturalSpawning)`은 플레이어가 없어도 자연 스폰을 허용하는 플래그를 제공한다. 즉 "강제 로딩하면 스폰이 안 온다"는 **바닐라 티켓 한정**이다.
+>
+> 그래도 결론은 바뀌지 않는다. 강제 로딩을 포기하는 진짜 이유는 **첫 번째 줄의 비용**이며, 그건 플래그로 해결되지 않는다.
 
 ## 두 단계
 
@@ -59,7 +63,7 @@ SPAWNING 한 명:
   if (!level.isPositionEntityTicking(r.coarsePos())) continue;   // 보류, 다음 순회에 재시도
   if (materializedCount >= maxMaterializedResidents) break;      // 상한
   spawn(r)                          데이터에서 상태 복원
-  entity.setAttached(RESIDENT_ID, r.id)
+  entity.setData(ModAttachments.RESIDENT_ID, r.id())
   r.state = MATERIALIZED
 ```
 
@@ -163,21 +167,55 @@ for (Settlement s : manager.all())
 
 **엔티티 쪽에서 데이터로 정보가 흐르는 유일한 경로는 demote와 사망 이벤트다.** 그 외에 엔티티가 데이터를 직접 수정하는 코드를 만들지 않는다.
 
-## NeoForge 접점
+## Mojang / NeoForge 접점 — 26.2 실사 완료
 
-| 용도 | API (1.21.x 기준, 26.2에서 확인 필요) |
+아래는 **26.2 디컴파일 소스와 NeoForge 26.2.0.88 소스에서 직접 확인한 값**이다. 참고값이 아니다.
+
+| 용도 | 26.2 API |
 |---|---|
-| 마을 저장 | `SavedData` + `SavedDataType`(Codec 기반), `DimensionDataStorage` |
-| 엔티티↔주민 연결 | `AttachmentType<UUID>` |
+| 마을 저장 | `net.minecraft.world.level.saveddata.SavedData` (dirty 플래그만 가진 추상 클래스) |
+| 저장 타입 | `SavedDataType<T>` = record `(Identifier id, Supplier<T> constructor, Codec<T> codec, DataFixTypes dataFixType)` |
+| 저장소 | `net.minecraft.world.level.storage.SavedDataStorage`, `serverLevel.getDataStorage()` |
+| 저장소 조작 | `computeIfAbsent(type)` / `get(type)` / `set(type, data)` |
+| 엔티티↔주민 연결 | `AttachmentType<UUID>` — `AttachmentType.builder(...)`, `.serialize(...)`, `.copyOnDeath()` |
+| 부착물 접근 | `entity.getData/setData/hasData/removeData/getExistingDataOrNull` |
 | 틱 훅 | `ServerTickEvent.Post` |
-| 청크 티켓 | `RegisterTicketControllersEvent` → `TicketController` |
+| 청크 티켓 | `RegisterTicketControllersEvent.register(controller)` → `TicketController` = record `(Identifier id, callback)` |
+| 청크 강제 로딩 | `controller.forceChunk(level, owner, cx, cz, add, forceNaturalSpawning)` |
 | 주민에 공격력 부여 | `EntityAttributeModificationEvent` |
+| 바닐라 번식 차단 | `BabyEntitySpawnEvent` — `ICancellableEvent` 구현. 취소 가능 |
 | 청크 언로드 훅 | `ChunkEvent.Unload` |
 | 엔티티 재바인딩 | `EntityJoinLevelEvent` |
 | 종료 시 강제 demote | `ServerStoppingEvent` |
-| 임시 청크 접근 | `level.getChunk(x, z, ChunkStatus.FULL, true)` |
+| 엔티티 틱 범위 판정 | `serverLevel.isPositionEntityTicking(BlockPos)` |
+| 임시 청크 접근 | `level.getChunk(x, z, ChunkStatus.FULL, true)` — `ChunkStatus`는 `world.level.chunk.status` |
+| 엔티티 조회 | `serverLevel.getEntity(UUID)` |
 
-티켓 레벨: 31 = 엔티티 틱, 32 = 블록 틱만, 33 = 로드만.
+### 1.21.x에서 바뀐 것 — 문서 전체에 영향
+
+| 1.21.x | 26.2 |
+|---|---|
+| `ResourceLocation` | **`Identifier`** (`net.minecraft.resources.Identifier`) |
+| `DimensionDataStorage` | **`SavedDataStorage`** (`net.minecraft.world.level.storage`) |
+| `net.minecraft.world.entity.npc.Villager` | **`net.minecraft.world.entity.npc.villager.Villager`** |
+| `VillagerProfession` (enum 성격) | **레지스트리 record.** 직업은 `ResourceKey<VillagerProfession>` |
+
+`Identifier` 개명은 878개 MC 소스 파일에 걸쳐 있다. 설계 문서의 `ResourceLocation`은 전부 갈았다.
+
+### 그대로인 것
+
+`Heightmap.Types.WORLD_SURFACE`, `StructureTemplate`, `Rotation`, `RandomSource.create(long)`, `Mth.nextInt(rng, min, max)`, `BlockPos.CODEC`, `BlockState.CODEC`, `Registry.byNameCodec()`, `MerchantOffers`, `Activity.PANIC` 브레인 패키지.
+
+### Codec 16필드 상한 — 설계에 영향
+
+26.2는 DataFixerUpper **10.0.21**을 쓴다. `Products$P16`이 최대이므로 `RecordCodecBuilder.group()`은 **16개 필드까지만** 받는다.
+
+| record | 현재 필드 수 | 상태 |
+|---|---|---|
+| `Settlement` | 24 | **초과** |
+| `Resident` | 20 | **초과** |
+
+둘 다 서브레코드로 쪼개야 Codec을 쓸 수 있다. `docs/data-model.md` 참조.
 
 ## 성능 목표
 

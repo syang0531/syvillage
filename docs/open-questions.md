@@ -2,29 +2,13 @@
 
 설계가 아직 답을 갖고 있지 않은 것들. **코드를 쓰기 전에 여기를 먼저 본다.** 해결되면 해당 문서로 옮기고 여기서 지운다.
 
-기록 시점: V1 착수 전.
+기록 시점: V1 착수 전. 최종 갱신: 26.2 API 실사 후.
+
+**해결됨 — 26.2 매핑 확인.** 디컴파일된 26.2 소스와 NeoForge 26.2.0.88 소스에서 7개 항목을 전부 확인했다. 결과는 `docs/architecture.md`의 "Mojang / NeoForge 접점" 절로 옮겼다. `ResourceLocation → Identifier`, `DimensionDataStorage → SavedDataStorage`, `Villager` 패키지 이동, `VillagerProfession`의 레지스트리화, 그리고 **Codec 16필드 상한**이 나왔고 전부 문서에 반영했다.
 
 ---
 
-## 1. 26.2 매핑 확인 (M0 착수 즉시)
-
-모든 문서의 Mojang·NeoForge 시그니처는 **1.21.x 기준 참고값**이다. 26.2에서 최소한 아래는 직접 확인해야 한다.
-
-| 문서상 이름 | 확인 사항 |
-|---|---|
-| `SavedData` + `SavedDataType` | Codec 기반 등록 방식, `DimensionDataStorage` 접근 경로 |
-| `AttachmentType<UUID>` | 등록 방식, 엔티티 저장 여부 플래그 |
-| `ServerTickEvent.Post` | 이름과 패키지 |
-| `level.isPositionEntityTicking` | 존재 여부. 없으면 `ChunkHolder.FullChunkStatus` 직접 조회 |
-| `BabyEntitySpawnEvent` | 26.2에 남아 있는지. 없으면 대체 훅 |
-| `RegisterTicketControllersEvent` | 티켓 API 형태 |
-| `VillagerProfession` | 레지스트리 경로 (`docs/vanilla-interop.md` 매핑표의 전제) |
-
-**확인 결과가 문서와 다르면 실제를 따르고 문서를 고친다.** 이건 협상 대상이 아니다.
-
----
-
-## 2. L0/L2 전투 등가 계수 (M1)
+## 1. L0/L2 전투 등가 계수 (M1)
 
 `defenseRating`의 계수(`militia * gearTier * 2`, `wallTier * 15`, `watchtower * 8`)는 **근거 없는 초기값이다.** `docs/testing.md` 4절의 계측 절차로 정한다.
 
@@ -39,7 +23,7 @@
 
 ---
 
-## 3. 밭의 L0/L2 정합 (M3)
+## 2. 밭의 L0/L2 정합 (M3)
 
 `docs/architecture.md`는 "밭은 promote 시 `farmYield` 숫자를 보고 작물 성장 단계를 역산한다"고 적었다. 반대 방향이 미정이다.
 
@@ -53,7 +37,7 @@
 
 ---
 
-## 4. 기존 마을 지형 위의 PlotGrid (M3)
+## 3. 기존 마을 지형 위의 PlotGrid (M3)
 
 `PlotGrid`는 8블록 격자를 마을 중심에 정렬한다. 그런데 등록 대상은 **이미 바닐라가 생성한 마을**이다. 기존 건물이 격자에 정렬되어 있을 리가 없다.
 
@@ -65,7 +49,7 @@ M3 착수 전에 실제 바닐라 마을 대여섯 개에 격자를 얹어보고
 
 ---
 
-## 5. CITY 규모의 엔티티 상한 (M4)
+## 4. CITY 규모의 엔티티 상한 (M4)
 
 `maxMaterializedResidents = 60`인데 `CITY`의 인구 상한은 999다. 인구 200 도시에 플레이어가 서 있으면 140명이 보이지 않는다.
 
@@ -75,7 +59,7 @@ V1에서 `CITY`까지 실제로 도달하는 마을이 드물다면 이 문제�
 
 ---
 
-## 6. 이주의 출발지 (M4)
+## 5. 이주의 출발지 (M4)
 
 `docs/population.md`의 이주는 "외부 이주민 유입"이라고만 되어 있다. 어디서 오는가?
 
@@ -87,7 +71,7 @@ V2로 가는 다리가 되려면 두 번째여야 하는데, V1의 일반적인 
 
 ---
 
-## 7. 결정성과 부동소수점 (상시)
+## 6. 결정성과 부동소수점 (상시)
 
 `birthChance`, `threat / defenseRating` 비율 등이 `double`이다. 같은 JVM에서 같은 순서로 계산하면 재현되지만, **누적 오차가 스텝 수에 비례해 쌓인다.**
 

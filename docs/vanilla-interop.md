@@ -24,7 +24,7 @@
 |---|---|
 | `givenName`, `familyName` | 이름 풀에서 신규 생성. 가문은 **주민마다 새로** 부여 (기존 관계를 알 수 없다) |
 | `stage`, `ageDays` | `isBaby()`면 `CHILD`(3일), 아니면 `ADULT`(25일) |
-| `job` | 바닐라 `VillagerProfession` → `JobDef` 매핑 테이블 |
+| `job` | 바닐라 직업 → `JobDef` 매핑 테이블. 26.2에서 `VillagerProfession`은 enum이 아니라 레지스트리 record이므로 키는 `ResourceKey<VillagerProfession>`이다 |
 | `health` | 엔티티의 현재 체력 |
 | `morale`, `hunger` | 50, 50 (중립) |
 | `homePlot`, `workPlot` | POI 역등록 결과. 없으면 null |
@@ -34,6 +34,8 @@
 `INFANT`는 만들지 않는다. 등록 시점에 바닐라 아기 주민이 있으면 `CHILD`로 올린다. 기록상 존재하지 않던 3일을 소급하지 않는다.
 
 ### 직업 매핑
+
+`VillagerProfession.FARMER` 같은 상수는 26.2에서 `ResourceKey<VillagerProfession>`이다. 매핑 테이블의 키로 그대로 쓸 수 있다.
 
 | 바닐라 | `JobDef` |
 |---|---|
@@ -64,9 +66,10 @@ V1의 직업은 여섯 개면 충분하다. 바닐라 직업 열세 개를 그�
 
 이유는 셋이다. 거래는 이미 잘 동작하고, 플레이어가 정확히 기대하는 동작이며, 우리 문제가 아니다. 그리고 거래 데이터를 `Resident`로 옮기는 순간 원칙 1("데이터가 원본")이 `MerchantOffers`에까지 적용되어야 해서 범위가 폭발한다.
 
-예외 하나. **demote 시 `MerchantOffers`는 엔티티 NBT에 남는다.** 주민이 `VIRTUAL`이 되면 엔티티가 사라지므로 거래 목록도 사라진다. V1의 타협은 이렇다.
+예외 하나. **demote 시 `MerchantOffers`는 엔티티와 함께 사라진다.** V1의 타협은 이렇다.
 
-- `Resident`에 `CompoundTag offersSnapshot` **하나만** 예외적으로 들고 있는다
+- `Resident`에 `MerchantOffers offers` **하나만** 예외적으로 들고 있는다
+- 26.2에 `MerchantOffers.CODEC`이 있어 직렬화는 공짜다
 - 이것은 상태가 아니라 **불투명한 blob**이다. 시뮬레이션이 읽지 않는다
 - promote 시 그대로 복원한다
 

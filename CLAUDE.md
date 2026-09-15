@@ -28,7 +28,11 @@
 
 Parchment 매핑은 26.2용이 아직 없다. 파라미터 이름이 `p_123456_` 형태로 나오는 것이 정상이며, 공개되면 `build.gradle`의 주석 처리된 블록을 되살린다.
 
-> **주의:** 이 문서들에 나오는 Mojang·NeoForge 클래스명과 메서드 시그니처는 1.21.x 기준 참고값이다. 26.2에서 이름이 바뀌었을 수 있으므로 **실제 매핑을 반드시 확인하고 쓸 것.** 문서와 실제가 다르면 실제를 따르고, 문서를 고쳐라.
+> **주의:** `docs/architecture.md`의 "Mojang / NeoForge 접점" 표는 26.2 소스에서 직접 확인한 값이다. **그 표 밖의 클래스명은 1.21.x 기준 참고값**이므로 쓰기 전에 확인할 것. 문서와 실제가 다르면 실제를 따르고, 문서를 고쳐라.
+>
+> 26.2에서 개명된 것: `ResourceLocation` → **`Identifier`**, `DimensionDataStorage` → **`SavedDataStorage`**, `Villager`는 `npc.villager` 패키지로 이동, `VillagerProfession`은 레지스트리 record.
+>
+> `RecordCodecBuilder.group()`은 **16필드가 상한**이다 (DFU 10.0.21). record가 그보다 크면 서브레코드로 쪼갠다.
 
 ## 불변 원칙 — 어길 수 없다
 

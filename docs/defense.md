@@ -80,7 +80,7 @@ config에 확률을 넣을 때는 **항상 게임일 환산값을 주석으로 �
 
 ## 민병대 — 엔티티 교체로 구현한다
 
-바닐라 `Villager`를 전투원으로 만들려면 브레인을 뜯어야 한다. `PANIC` 활동이 `HURT_BY` 메모리에 반응해 도망치도록 하드코딩되어 있고, `ATTACK_DAMAGE` 속성 자체가 없다. Mixin으로 브레인 등록부를 갈아끼우는 건 가능하지만 버전마다 깨진다.
+바닐라 `Villager`를 전투원으로 만들려면 브레인을 뜯어야 한다. `PANIC` 활동이 `HURT_BY` 메모리에 반응해 도망치도록 하드코딩되어 있고, `ATTACK_DAMAGE` 속성 자체가 없다. **26.2에서도 그대로다** — `Villager.createAttributes()`에 공격력이 없고 `Activity.PANIC` 브레인 패키지가 살아 있다 (다만 클래스가 `net.minecraft.world.entity.npc.villager.Villager`로 이동했다). Mixin으로 브레인 등록부를 갈아끼우는 건 가능하지만 버전마다 깨진다.
 
 **데이터가 원본이므로 엔티티 타입을 바꿔버리면 된다.**
 
@@ -90,7 +90,7 @@ void conscript(Resident r, ServerLevel level) {
     if (old == null) return;                        // VIRTUAL이면 데이터만 바꾸면 된다
 
     MilitiaEntity m = ModEntities.MILITIA.get().create(level);
-    m.setAttached(RESIDENT_ID, r.id());             // 같은 Resident 레코드를 가리킨다
+    m.setData(ModAttachments.RESIDENT_ID, r.id()); // 같은 Resident 레코드를 가리킨다
     m.snapTo(old.position(), old.getYRot(), old.getXRot());
     m.equip(r.gear());
 

@@ -9,6 +9,7 @@
 **엔티티를 하나도 추가하지 않는다.** 지루하지만 여기가 척추다.
 
 - [ ] `Settlement`, `Resident`, `PlotGrid`, `Plot`, `BuildJob` record + Codec
+      (서브레코드 분할 완료 — `group()` 16필드 상한. `docs/data-model.md`)
 - [ ] SavedData 분할 (`placitum_index` + `placitum_village_<id>`)
 - [ ] `SettlementManager` (인덱스 메모리 유지, 개별 마을 lazy 로드)
 - [ ] 종 우클릭 → 마을 등록 + **기존 바닐라 주민 흡수** (`docs/vanilla-interop.md`)
