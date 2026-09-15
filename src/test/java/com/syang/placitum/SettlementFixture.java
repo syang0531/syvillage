@@ -180,4 +180,29 @@ public final class SettlementFixture {
     public static Settlement standard() {
         return full(6, ResidentState.VIRTUAL);
     }
+
+    /**
+     * A settlement as M2 actually finds one: an adopted vanilla village, with beds and no plots.
+     *
+     * <p>{@link #full} is built for the round-trip test and so has a plot with three beds and a
+     * loaded casualty ring, which together hold its carrying capacity below its population. That
+     * is the right shape for proving nothing leaks through a Codec and the wrong shape entirely
+     * for asking whether a village can grow - a village that is already over capacity is
+     * supposed to have no children, so the growth test would pass while proving nothing.
+     *
+     * @param beds how many the vanilla village came with
+     */
+    public static Settlement adopted(int residentCount, int beds) {
+        Settlement s = full(residentCount, ResidentState.VIRTUAL);
+        AnchorSet anchors = new AnchorSet(s.anchors().shelters(), s.anchors().watchPoints(),
+                s.anchors().muster(), beds, s.anchors().refreshedAt());
+        DefenseState peaceful = new DefenseState(s.defense().alert(), s.defense().alertSince(),
+                s.defense().wall(), s.defense().lightingScore(),
+                List.of(0, 0, 0, 0, 0, 0, 0),   // nobody has died here recently
+                s.defense().famineSteps(), s.defense().foodWarned());
+        return new Settlement(s.identity(), s.scaleState(), s.residents(),
+                Map.of(),   // no plots: construction is M3
+                s.grid(), s.stock(), s.buildQueue(), s.pendingOps(), peaceful, anchors,
+                s.chronicle(), s.clock(), s.ruler(), s.parentId(), s.forceLoadCore());
+    }
 }

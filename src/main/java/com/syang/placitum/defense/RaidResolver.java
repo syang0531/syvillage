@@ -117,11 +117,23 @@ public final class RaidResolver {
         }
     }
 
+    /**
+     * What a lost raid carries off.
+     *
+     * <p>A fraction rather than a flat amount, so the loss scales with what there was to take -
+     * and it is config, because it is a balance number and CLAUDE.md is unambiguous that those
+     * do not live in code. It was a hardcoded third until a test run showed a village losing
+     * most of its granary to three raids it never saw.
+     */
     private static void loot(SettlementMut settlement, RandomSource rng) {
+        double fraction = PlacitumConfig.RAID_LOOT_FRACTION.get();
+        if (fraction <= 0.0) {
+            return;
+        }
         List<net.minecraft.world.item.Item> items = new ArrayList<>(settlement.stock.keySet());
         for (net.minecraft.world.item.Item item : items) {
             int have = settlement.stockOf(item);
-            settlement.takeStock(item, Math.max(1, have / 3));
+            settlement.takeStock(item, Math.max(1, (int) Math.round(have * fraction)));
         }
     }
 }

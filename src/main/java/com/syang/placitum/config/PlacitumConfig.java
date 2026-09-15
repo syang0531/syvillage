@@ -47,6 +47,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.DoubleValue MILITIA_RATIO_CAP;
     public static final ModConfigSpec.DoubleValue ROUT_THRESHOLD;
     public static final ModConfigSpec.DoubleValue RAID_CHANCE_PER_STEP;
+    public static final ModConfigSpec.DoubleValue RAID_LOOT_FRACTION;
     public static final ModConfigSpec.IntValue MILITIA_WEIGHT;
     public static final ModConfigSpec.IntValue WALL_WEIGHT;
     public static final ModConfigSpec.IntValue WATCHTOWER_WEIGHT;
@@ -133,6 +134,10 @@ public final class PlacitumConfig {
                         "PER STEP: one game day is 120 steps, so 0.002 is about one raid",
                         "every four days. 0.02 would be 2.4 a day and no village would survive.")
                 .defineInRange("raidChancePerStep", 0.002D, 0.0D, 1.0D);
+        RAID_LOOT_FRACTION = b.comment("Share of each stored item a lost raid carries off.",
+                        "A third emptied a granary over three unseen raids, which is harsh for",
+                        "something the player never had a chance to respond to.")
+                .defineInRange("raidLootFraction", 0.15D, 0.0D, 1.0D);
 
         b.comment("defenseRating coefficients. Guesses until docs/testing.md section 4",
                         "measures real fights and tunes them.").push("rating");

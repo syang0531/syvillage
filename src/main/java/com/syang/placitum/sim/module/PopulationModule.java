@@ -66,7 +66,7 @@ public class PopulationModule implements SimModule {
             int age = r.ageDays() + 1;
             LifeStage stage = stageFor(age, params);
             if (stage != r.stage()) {
-                settlement.record(EntryType.BIRTH, r.lineage().fullName(),
+                settlement.record(EntryType.CAME_OF_AGE, r.lineage().fullName(),
                         "grew from " + r.stage() + " to " + stage);
             }
             settlement.residents.set(i, withAge(r, age, stage));
