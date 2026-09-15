@@ -4,7 +4,9 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.syang.placitum.build.BuildPlanner;
 import com.syang.placitum.build.GridMap;
+import com.syang.placitum.data.BuildJob;
 import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.CellState;
 import com.syang.placitum.build.GridSurvey;
@@ -162,6 +164,11 @@ public final class PlacitumCommand {
                                                         IntegerArgumentType.getInteger(ctx, "gx"),
                                                         IntegerArgumentType.getInteger(ctx, "gz"),
                                                         false)))))));
+
+        root.then(Commands.literal("build")
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .executes(ctx -> buildStatus(ctx.getSource(),
+                                StringArgumentType.getString(ctx, "id")))));
 
         root.then(Commands.literal("verify")
                 .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
@@ -803,6 +810,85 @@ public final class PlacitumCommand {
                 + cell.toKey() + " - world position "
                 + settlement.grid().blockAt(cell).toShortString()), false);
         return 1;
+    }
+
+    /**
+     * What is on the stocks.
+     *
+     * <p>Stage 1-4 of the pipeline place no blocks at all, so without this there is no way to
+     * tell a wall being built virtually from a wall order that silently did nothing. Every
+     * stage here answers "why is it not finished yet" with something specific.
+     */
+    private static int buildStatus(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(settlement.name() + " - build queue")
+                .withStyle(ChatFormatting.GOLD), false);
+
+        if (settlement.buildQueue().isEmpty()) {
+            source.sendSuccess(() -> Component.literal("  nothing queued - "
+                    + whyNothingQueued(settlement, source)).withStyle(ChatFormatting.GRAY), false);
+            return 0;
+        }
+        for (BuildJob job : settlement.buildQueue()) {
+            int total = BuildPlanner.expand(job.recipe()).size();
+            String cost = job.cost().isEmpty() ? "not costed yet" : describeCost(job);
+            source.sendSuccess(() -> Component.literal("  " + job.recipe().template().getPath()
+                    + "  " + job.stage() + "  " + job.progress() + "/" + total
+                    + " blocks  (" + cost + ")"), false);
+            source.sendSuccess(() -> Component.literal("    " + explain(job, total))
+                    .withStyle(ChatFormatting.DARK_GRAY), false);
+        }
+        return settlement.buildQueue().size();
+    }
+
+    /** The stage, in words that name what has to happen next. */
+    private static String explain(BuildJob job, int total) {
+        return switch (job.stage()) {
+            case PLANNED, RESERVED -> "waiting for somebody to look at the ground -"
+                    + " the recipe cannot be frozen from a settlement nobody is standing in";
+            case QUEUED -> "recipe frozen, about to draw materials";
+            case WAITING_MATERIALS -> "short of materials - put them in the settlement stores";
+            case EXECUTING -> total > 0
+                    ? "building; " + (total - job.progress()) + " blocks to go"
+                    : "expands to nothing, which should not happen";
+            case COMPLETE -> "done";
+        };
+    }
+
+    private static String describeCost(BuildJob job) {
+        StringBuilder out = new StringBuilder();
+        for (var entry : job.cost().entrySet()) {
+            if (out.length() > 0) {
+                out.append(", ");
+            }
+            out.append(entry.getValue()).append(" ")
+                    .append(entry.getKey().getDescriptionId().replaceAll(".*\\.", ""));
+        }
+        return out.toString();
+    }
+
+    /**
+     * Why an empty queue is empty.
+     *
+     * <p>An empty queue has several causes that look identical, which is the failure this
+     * project keeps paying for. Each one here is a different thing for the player to do.
+     */
+    private static String whyNothingQueued(Settlement settlement, CommandSourceStack source) {
+        if (settlement.defense().wall().tier() != com.syang.placitum.data.WallTier.NONE) {
+            return "it already has a " + settlement.defense().wall().tier();
+        }
+        SimParams params = SimParams.fromConfig(source.getServer().overworld());
+        if (settlement.population() < params.wallMinPopulation()
+                && settlement.alert() == com.syang.placitum.data.AlertState.PEACE) {
+            return "population " + settlement.population() + " is below the wall threshold of "
+                    + params.wallMinPopulation() + ", and nothing is attacking";
+        }
+        return "the need has not been noticed yet - it is checked once a simulation step";
     }
 
     private static Optional<Settlement> resolve(SettlementManager manager, String rawId) {

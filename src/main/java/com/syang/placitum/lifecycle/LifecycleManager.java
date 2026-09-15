@@ -3,6 +3,7 @@ package com.syang.placitum.lifecycle;
 import com.syang.placitum.Placitum;
 import com.syang.placitum.defense.DefenseTick;
 import com.syang.placitum.settlement.AnchorScan;
+import com.syang.placitum.build.ConstructionTick;
 import com.syang.placitum.build.GridSurvey;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.Resident;
@@ -138,6 +139,9 @@ public final class LifecycleManager {
             out = out.withGrid(GridSurvey.run(level, out).grid());
             manager.put(out);
         }
+        // Freezing a build recipe needs loaded chunks, exactly like the anchors above.
+        // This is the one place in the mod where both are guaranteed.
+        out = ConstructionTick.run(level, out);
         out = DefenseTick.run(level, manager, out);
         if (out != settlement) {
             manager.put(out);

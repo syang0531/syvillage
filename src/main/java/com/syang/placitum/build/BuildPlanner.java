@@ -1,0 +1,113 @@
+package com.syang.placitum.build;
+
+import com.syang.placitum.data.BuildOp;
+import com.syang.placitum.data.BuildRecipe;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+
+/**
+ * Turns a recipe into the list of blocks it means.
+ *
+ * <p>A pure function of the recipe and nothing else. That is not a style preference: op lists
+ * are never stored - a house is thousands of them and the settlement's save is rewritten whole
+ * whenever it changes - so the same recipe has to expand to the same list weeks later, on a
+ * different machine, against terrain that has since changed. Everything the world has to say
+ * was said once, at QUEUE time, and frozen into {@code groundProfile}.
+ *
+ * <p>Read a block here and replay silently stops matching what the virtual simulation already
+ * counted as built. See docs/data-model.md.
+ */
+public final class BuildPlanner {
+
+    /**
+     * A drop this size is left to the cliff.
+     *
+     * <p>docs/construction.md: step up 1-2, run a vertical segment at 3-4, give up at 5. The
+     * last rule is the important one - carving a mountain to close a ring reads as griefing and
+     * costs a fortune in logs, and a cliff is already a wall.
+     */
+    private static final int CLIFF = 5;
+
+    private BuildPlanner() {}
+
+    /**
+     * Expands a wall recipe.
+     *
+     * <p>Y-ascending, so a builder can stand on what it has already laid. docs/construction.md
+     * leans on that ordering instead of scaffolding, which would have to be put up, taken down,
+     * and got wrong.
+     */
+    public static List<BuildOp> expand(BuildRecipe recipe) {
+        List<Integer> profile = recipe.groundProfile();
+        WallGeometry.Box box = new WallGeometry.Box(
+                recipe.anchor(), recipe.width(), recipe.depth());
+        List<BlockPos> ring = WallGeometry.perimeter(box);
+        if (ring.size() != profile.size() || recipe.height() <= 0) {
+            // Refusing beats guessing. A mismatch means the recipe was written by one version
+            // of the geometry and is being read by another, and half a wall in the wrong place
+            // is worse than none.
+            return List.of();
+        }
+
+        BlockState material = materialFor(recipe);
+        List<BuildOp> ops = new ArrayList<>();
+
+        for (int i = 0; i < ring.size(); i++) {
+            int ground = profile.get(i);
+            if (ground == WallGeometry.SKIP) {
+                continue;
+            }
+            int top = ground + recipe.height();
+            // Seal against a neighbour standing higher, so a 3-4 block step does not leave a
+            // gap a skeleton can shoot through. Both neighbours, because the ring is a loop.
+            top = Math.max(top, sealAgainst(profile, i - 1, ring.size(), ground));
+            top = Math.max(top, sealAgainst(profile, i + 1, ring.size(), ground));
+
+            BlockPos column = ring.get(i);
+            for (int y = ground + 1; y <= top; y++) {
+                ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), material));
+            }
+        }
+
+        ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())
+                .thenComparingInt(op -> op.pos().getX())
+                .thenComparingInt(op -> op.pos().getZ()));
+        return List.copyOf(ops);
+    }
+
+    /**
+     * How high this column must reach to meet a taller neighbour.
+     *
+     * <p>Zero when the neighbour is lower, absent, or across a cliff - a cliff is where the wall
+     * stops rather than something to climb.
+     */
+    private static int sealAgainst(List<Integer> profile, int index, int size, int ground) {
+        int wrapped = Math.floorMod(index, size);
+        int neighbour = profile.get(wrapped);
+        if (neighbour == WallGeometry.SKIP) {
+            return 0;
+        }
+        int rise = neighbour - ground;
+        return rise > 0 && rise < CLIFF ? neighbour + 1 : 0;
+    }
+
+    /** Whether two adjacent ground heights are too far apart to wall across. */
+    public static boolean isCliff(int a, int b) {
+        return a != WallGeometry.SKIP && b != WallGeometry.SKIP && Math.abs(a - b) >= CLIFF;
+    }
+
+    /**
+     * What a palisade is made of.
+     *
+     * <p>One material for now. Biome palette substitution arrives with houses, where it earns
+     * its keep by letting one set of templates serve every biome; a wall has no templates to
+     * multiply, so adding the machinery here would buy nothing.
+     */
+    private static BlockState materialFor(BuildRecipe recipe) {
+        return Blocks.OAK_LOG.defaultBlockState();
+    }
+}

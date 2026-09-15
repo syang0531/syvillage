@@ -129,6 +129,11 @@ public record Settlement(
                 newOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
     }
 
+    public Settlement withBuildQueue(List<BuildJob> newQueue) {
+        return new Settlement(identity, scaleState, residents, plots, grid, stock, newQueue,
+                pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
+    }
+
     public Settlement withGrid(PlotGrid newGrid) {
         return new Settlement(identity, scaleState, residents, plots, newGrid, stock, buildQueue,
                 pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);

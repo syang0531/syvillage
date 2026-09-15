@@ -234,6 +234,19 @@ public final class GridSurvey {
         return y;
     }
 
+    /**
+     * Ground height for a wall column, or {@link WallGeometry#SKIP} where it stands in water.
+     *
+     * <p>Shares {@link #groundAt} with the survey on purpose. A wall that decided where the
+     * ground was by different rules than the survey that judged the site buildable would put
+     * its footings at a height the site never agreed to.
+     */
+    public static int groundOrSkip(ServerLevel level, int x, int z) {
+        int y = groundAt(level, x, z);
+        BlockState top = level.getBlockState(new BlockPos(x, y, z));
+        return top.getFluidState().isEmpty() ? y : WallGeometry.SKIP;
+    }
+
     /** Things that stand on the ground without being it. */
     private static boolean isGrowth(BlockState state) {
         return state.is(BlockTags.LOGS)

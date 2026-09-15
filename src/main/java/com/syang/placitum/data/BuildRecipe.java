@@ -20,13 +20,38 @@ public record BuildRecipe(
         BlockPos anchor,
         Rotation rotation,
         Identifier palette,
-        List<Integer> groundProfile) {
+        List<Integer> groundProfile,
+        BlockPos extent) {
+
+    /**
+     * Width, height and depth in blocks.
+     *
+     * <p>A structure template carries its own dimensions, but a wall is not a template - it is a
+     * ring computed from wherever the settlement happens to have spread. Without its extent in
+     * the recipe, expansion would have to consult the plot grid, and the grid changes. That is
+     * exactly the dependency groundProfile exists to remove: the recipe has to be sufficient on
+     * its own or expansion stops being a pure function of it.
+     */
+    public int width() {
+        return extent.getX();
+    }
+
+    public int height() {
+        return extent.getY();
+    }
+
+    public int depth() {
+        return extent.getZ();
+    }
 
     public static final Codec<BuildRecipe> CODEC = RecordCodecBuilder.create(i -> i.group(
             Identifier.CODEC.fieldOf("template").forGetter(BuildRecipe::template),
             BlockPos.CODEC.fieldOf("anchor").forGetter(BuildRecipe::anchor),
             Rotation.CODEC.fieldOf("rotation").forGetter(BuildRecipe::rotation),
             Identifier.CODEC.fieldOf("palette").forGetter(BuildRecipe::palette),
-            PlacitumCodecs.INT_LIST.fieldOf("ground_profile").forGetter(BuildRecipe::groundProfile)
+            PlacitumCodecs.INT_LIST.fieldOf("ground_profile").forGetter(BuildRecipe::groundProfile),
+            // Optional with a default: no save has ever held a build job, but the rule is the
+            // rule, and a required field added to a stored shape is how a roster gets emptied.
+            BlockPos.CODEC.optionalFieldOf("extent", BlockPos.ZERO).forGetter(BuildRecipe::extent)
     ).apply(i, BuildRecipe::new));
 }

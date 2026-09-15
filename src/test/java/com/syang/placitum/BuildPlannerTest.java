@@ -1,0 +1,142 @@
+package com.syang.placitum;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.syang.placitum.build.BuildPlanner;
+import com.syang.placitum.build.WallGeometry;
+import com.syang.placitum.data.BuildOp;
+import com.syang.placitum.data.BuildRecipe;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import net.minecraft.SharedConstants;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.Bootstrap;
+import net.minecraft.world.level.block.Rotation;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Expansion, which everything about replay rests on.
+ *
+ * <p>Op lists are not stored - a wall is thousands of them and the save is rewritten whole
+ * whenever a settlement changes - so the same recipe has to expand to the same list weeks
+ * later, against terrain that has since moved. If it does not, promote replays a different wall
+ * than the one the simulation counted, and the difference is permanent and in the world.
+ */
+class BuildPlannerTest {
+
+    @BeforeAll
+    static void bootstrap() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
+    /** A 5x5 ring - 16 positions - on ground of a given shape. */
+    private static BuildRecipe recipe(List<Integer> profile, int height) {
+        return new BuildRecipe(
+                Identifier.fromNamespaceAndPath("placitum", "wall/palisade"),
+                new BlockPos(0, 0, 0),
+                Rotation.NONE,
+                Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
+                profile,
+                new BlockPos(5, height, 5));
+    }
+
+    private static List<Integer> flat(int y) {
+        List<Integer> out = new ArrayList<>();
+        for (int i = 0; i < 16; i++) {
+            out.add(y);
+        }
+        return out;
+    }
+
+    @Test
+    @DisplayName("the same recipe expands to the same list, every time")
+    void expansionIsPure() {
+        BuildRecipe recipe = recipe(flat(64), 3);
+        assertEquals(BuildPlanner.expand(recipe), BuildPlanner.expand(recipe),
+                "two expansions of one recipe disagreeing means replay cannot be trusted at all");
+    }
+
+    @Test
+    @DisplayName("a flat ring is the perimeter times the height")
+    void flatRingIsFullHeight() {
+        List<BuildOp> ops = BuildPlanner.expand(recipe(flat(64), 3));
+        assertEquals(16 * 3, ops.size(), "16 columns, 3 courses");
+
+        Set<BlockPos> seen = new HashSet<>();
+        for (BuildOp op : ops) {
+            assertTrue(seen.add(op.pos()), "a block placed twice at " + op.pos());
+        }
+    }
+
+    @Test
+    @DisplayName("ops climb, so a builder can stand on what it has laid")
+    void opsAreYAscending() {
+        List<Integer> stepped = flat(64);
+        stepped.set(3, 66);
+        stepped.set(4, 67);
+
+        int previous = Integer.MIN_VALUE;
+        for (BuildOp op : BuildPlanner.expand(recipe(stepped, 3))) {
+            assertTrue(op.pos().getY() >= previous,
+                    "docs/construction.md leans on this ordering instead of scaffolding");
+            previous = op.pos().getY();
+        }
+    }
+
+    @Test
+    @DisplayName("water is left as a gap")
+    void skippedPositionsPlaceNothing() {
+        List<Integer> wet = flat(64);
+        wet.set(2, WallGeometry.SKIP);
+        wet.set(3, WallGeometry.SKIP);
+
+        List<BuildOp> ops = BuildPlanner.expand(recipe(wet, 3));
+        assertEquals(14 * 3, ops.size(), "two positions of sixteen carry nothing");
+    }
+
+    @Test
+    @DisplayName("a step up is sealed, so the wall has no hole in it")
+    void stepsAreSealed() {
+        // Position 5 stands three blocks above position 4. Left alone, the lower column tops out
+        // below the higher one's footing and a skeleton shoots straight through the gap.
+        List<Integer> stepped = flat(64);
+        stepped.set(5, 67);
+
+        List<BuildOp> ops = BuildPlanner.expand(recipe(stepped, 3));
+        int topOfFour = -1;
+        for (BuildOp op : ops) {
+            BlockPos p = op.pos();
+            if (p.getX() == 4 && p.getZ() == 0) {
+                topOfFour = Math.max(topOfFour, p.getY());
+            }
+        }
+        assertTrue(topOfFour >= 68,
+                "column 4 topped out at " + topOfFour + ", leaving a gap under its neighbour");
+    }
+
+    @Test
+    @DisplayName("a mismatched profile builds nothing rather than something wrong")
+    void lengthMismatchRefuses() {
+        List<Integer> tooShort = new ArrayList<>(flat(64).subList(0, 9));
+        assertTrue(BuildPlanner.expand(recipe(tooShort, 3)).isEmpty(),
+                "nine heights for sixteen positions means the recipe and the geometry disagree;"
+                        + " half a wall in the wrong place is worse than none");
+    }
+
+    @Test
+    @DisplayName("five blocks of drop is a cliff, and a cliff is already a wall")
+    void cliffsAreNotClimbed() {
+        assertTrue(BuildPlanner.isCliff(64, 69));
+        assertFalse(BuildPlanner.isCliff(64, 68), "four is a vertical segment, not a cliff");
+        assertFalse(BuildPlanner.isCliff(WallGeometry.SKIP, 64),
+                "nothing is a cliff relative to a position the wall already skips");
+    }
+}

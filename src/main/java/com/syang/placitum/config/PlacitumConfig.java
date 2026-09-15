@@ -75,6 +75,10 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.BooleanValue ENABLE_AGING;
     public static final ModConfigSpec.IntValue MAX_CELL_SLOPE;
     public static final ModConfigSpec.IntValue SURVEY_SCAN_HEIGHT;
+    public static final ModConfigSpec.IntValue WALL_MARGIN_CELLS;
+    public static final ModConfigSpec.IntValue PALISADE_HEIGHT;
+    public static final ModConfigSpec.IntValue OPS_PER_BUILDER_STEP;
+    public static final ModConfigSpec.IntValue WALL_MIN_POPULATION;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -213,6 +217,21 @@ public final class PlacitumConfig {
         SURVEY_SCAN_HEIGHT = b.comment("How far above the surface a cell survey looks for existing",
                         "buildings. Too low and it misses a house's walls while seeing its floor.")
                 .defineInRange("surveyScanHeight", 6, 1, 64);
+        WALL_MARGIN_CELLS = b.comment("Cells of slack between the built-up area and the wall.",
+                        "Zero builds the wall against the outermost house, so the next house",
+                        "has to go outside it.")
+                .defineInRange("wallMarginCells", 1, 0, 8);
+        PALISADE_HEIGHT = b.comment("Log courses above ground. 3 is tall enough to stop a",
+                        "zombie and short enough not to wall the village off from its own sky.")
+                .defineInRange("palisadeHeight", 3, 1, 16);
+        OPS_PER_BUILDER_STEP = b.comment("Blocks one builder places per simulation step while",
+                        "nobody is watching.",
+                        "PER STEP: 120 steps to a game day. 4 is about 480 blocks a day, so a",
+                        "palisade round a small village takes a couple of days.")
+                .defineInRange("opsPerBuilderStep", 4, 1, 1000);
+        WALL_MIN_POPULATION = b.comment("Below this, a settlement has better things to do with",
+                        "its timber than fortify.")
+                .defineInRange("wallMinPopulation", 4, 1, 1000);
         b.pop();
 
         SPEC = b.build();
