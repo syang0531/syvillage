@@ -120,7 +120,7 @@ public final class GridSurvey {
             for (int dz = 0; dz < PlotGrid.CELL_BLOCKS; dz += SAMPLE_STRIDE) {
                 int x = nw.getX() + dx;
                 int z = nw.getZ() + dz;
-                int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+                int surface = groundAt(level, x, z);
                 lowest = Math.min(lowest, surface);
                 highest = Math.max(highest, surface);
 
@@ -149,6 +149,40 @@ public final class GridSurvey {
             return CellState.BLOCKED;
         }
         return CellState.FREE;
+    }
+
+    /**
+     * The ground, with whatever is growing on it discounted.
+     *
+     * <p>No heightmap answers this. MOTION_BLOCKING_NO_LEAVES drops the leaves and keeps the
+     * trunk, so a single tree makes a cell read as six blocks of relief and the slope rule
+     * calls it unbuildable. The first survey of a wooded village came back with 159 of 441
+     * cells blocked against 23 built - it was counting trees, not gradient.
+     *
+     * <p>Trees are not terrain. Clearing them is part of building somewhere, which is why they
+     * must not be allowed to veto a site; a cliff is a different matter and still does.
+     */
+    private static int groundAt(ServerLevel level, int x, int z) {
+        int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+        int floor = level.getMinY();
+        while (y > floor && isGrowth(level.getBlockState(new BlockPos(x, y, z)))) {
+            y--;
+        }
+        return y;
+    }
+
+    /** Things that stand on the ground without being it. */
+    private static boolean isGrowth(BlockState state) {
+        return state.is(BlockTags.LOGS)
+                || state.is(BlockTags.LEAVES)
+                || state.is(Blocks.BAMBOO)
+                || state.is(Blocks.CACTUS)
+                || state.is(Blocks.SUGAR_CANE)
+                || state.is(Blocks.MUSHROOM_STEM)
+                || state.is(Blocks.BROWN_MUSHROOM_BLOCK)
+                || state.is(Blocks.RED_MUSHROOM_BLOCK)
+                || state.is(Blocks.SNOW)
+                || state.canBeReplaced();
     }
 
     /**
