@@ -89,6 +89,18 @@ public class NeedsModule implements SimModule {
                 settlement.identity.name(), job.recipe().template().getPath());
     }
 
+    /**
+     * Yes - this is the module the blanket embodied guard was hurting most.
+     *
+     * <p>A settlement could otherwise only notice it wanted something while nobody was there,
+     * and only act on it while somebody was. Nothing here reads a resident's output, so there
+     * is nothing to count twice.
+     */
+    @Override
+    public boolean runsWhileEmbodied() {
+        return true;
+    }
+
     @Override
     public int order() {
         return 45;

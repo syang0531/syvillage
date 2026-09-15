@@ -330,10 +330,11 @@ public final class PlacitumCommand {
         int materialized = advanced.materializedCount();
         if (materialized > 0) {
             source.sendSuccess(() -> Component.literal("  " + materialized + " of "
-                    + advanced.residentCount() + " resident(s) are MATERIALIZED, so the simulation"
-                    + " skipped them - they act as real entities instead."), false);
+                    + advanced.residentCount() + " resident(s) are MATERIALIZED, so the modules"
+                    + " that would count them twice sat this out - they farm, eat and die as"
+                    + " real entities instead."), false);
             source.sendSuccess(() -> Component.literal("  Run /placitum demote "
-                    + shortId(advanced.id()) + " first to see the virtual formula run."), false);
+                    + shortId(advanced.id()) + " first to see the virtual formulas run."), false);
         }
         int farmers = countJob(advanced, Assignment.FARMER);
         source.sendSuccess(() -> Component.literal("  " + farmers + " farmer(s), "
@@ -840,7 +841,9 @@ public final class PlacitumCommand {
             source.sendSuccess(() -> Component.literal("  " + job.recipe().template().getPath()
                     + "  " + job.stage() + "  " + job.progress() + "/" + total
                     + " blocks  (" + cost + ")"), false);
-            source.sendSuccess(() -> Component.literal("    " + explain(job, total))
+            source.sendSuccess(() -> Component.literal("    " + explain(job, total)
+                            + (job.stage() == com.syang.placitum.data.BuildStage.EXECUTING
+                                    ? embodiedNote(settlement) : ""))
                     .withStyle(ChatFormatting.DARK_GRAY), false);
         }
         return settlement.buildQueue().size();
@@ -858,6 +861,19 @@ public final class PlacitumCommand {
                     : "expands to nothing, which should not happen";
             case COMPLETE -> "done";
         };
+    }
+
+    /**
+     * Why a job that is EXECUTING is not moving.
+     *
+     * <p>Progress stops dead while the residents have bodies, because laying blocks in a
+     * settlement somebody is standing in is the builder's job and the builder is stage 5. That
+     * is a design decision and it looks exactly like a bug, so it gets said out loud.
+     */
+    private static String embodiedNote(Settlement settlement) {
+        int materialized = settlement.materializedCount();
+        return materialized == 0 ? "" : "  (" + materialized + " resident(s) are embodied, so"
+                + " virtual building is paused - walk away or /placitum demote to see it move)";
     }
 
     private static String describeCost(BuildJob job) {
@@ -888,7 +904,9 @@ public final class PlacitumCommand {
             return "population " + settlement.population() + " is below the wall threshold of "
                     + params.wallMinPopulation() + ", and nothing is attacking";
         }
-        return "the need has not been noticed yet - it is checked once a simulation step";
+        return "the need has not been noticed yet - it is checked once a simulation step,"
+                + " and a step is " + SimParams.fromConfig(source.getServer().overworld())
+                        .stepTicks() + " ticks";
     }
 
     private static Optional<Settlement> resolve(SettlementManager manager, String rawId) {

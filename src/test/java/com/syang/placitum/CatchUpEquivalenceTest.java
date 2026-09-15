@@ -1,6 +1,7 @@
 package com.syang.placitum;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,6 +41,48 @@ class CatchUpEquivalenceTest {
 
     private static Tag encode(Settlement settlement) {
         return Settlement.CODEC.encodeStart(ops, settlement).getOrThrow();
+    }
+
+    @Test
+    @DisplayName("an embodied settlement still advances its clock")
+    void embodiedTimeStillPasses() {
+        Settlement before = SettlementFixture.full(4, com.syang.placitum.data.ResidentState.MATERIALIZED);
+        Settlement after = Simulation.catchUp(SettlementFixture.SEED, before, PARAMS,
+                SettlementFixture.START_TICK + 2000);
+
+        assertEquals(SettlementFixture.START_TICK + 2000, after.lastSimTick(),
+                "time passes in a village somebody is standing in");
+        assertTrue(after.simStep() > before.simStep());
+    }
+
+    @Test
+    @DisplayName("embodied residents are not farmed and eaten twice over")
+    void embodiedSkipsTheAccountingModules() {
+        Settlement before = SettlementFixture.full(4, com.syang.placitum.data.ResidentState.MATERIALIZED);
+        Settlement after = Simulation.catchUp(SettlementFixture.SEED, before, PARAMS,
+                SettlementFixture.START_TICK + 4000);
+
+        assertEquals(before.stockOf(net.minecraft.world.item.Items.WHEAT),
+                after.stockOf(net.minecraft.world.item.Items.WHEAT),
+                "production skips embodied residents while consumption counts everyone, so"
+                        + " running either would drain the stores for nothing");
+        assertEquals(before.population(), after.population(),
+                "they live and die as entities; the formula must not bury them as well");
+    }
+
+    @Test
+    @DisplayName("but a module with nothing to double-count still runs")
+    void embodiedStillNoticesWhatItNeeds() {
+        // The blanket guard meant a settlement could only decide it wanted a wall while nobody
+        // was there to see it, and only act on that while somebody was.
+        Settlement before = SettlementFixture.full(6, com.syang.placitum.data.ResidentState.MATERIALIZED);
+        assertTrue(before.buildQueue().size() <= 1);
+
+        Settlement after = Simulation.catchUp(SettlementFixture.SEED, before, PARAMS,
+                SettlementFixture.START_TICK + 4000);
+
+        assertFalse(after.buildQueue().isEmpty(),
+                "needs must be noticed with a player standing in the village");
     }
 
     @Test

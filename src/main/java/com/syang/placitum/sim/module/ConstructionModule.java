@@ -135,6 +135,22 @@ public class ConstructionModule implements SimModule {
         return n;
     }
 
+    /**
+     * No, deliberately, and this one costs something.
+     *
+     * <p>Laying blocks while the residents have bodies is the builder's job, and the builder is
+     * stage 5. Until then a settlement with a player standing in it will hold at whatever
+     * progress it had - which looks like a stall and is not one. {@code /placitum build} says
+     * so rather than leaving it to be guessed.
+     *
+     * <p>Returning true here instead would double-count the moment the builder exists: both the
+     * formula and the entity would advance the same counter.
+     */
+    @Override
+    public boolean runsWhileEmbodied() {
+        return false;
+    }
+
     @Override
     public int order() {
         return 50;

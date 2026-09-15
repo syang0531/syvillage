@@ -76,7 +76,22 @@ public final class Simulation {
     }
 
     public static void simStep(long worldSeed, SettlementMut settlement, SimParams params) {
+        simStep(worldSeed, settlement, params, false);
+    }
+
+    /**
+     * One step.
+     *
+     * <p>{@code embodied} narrows the module list rather than cancelling the step. See
+     * {@link SimModule#runsWhileEmbodied()} - the clock still advances either way, because time
+     * passes in a village somebody is standing in.
+     */
+    public static void simStep(long worldSeed, SettlementMut settlement, SimParams params,
+            boolean embodied) {
         for (SimModule module : MODULES) {
+            if (embodied && !module.runsWhileEmbodied()) {
+                continue;
+            }
             module.step(settlement, params,
                     rngForModule(worldSeed, settlement.id(), settlement.simStep(), module));
         }
@@ -108,10 +123,7 @@ public final class Simulation {
         // what kept getting it wrong: promote had the ordering right from the start, and the
         // damage came from rebind, from chunk unload, and from /placitum info - three paths
         // nobody thought of as simulation entry points.
-        if (settlement.anyMaterialized()) {
-            skipWholeSteps(settlement, now, stepTicks);
-            return true;
-        }
+        boolean embodied = settlement.anyMaterialized();
 
         // A clock ahead of the world means something set it there - /placitum tick used to.
         // Left alone the settlement sleeps until game time catches up, which looks exactly like
@@ -137,18 +149,10 @@ public final class Simulation {
             if (System.nanoTime() >= deadlineNanos) {
                 return false;
             }
-            simStep(worldSeed, settlement, params);
+            simStep(worldSeed, settlement, params, embodied);
             settlement.clock = settlement.clock.advanced(1, stepTicks);
         }
         return true;
-    }
-
-    /** Advances the clock without simulating, keeping the step boundary intact. */
-    private static void skipWholeSteps(SettlementMut settlement, long now, int stepTicks) {
-        long whole = (now - settlement.lastSimTick()) / stepTicks * stepTicks;
-        if (whole > 0) {
-            settlement.clock = settlement.clock.skipped(whole);
-        }
     }
 
     /**
