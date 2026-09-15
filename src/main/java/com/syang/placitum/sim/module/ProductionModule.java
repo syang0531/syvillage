@@ -1,5 +1,6 @@
 package com.syang.placitum.sim.module;
 
+import com.syang.placitum.Placitum;
 import com.syang.placitum.data.Assignment;
 import com.syang.placitum.data.LifeStage;
 import com.syang.placitum.data.Resident;
@@ -16,6 +17,7 @@ public class ProductionModule implements SimModule {
     public void step(SettlementMut settlement, SimParams params, RandomSource rng) {
         int yield = params.yieldRate();
         int produced = 0;
+        int farmers = 0;
         for (Resident r : settlement.residents) {
             // Materialized residents are acting as real entities and would be counted twice.
             if (r.materialized() || !r.counts()) {
@@ -27,10 +29,15 @@ public class ProductionModule implements SimModule {
             if (r.stage() == LifeStage.INFANT || r.stage() == LifeStage.CHILD) {
                 continue;
             }
+            farmers++;
             produced += r.stage() == LifeStage.ELDER ? Math.max(1, yield / 2) : yield;
         }
         if (produced > 0) {
             settlement.addStock(Items.WHEAT, produced);
+        }
+        if (Placitum.LOGGER.isDebugEnabled()) {
+            Placitum.LOGGER.debug("  step {}: {} farmer(s) of {} resident(s) produced {} wheat",
+                    settlement.simStep(), farmers, settlement.residents.size(), produced);
         }
     }
 

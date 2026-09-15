@@ -1,5 +1,6 @@
 package com.syang.placitum.sim.module;
 
+import com.syang.placitum.Placitum;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Vitals;
 import com.syang.placitum.sim.SimModule;
@@ -29,6 +30,11 @@ public class ConsumptionModule implements SimModule {
         int needed = mouths * perHead;
         int eaten = settlement.takeStock(Items.WHEAT, needed);
         boolean fed = eaten >= needed;
+        if (Placitum.LOGGER.isDebugEnabled()) {
+            Placitum.LOGGER.debug("  step {}: {} mouth(s) needed {}, ate {}, {} wheat left",
+                    settlement.simStep(), mouths, needed, eaten,
+                    settlement.stockOf(Items.WHEAT));
+        }
 
         for (int i = 0; i < settlement.residents.size(); i++) {
             Resident r = settlement.residents.get(i);

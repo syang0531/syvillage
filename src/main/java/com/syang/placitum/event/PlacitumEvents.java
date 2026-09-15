@@ -6,6 +6,7 @@ import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.ResidentState;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
+import com.syang.placitum.lifecycle.Lifecycle;
 import com.syang.placitum.lifecycle.LifecycleManager;
 import com.syang.placitum.registry.ModAttachments;
 import com.syang.placitum.settlement.Registration;
@@ -28,6 +29,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -92,6 +94,51 @@ public final class PlacitumEvents {
         }
         LIFECYCLE.reset();
         SettlementManager.clear();
+    }
+
+    /**
+     * The entity's own way out - the only moment its state is still readable.
+     *
+     * <p>ChunkEvent.Unload was too late: by the time it fires the entities are already out of
+     * the level's lookup, so the write-back found nothing and every resident in a teleported-away
+     * chunk silently kept days-old health, position, trades and profession.
+     *
+     * <p>This fires per entity, while it is still valid, for unloads, teleports and removals
+     * alike.
+     */
+    @SubscribeEvent
+    public static void onEntityLeave(EntityLeaveLevelEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        if (!(event.getEntity() instanceof Villager villager)) {
+            return;
+        }
+        SettlementManager manager = SettlementManager.peek();
+        if (manager == null) {
+            return;
+        }
+        UUID residentId = manager.residentOf(villager.getUUID());
+        if (residentId == null) {
+            return;
+        }
+        for (Settlement settlement : manager.all()) {
+            Resident resident = settlement.resident(residentId).orElse(null);
+            if (resident == null || !resident.materialized()) {
+                continue;
+            }
+            List<Resident> updated = new ArrayList<>();
+            for (Resident r : settlement.residents()) {
+                updated.add(r.id().equals(residentId)
+                        ? Lifecycle.writeBack(level, r, villager).withState(ResidentState.VIRTUAL)
+                        : r);
+            }
+            manager.unbind(residentId);
+            manager.put(SettlementManager.withResidents(settlement, updated));
+            Placitum.LOGGER.debug("Wrote back {} as its entity left the level",
+                    resident.lineage().fullName());
+            return;
+        }
     }
 
     /**
