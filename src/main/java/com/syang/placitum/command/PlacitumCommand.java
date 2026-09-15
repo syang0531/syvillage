@@ -18,6 +18,7 @@ import com.syang.placitum.defense.DefenseRating;
 import com.syang.placitum.defense.RaidResolver;
 import com.syang.placitum.event.PlacitumEvents;
 import com.syang.placitum.lifecycle.LifecycleManager;
+import com.syang.placitum.settlement.PoiRepair;
 import com.syang.placitum.settlement.Registration;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.sim.SimParams;
@@ -118,6 +119,12 @@ public final class PlacitumCommand {
                                                 StringArgumentType.getString(ctx, "id"),
                                                 ItemArgument.getItem(ctx, "item").item().value(),
                                                 IntegerArgumentType.getInteger(ctx, "count")))))));
+
+        root.then(Commands.literal("verify")
+                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .executes(ctx -> verify(ctx.getSource(),
+                                StringArgumentType.getString(ctx, "id")))));
 
         root.then(Commands.literal("chronicle")
                 .then(Commands.argument("id", StringArgumentType.word())
@@ -381,6 +388,44 @@ public final class PlacitumCommand {
             case SCALE_DOWN -> ChatFormatting.YELLOW;
             default -> ChatFormatting.GRAY;
         };
+    }
+
+    /**
+     * Repairs claims left behind by entities that no longer exist.
+     *
+     * <p>Earlier builds discarded villagers without releasing their beds, so a village visited a
+     * few times ended up with every bed held by a ghost - nobody could sleep, and M2 would never
+     * have allowed a birth there. That is fixed at source now, but the claims already made do
+     * not undo themselves, and a player is owed a way back that is not "start a new village".
+     */
+    private static int verify(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        ServerLevel level = source.getServer().getLevel(settlement.dimension());
+        if (level == null) {
+            source.sendFailure(Component.literal("That dimension is not loaded"));
+            return 0;
+        }
+        if (settlement.materializedCount() == 0) {
+            source.sendFailure(Component.literal(
+                    "Nobody is materialized, so their beds cannot be checked. Stand in the village."));
+            return 0;
+        }
+
+        PoiRepair.Result result = PoiRepair.run(level, manager, settlement);
+        source.sendSuccess(() -> Component.literal(settlement.name() + ": checked "
+                + result.scanned() + " occupied bed(s), freed " + result.freed()
+                + " held by nobody")
+                .withStyle(result.freed() > 0 ? ChatFormatting.GREEN : ChatFormatting.GRAY), true);
+        if (result.freed() > 0) {
+            source.sendSuccess(() -> Component.literal(
+                    "  Villagers will claim them again over the next day."), false);
+        }
+        return result.freed();
     }
 
     private static int alert(CommandSourceStack source, String rawId, String rawState) {
