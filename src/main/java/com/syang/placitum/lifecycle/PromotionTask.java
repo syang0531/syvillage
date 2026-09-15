@@ -29,9 +29,19 @@ public final class PromotionTask {
 
     public enum Phase { CATCHING_UP, REPLAYING, SPAWNING, DONE }
 
+    /**
+     * How long to keep retrying residents whose chunks are not entity-ticking yet.
+     *
+     * <p>Arriving at a village outruns its chunks: the first spawning passes can place nobody
+     * at all. Five seconds is far longer than that takes and still bounded, so a resident
+     * stranded somewhere that never ticks cannot spin forever.
+     */
+    private static final int MAX_DEFERRED_PASSES = 100;
+
     private final java.util.UUID settlementId;
     private Phase phase = Phase.CATCHING_UP;
     private int spawnCursor;
+    private int deferredPasses;
 
     public PromotionTask(java.util.UUID settlementId) {
         this.settlementId = settlementId;
@@ -119,6 +129,7 @@ public final class PromotionTask {
         List<Resident> updated = new ArrayList<>(settlement.residents());
         int materialized = settlement.materializedCount();
         int examined = 0;
+        int deferred = 0;
 
         while (spawnCursor < ordered.size() && examined < 8) {
             Resident target = ordered.get(spawnCursor++);
@@ -133,16 +144,33 @@ public final class PromotionTask {
             if (promoted.materialized()) {
                 materialized++;
                 replaceById(updated, promoted);
+            } else {
+                deferred++;   // its chunk is not entity-ticking yet
             }
         }
 
-        if (spawnCursor >= ordered.size() || materialized >= cap) {
-            phase = Phase.DONE;
-            Placitum.LOGGER.info("PROMOTE done: '{}' - {} of {} resident(s) materialized{}",
-                    settlement.name(), materialized, settlement.residentCount(),
-                    materialized >= cap ? " (hit maxMaterializedResidents)" : "");
+        if (materialized >= cap) {
+            finish(settlement, materialized, true);
+        } else if (spawnCursor >= ordered.size()) {
+            // Finishing here while residents were only deferred is what made promotion churn:
+            // the task declared success having placed nobody, the manager saw an empty village
+            // with a player in it and started another task, and that repeated - each round
+            // re-running catch-up - until the chunks finally caught up.
+            if (deferred > 0 && ++deferredPasses < MAX_DEFERRED_PASSES) {
+                spawnCursor = 0;   // same task, go round again next tick
+            } else {
+                finish(settlement, materialized, false);
+            }
         }
         return SettlementManager.withResidents(settlement, updated);
+    }
+
+    private void finish(Settlement settlement, int materialized, boolean hitCap) {
+        phase = Phase.DONE;
+        String note = hitCap ? " (hit maxMaterializedResidents)"
+                : deferredPasses >= MAX_DEFERRED_PASSES ? " (gave up waiting for chunks)" : "";
+        Placitum.LOGGER.info("PROMOTE done: '{}' - {} of {} resident(s) materialized{}",
+                settlement.name(), materialized, settlement.residentCount(), note);
     }
 
     private static void replaceById(List<Resident> list, Resident replacement) {
