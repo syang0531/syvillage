@@ -9,11 +9,13 @@ import com.syang.placitum.registry.ModAttachments;
 import com.syang.placitum.settlement.ProfessionMap;
 import com.syang.placitum.store.SettlementManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.villager.VillagerData;
@@ -153,26 +155,56 @@ public final class Lifecycle {
         VillagerData.CODEC.encodeStart(ops, villager.getVillagerData())
                 .resultOrPartial(error -> Placitum.LOGGER.warn("Could not store villager data: {}", error))
                 .ifPresent(tag -> out.put("villager_data", tag));
+        out.putInt("villager_xp", villager.getVillagerXp());
+
+        // The job site is what makes a profession stick. Without it vanilla's ResetProfession
+        // fires the villager within seconds of promote - see applyVanillaState.
+        villager.getBrain().getMemory(MemoryModuleType.JOB_SITE).ifPresent(site ->
+                GlobalPos.CODEC.encodeStart(ops, site)
+                        .resultOrPartial(error -> Placitum.LOGGER.warn("Could not store job site: {}", error))
+                        .ifPresent(tag -> out.put("job_site", tag)));
         return out;
     }
 
+    /**
+     * Puts the villager back the way vanilla had it.
+     *
+     * <p>Order matters. {@code setVillagerData} clears the trade list whenever the profession
+     * changes, so restoring trades first and the profession second destroys the trades we just
+     * restored. Profession goes first.
+     *
+     * <p>The job site matters just as much. Vanilla's ResetProfession behaviour fires any
+     * villager that has no JOB_SITE memory, zero XP and level 1 - which is exactly what a
+     * freshly built entity looks like. Restoring the profession alone buys a few seconds before
+     * vanilla takes it away again, and since demote re-reads the profession, the settlement
+     * would record the firing as fact and lose the job for good.
+     */
     public static void applyVanillaState(ServerLevel level, Villager villager, CompoundTag tag) {
         if (tag.isEmpty()) {
             return;
         }
         RegistryOps<Tag> ops = level.registryAccess().createSerializationContext(NbtOps.INSTANCE);
 
-        Tag offers = tag.get("offers");
-        if (offers != null) {
-            MerchantOffers.CODEC.parse(ops, offers)
-                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore trades: {}", error))
-                    .ifPresent(villager::setOffers);
-        }
         Tag data = tag.get("villager_data");
         if (data != null) {
             VillagerData.CODEC.parse(ops, data)
                     .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore villager data: {}", error))
                     .ifPresent(villager::setVillagerData);
+        }
+        villager.setVillagerXp(tag.getIntOr("villager_xp", 0));
+
+        Tag site = tag.get("job_site");
+        if (site != null) {
+            GlobalPos.CODEC.parse(ops, site)
+                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore job site: {}", error))
+                    .ifPresent(pos -> villager.getBrain().setMemory(MemoryModuleType.JOB_SITE, pos));
+        }
+
+        Tag offers = tag.get("offers");
+        if (offers != null) {
+            MerchantOffers.CODEC.parse(ops, offers)
+                    .resultOrPartial(error -> Placitum.LOGGER.warn("Could not restore trades: {}", error))
+                    .ifPresent(villager::setOffers);
         }
     }
 
