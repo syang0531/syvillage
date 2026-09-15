@@ -467,12 +467,16 @@ public final class PlacitumCommand {
             return 0;
         }
         for (Resident r : settlement.residents()) {
+            String weapon = r.gear().weapon()
+                    .map(w -> "  ARMED(" + com.syang.placitum.data.PlacitumCodecs.itemId(w).getPath() + ")")
+                    .orElse("");
             String line = r.lineage().fullName()
                     + "  " + r.assignment().job().getPath()
                     + "  " + r.stage()
                     + "  age " + r.ageDays()
                     + "  hp " + r.vitals().health()
                     + "  " + r.state()
+                    + weapon
                     + (r.zombified() ? "  ZOMBIFIED" : "");
             source.sendSuccess(() -> Component.literal("  " + line), false);
         }

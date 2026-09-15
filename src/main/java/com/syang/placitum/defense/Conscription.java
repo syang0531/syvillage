@@ -115,11 +115,18 @@ public final class Conscription {
                 villager.getYRot(), villager.getXRot());
         militia.setData(ModAttachments.RESIDENT_ID, resident.id());
         militia.setCustomName(villager.getCustomName());
+        // Visible while under arms. The villager model holds items in crossed arms, which is
+        // easy to miss at night among a crowd - and "who exactly is defending this village"
+        // is precisely what the player wants to be able to see at a glance.
+        militia.setCustomNameVisible(true);
         militia.setHealth(villager.getHealth());
         resident.gear().weapon().ifPresent(weapon ->
                 militia.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(weapon)));
 
         replace(level, manager, resident, villager, militia);
+        Placitum.LOGGER.info("  {} took up {} at {}", resident.lineage().fullName(),
+                militia.getMainHandItem().getItem().getName().getString(),
+                militia.blockPosition().toShortString());
         return resident.withVanillaState(snapshot);
     }
 
@@ -142,6 +149,7 @@ public final class Conscription {
                 militia.getYRot(), militia.getXRot());
         villager.setData(ModAttachments.RESIDENT_ID, resident.id());
         villager.setCustomName(militia.getCustomName());
+        villager.setCustomNameVisible(false);
         villager.setHealth(militia.getHealth());
         villager.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
 
