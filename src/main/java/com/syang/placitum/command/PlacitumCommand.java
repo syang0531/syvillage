@@ -293,6 +293,15 @@ public final class PlacitumCommand {
                 + ", plots " + settled.plots().size()
                 + ", beds " + settled.bedCount()
                 + (settled.plots().isEmpty() ? "  (from village beds; M3 builds its own)" : "")), false);
+
+        // The wall is the one thing M3 actually finishes, and until now nothing said so. A
+        // settlement that built a palisade and cannot tell you it has one is back where it
+        // started: something happened and you have no way to know what.
+        var wall = settled.defense().wall();
+        source.sendSuccess(() -> Component.literal("  wall " + wall.tier()
+                + (wall.tier() == com.syang.placitum.data.WallTier.NONE ? ""
+                        : ", " + wall.ring().size() + " post(s), " + wall.gates().size()
+                                + " gate(s)" + (wall.intact() ? "" : ", breached"))), false);
         source.sendSuccess(() -> Component.literal("  stock " + describeStock(settled)), false);
         if (!SimParams.fromConfig(source.getServer().overworld()).hostilesExist()) {
             source.sendSuccess(() -> Component.literal(
