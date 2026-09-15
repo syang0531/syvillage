@@ -194,6 +194,10 @@ grep -rn "setBlock" src/main/java/com/syang/placitum/sim/
 - 클레임 전체 범위 `getEntitiesOfClass` → 감시 지점 스캔으로 대체
 - `sim/` 안에 `setBlock` / `getBlockState` → `BuildOp` 큐로 대체
 
+**`getEntitiesOfClass`의 유일한 예외는 `settlement/Registration.java`다.** 마을 등록 시 기존 주민을 흡수할 때 한 번 돈다. 플레이어가 그 자리에 서 있어 청크가 이미 로드되어 있고, 반복되지 않는다. 금지 대상은 **주기적인 클레임 전방위 위협 탐지**이며 그건 감시 지점으로 푼다.
+
+grep이 이 한 줄을 잡는 것은 정상이다. 늘어나면 비정상이다.
+
 grep으로는 간접 호출을 못 잡는다. `strictDeterminism = true`(`docs/commands-and-config.md`)를 개발 중 상시 켜둔다. 시뮬레이션 진입 시 스레드 로컬 플래그를 세우고 위반 지점에서 예외를 던지므로, 서너 단계 아래에서 `level.random`을 건드리는 코드도 걸린다.
 
 ### 밸런스 감시

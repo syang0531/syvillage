@@ -8,27 +8,42 @@
 
 **엔티티를 하나도 추가하지 않는다.** 지루하지만 여기가 척추다.
 
-- [ ] `Settlement`, `Resident`, `PlotGrid`, `Plot`, `BuildJob` record + Codec
-      (서브레코드 분할 완료 — `group()` 16필드 상한. `docs/data-model.md`)
-- [ ] SavedData 분할 (`placitum_index` + `placitum_village_<id>`)
-- [ ] `SettlementManager` (인덱스 메모리 유지, 개별 마을 lazy 로드)
-- [ ] 종 우클릭 → 마을 등록 + **기존 바닐라 주민 흡수** (`docs/vanilla-interop.md`)
-- [ ] `catchUp()` + 결정적 RNG (`mix64` 시드, 모듈별 스트림 분리)
-- [ ] 더미 `SimModule` 하나 (주민이 밀을 생산하고 먹는 숫자 놀음)
-- [ ] promote / demote (바닐라 `Villager` 엔티티로)
-- [ ] 강제 demote 경로 (청크 언로드, 서버 종료) + 부팅 시 재동기화
-- [ ] `/placitum register|unregister|list|info|tick|promote|demote`
-- [ ] V2 훅 자리 예약 (`ruler`, `parentId`) — Codec에 영향을 주므로 지금 넣는다
-- [ ] **왕복 무결성 테스트**, **정산 등가성 테스트**, **크래시 복구 테스트** (`docs/testing.md`)
+- [x] `Settlement`, `Resident`, `PlotGrid`, `Plot`, `BuildJob` record + Codec
+      (서브레코드 분할 — `group()` 16필드 상한. `docs/data-model.md`)
+- [x] SavedData 분할 (`placitum_index` + `placitum_village_<id>`)
+- [x] `SettlementManager` (인덱스 메모리 유지, 개별 마을 lazy 로드)
+- [x] 종 Shift+우클릭 → 마을 등록 + **기존 바닐라 주민 흡수** (`docs/vanilla-interop.md`)
+- [x] `catchUp()` + 결정적 RNG (`mix64` 시드, 모듈별 스트림 분리)
+- [x] 더미 `SimModule` (생산 order 10 / 소비 order 20)
+- [x] promote / demote (바닐라 `Villager` 엔티티로)
+- [x] 강제 demote 경로 (청크 언로드, 서버 종료) + 부팅 시 재동기화
+- [x] `/placitum register|unregister|list|info|tick|promote|demote|resident list`
+- [x] V2 훅 자리 예약 (`ruler`, `parentId`) — Codec에 영향을 주므로 지금 넣는다
+- [x] **왕복 무결성 테스트**, **정산 등가성 테스트**, **크래시 복구 테스트** (`docs/testing.md`)
+
+### 설계에서 벗어난 곳
+
+전부 의도적이며 해당 문서에 근거를 적었다.
+
+| 항목 | 상태 | 이유 |
+|---|---|---|
+| `Assignment.job`이 `Identifier` | `ResourceKey<JobDef>` 대신 | JobDef 레지스트리는 M4. 직렬화 형태가 같아 마이그레이션 없음 |
+| 이름 풀이 코드 내장 | 데이터팩 대신 | 데이터팩 이관은 M2. 등록이 이름을 필요로 함 |
+| `SimModule.step(s, params, rng)` | 문서에 없던 인자 | config 핸들은 설정 로드 전에 못 읽어 단위 테스트가 불가능해진다 |
+| `Resident.offers`가 `CompoundTag` | 타입 없는 blob | 26.2는 아이템 컴포넌트를 데이터팩 리로드 때 바인딩 → 테스트에서 `ItemStack` 생성 불가 |
 
 ### 완료 기준
 
-1. 마을을 등록하고 `/placitum tick 1000`으로 식량 재고가 변하는 것을 확인할 수 있다
-2. promote → demote → promote 후 `Resident` 레코드가 **비트 단위로 동일**하다
-3. `catchUp(1000틱 1회)` == `catchUp(100틱 10회)`
-4. 서버 재시작 후 마을 상태가 보존된다
-5. 등록된 마을의 기존 주민이 전원 이름을 갖고 `/placitum resident list`에 나온다
-6. `/placitum unregister` 후 세이브가 모드 없이도 정상적으로 열린다
+| # | 기준 | 검증 방법 | 상태 |
+|---|---|---|---|
+| 1 | 마을 등록 후 `/placitum tick <id> 1000`으로 식량 재고가 변한다 | 게임 내 수동 | ⏳ |
+| 2 | promote → demote → promote 후 `Resident`가 동일하다 | 직렬화 왕복은 `RoundTripTest` ✅ / **엔티티 왕복은 GameTest 필요** | ⏳ |
+| 3 | `catchUp(1000틱 1회)` == `catchUp(100틱 10회)` | `CatchUpEquivalenceTest` | ✅ |
+| 4 | 서버 재시작 후 마을 상태가 보존된다 | 게임 내 수동 | ⏳ |
+| 5 | 기존 주민이 전원 이름을 갖고 `/placitum resident list`에 나온다 | 게임 내 수동 | ⏳ |
+| 6 | `/placitum unregister` 후 모드 없이 세이브가 열린다 | 게임 내 수동 | ⏳ |
+
+**2번의 절반이 자동화되지 않았다.** `Lifecycle.writeBack`은 실제 `Villager`를 필요로 해서 단위 테스트로 덮을 수 없다. GameTest가 그 자리를 메운다 (`neoforge.enabledGameTestNamespaces`는 이미 잡혀 있다).
 
 > 2번에서 새는 필드가 반드시 하나는 나온다. 그것을 찾는 것이 이 마일스톤의 목적이다.
 

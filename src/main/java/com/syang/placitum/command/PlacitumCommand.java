@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.event.PlacitumEvents;
@@ -74,6 +75,12 @@ public final class PlacitumCommand {
                 .then(Commands.argument("id", StringArgumentType.word())
                         .executes(ctx -> demote(ctx.getSource(),
                                 StringArgumentType.getString(ctx, "id")))));
+
+        root.then(Commands.literal("resident")
+                .then(Commands.literal("list")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(ctx -> residents(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id"))))));
 
         dispatcher.register(root);
     }
@@ -176,6 +183,26 @@ public final class PlacitumCommand {
         source.sendSuccess(() -> Component.literal("Advanced " + ticks + " tick(s) = " + steps
                 + " step(s). Stock: " + describeStock(advanced)), true);
         return (int) steps;
+    }
+
+    private static int residents(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        for (Resident r : settlement.residents()) {
+            String line = r.lineage().fullName()
+                    + "  " + r.assignment().job().getPath()
+                    + "  " + r.stage()
+                    + "  age " + r.ageDays()
+                    + "  hp " + r.vitals().health()
+                    + "  " + r.state()
+                    + (r.zombified() ? "  ZOMBIFIED" : "");
+            source.sendSuccess(() -> Component.literal("  " + line), false);
+        }
+        return settlement.residentCount();
     }
 
     private static int promote(CommandSourceStack source, String rawId) {
