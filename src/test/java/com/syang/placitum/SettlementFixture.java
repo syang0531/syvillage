@@ -193,16 +193,23 @@ public final class SettlementFixture {
      * @param beds how many the vanilla village came with
      */
     public static Settlement adopted(int residentCount, int beds) {
+        return adopted(residentCount, beds, null);
+    }
+
+    /** As above, with the granary replaced - {@code stock} of null keeps the fixture's own. */
+    public static Settlement adopted(int residentCount, int beds,
+            Map<net.minecraft.world.item.Item, Integer> stock) {
         Settlement s = full(residentCount, ResidentState.VIRTUAL);
         AnchorSet anchors = new AnchorSet(s.anchors().shelters(), s.anchors().watchPoints(),
                 s.anchors().muster(), beds, s.anchors().refreshedAt());
         DefenseState peaceful = new DefenseState(s.defense().alert(), s.defense().alertSince(),
                 s.defense().wall(), s.defense().lightingScore(),
                 List.of(0, 0, 0, 0, 0, 0, 0),   // nobody has died here recently
-                s.defense().famineSteps(), s.defense().foodWarned());
+                0, false);   // no famine under way, and no warning already given
         return new Settlement(s.identity(), s.scaleState(), s.residents(),
                 Map.of(),   // no plots: construction is M3
-                s.grid(), s.stock(), s.buildQueue(), s.pendingOps(), peaceful, anchors,
+                s.grid(), stock == null ? s.stock() : stock,
+                s.buildQueue(), s.pendingOps(), peaceful, anchors,
                 s.chronicle(), s.clock(), s.ruler(), s.parentId(), s.forceLoadCore());
     }
 }

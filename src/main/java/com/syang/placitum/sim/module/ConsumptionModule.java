@@ -1,7 +1,6 @@
 package com.syang.placitum.sim.module;
 
 import com.syang.placitum.Placitum;
-import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.Vitals;
@@ -37,7 +36,7 @@ public class ConsumptionModule implements SimModule {
                     settlement.simStep(), mouths, needed, eaten,
                     settlement.stockOf(Items.WHEAT));
         }
-        warnIfShort(settlement, needed);
+        warnIfShort(settlement, needed, params);
 
         for (int i = 0; i < settlement.residents.size(); i++) {
             Resident r = settlement.residents.get(i);
@@ -57,8 +56,15 @@ public class ConsumptionModule implements SimModule {
      * settlement that starves without notice is the original complaint wearing an apron. The
      * entry is written once per crossing, not every step, so the chronicle stays readable.
      */
-    private void warnIfShort(SettlementMut settlement, int perStep) {
-        int warnAt = perStep * PlacitumConfig.FOOD_WARNING_STEPS.get();
+    /**
+     * The warning, which has to come before anyone is hungry to be worth anything.
+     *
+     * <p>Reads the threshold from params rather than the config directly. A simulation
+     * module that reads config mid-step takes an input nothing resolved at the edge, which
+     * is how a catch-up spanning a config reload stops being reproducible.
+     */
+    private void warnIfShort(SettlementMut settlement, int perStep, SimParams params) {
+        int warnAt = perStep * params.foodWarningSteps();
         int stock = settlement.stockOf(Items.WHEAT);
         boolean short_ = perStep > 0 && stock < warnAt;
         if (short_ && !settlement.foodWarned) {

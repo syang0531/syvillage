@@ -35,6 +35,7 @@ public record SimParams(
             int minSafety,
             int safetyRatingDivisor,
             int safetyDeathPenalty,
+            int foodWarningSteps,
             int famineGraceSteps,
             int famineMoralePenalty,
             double famineDeathChancePerStep,
@@ -69,6 +70,7 @@ public record SimParams(
                 PlacitumConfig.MIN_SAFETY.get(),
                 PlacitumConfig.SAFETY_RATING_DIVISOR.get(),
                 PlacitumConfig.SAFETY_DEATH_PENALTY.get(),
+                PlacitumConfig.FOOD_WARNING_STEPS.get(),
                 PlacitumConfig.FAMINE_GRACE_STEPS.get(),
                 PlacitumConfig.FAMINE_MORALE_PENALTY.get(),
                 PlacitumConfig.FAMINE_DEATH_CHANCE_PER_STEP.get(),
@@ -79,7 +81,7 @@ public record SimParams(
     /** Defaults matching the shipped config, for tests and for headless tooling. */
     public static SimParams defaults() {
         return new SimParams(200, 72000L, 1, 3, true,
-                new PopulationParams(0.02, 90, 3, 20, 4, 4, 4, 3, 18, 4, 0.01, 0.0008, true));
+                new PopulationParams(0.02, 90, 3, 20, 4, 4, 4, 3, 180, 18, 4, 0.01, 0.0008, true));
     }
 
     // Delegating accessors, so modules read params.baseBirthRate() rather than
@@ -115,6 +117,10 @@ public record SimParams(
 
     public int safetyDeathPenalty() {
         return population.safetyDeathPenalty();
+    }
+
+    public int foodWarningSteps() {
+        return population.foodWarningSteps();
     }
 
     public int famineGraceSteps() {

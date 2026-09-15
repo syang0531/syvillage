@@ -10,6 +10,8 @@ import com.syang.placitum.data.Settlement;
 import com.syang.placitum.population.Capacity;
 import com.syang.placitum.sim.SimParams;
 import com.syang.placitum.sim.Simulation;
+import java.util.List;
+import java.util.Map;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import org.junit.jupiter.api.BeforeAll;
@@ -90,6 +92,38 @@ class PopulationTest {
         Settlement after = run(before, 4000);
         assertEquals(0, count(after, EntryType.BIRTH),
                 "a village with nowhere to sleep must not grow");
+    }
+
+    /**
+     * Completion criterion 3: the warning comes first.
+     *
+     * <p>A village that starves with no notice is the original complaint in another costume, so
+     * the ordering is the feature. Asserted as an ordering rather than as timings, because the
+     * timings are config and will be tuned.
+     */
+    @Test
+    @DisplayName("low food is announced before anybody starves")
+    void warningPrecedesFamine() {
+        // Strip the granary: the fixture ships 340 wheat, which is months of warning away.
+        // One game day, not four hundred steps. The chronicle drops its oldest past 200
+        // entries, and a long famine buries the very warning this test is looking for.
+        Settlement after = run(SettlementFixture.adopted(6, 40, Map.of()), 120);
+
+        List<ChronicleEntry> famine = after.chronicle().entries().stream()
+                .filter(e -> e.type() == EntryType.FAMINE).toList();
+        assertFalse(famine.isEmpty(), "an empty granary should say something");
+
+        ChronicleEntry first = famine.get(0);
+        assertTrue(first.detail().startsWith("Food is running low"),
+                "the first word on food must be the warning, not the funeral: " + first.detail());
+
+        long firstDeath = after.chronicle().entries().stream()
+                .filter(e -> e.type() == EntryType.DEATH && e.detail().equals("starved"))
+                .mapToLong(ChronicleEntry::gameTime).min().orElse(Long.MAX_VALUE);
+        assertTrue(firstDeath != Long.MAX_VALUE,
+                "nobody starved, so the ordering this asserts was never actually tested");
+        assertTrue(first.gameTime() < firstDeath,
+                "the warning must land before the first starvation, not alongside it");
     }
 
     @Test
