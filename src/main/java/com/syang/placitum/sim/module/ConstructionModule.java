@@ -108,18 +108,27 @@ public class ConstructionModule implements SimModule {
                     settlement.simStep(), job.id());
             return null;
         }
-        int laid = Math.max(1, builders) * params.opsPerBuilderStep();
-        int progress = Math.min(total, job.progress() + laid);
-
-        if (progress < total) {
-            return job.withProgress(progress);
+        // Finishing is checked before anything else, and at both levels of detail. BuildTick
+        // raises progress while a player watches but owns no part of the stage machine, so if
+        // completion were skipped here a wall laid in front of somebody would stand finished
+        // and unrecorded - and an unrecorded wall gets ordered again.
+        if (job.progress() >= total) {
+            complete(settlement, job);
+            settlement.record(EntryType.BUILD, settlement.identity.name(),
+                    "finished a " + job.recipe().template().getPath() + " of " + total
+                            + " blocks");
+            Placitum.LOGGER.info("  step {}: '{}' finished a {} ({} blocks)",
+                    settlement.simStep(), settlement.identity.name(),
+                    job.recipe().template().getPath(), total);
+            return job.withProgress(total).withStage(BuildStage.COMPLETE);
         }
-        complete(settlement, job);
-        settlement.record(EntryType.BUILD, settlement.identity.name(),
-                "finished a " + job.recipe().template().getPath() + " of " + total + " blocks");
-        Placitum.LOGGER.debug("  step {}: build {} complete ({} blocks)", settlement.simStep(),
-                job.id(), total);
-        return job.withProgress(total).withStage(BuildStage.COMPLETE);
+        if (settlement.anyMaterialized()) {
+            // BuildTick has this one - it is putting the blocks where they can be seen. Counting
+            // here as well would build the wall at twice the rate it appears.
+            return job;
+        }
+        int laid = Math.max(1, builders) * params.opsPerBuilderStep();
+        return job.withProgress(Math.min(total, job.progress() + laid));
     }
 
     /**
@@ -158,19 +167,21 @@ public class ConstructionModule implements SimModule {
     }
 
     /**
-     * No, deliberately, and this one costs something.
+     * Yes - but only for the paperwork.
      *
-     * <p>Laying blocks while the residents have bodies is the builder's job, and the builder is
-     * stage 5. Until then a settlement with a player standing in it will hold at whatever
-     * progress it had - which looks like a stall and is not one. {@code /placitum build} says
-     * so rather than leaving it to be guessed.
+     * <p>Drawing materials, moving from QUEUED to EXECUTING, noticing a job is finished: none of
+     * that counts a resident twice, and all of it stalls for ever if it only happens in a
+     * village nobody is standing in. That was the second deadlock of exactly this shape - the
+     * stage machine advanced at one level of detail and the work happened at the other, so a
+     * wall with materials in the stores sat at QUEUED while its builders stood next to it.
      *
-     * <p>Returning true here instead would double-count the moment the builder exists: both the
-     * formula and the entity would advance the same counter.
+     * <p>Laying blocks is the part that is genuinely LOD-specific, and {@link #execute} declines
+     * it while bodies exist. That belongs to BuildTick, which places them where they can be
+     * seen - the two share one counter, so both advancing it would double the wall.
      */
     @Override
     public boolean runsWhileEmbodied() {
-        return false;
+        return true;
     }
 
     @Override

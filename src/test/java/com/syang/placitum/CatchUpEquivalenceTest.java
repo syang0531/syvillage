@@ -75,8 +75,15 @@ class CatchUpEquivalenceTest {
     void embodiedStillNoticesWhatItNeeds() {
         // The blanket guard meant a settlement could only decide it wanted a wall while nobody
         // was there to see it, and only act on that while somebody was.
-        Settlement before = SettlementFixture.full(6, com.syang.placitum.data.ResidentState.MATERIALIZED);
-        assertTrue(before.buildQueue().size() <= 1);
+        //
+        // Starts from no wall and an empty queue, because the round-trip fixture ships both a
+        // palisade and a build job - against that, this test passed by watching a job it had
+        // not caused.
+        Settlement before = SettlementFixture.full(6, com.syang.placitum.data.ResidentState.MATERIALIZED)
+                .withDefense(SettlementFixture.full(6, com.syang.placitum.data.ResidentState.MATERIALIZED)
+                        .defense().withWall(com.syang.placitum.data.WallState.NONE))
+                .withBuildQueue(java.util.List.of());
+        assertTrue(before.buildQueue().isEmpty());
 
         Settlement after = Simulation.catchUp(SettlementFixture.SEED, before, PARAMS,
                 SettlementFixture.START_TICK + 4000);

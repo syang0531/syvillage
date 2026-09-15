@@ -96,6 +96,7 @@ public final class BuildTick {
         return job.withProgress(job.progress() + 1);
     }
 
+
     private static Villager nearestWithin(List<Villager> builders, BlockPos pos, double reach) {
         Villager best = null;
         double bestDistance = reach * reach;
