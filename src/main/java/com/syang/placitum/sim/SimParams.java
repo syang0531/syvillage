@@ -20,6 +20,8 @@ public record SimParams(
         int timberRate,
         int opsPerBuilderStep,
         int wallMinPopulation,
+        double raidChancePerStep,
+        int raidMinPopulation,
         boolean hostilesExist,
         PopulationParams population) {
 
@@ -63,6 +65,8 @@ public record SimParams(
                 opsPerBuilderStep(PlacitumConfig.STEP_TICKS.get(),
                         PlacitumConfig.BUILD_OP_INTERVAL_TICKS.get()),
                 PlacitumConfig.WALL_MIN_POPULATION.get(),
+                PlacitumConfig.RAID_CHANCE_PER_STEP.get(),
+                PlacitumConfig.RAID_MIN_POPULATION.get(),
                 level.getDifficulty() != Difficulty.PEACEFUL,
                 populationFromConfig());
     }
@@ -87,7 +91,7 @@ public record SimParams(
 
     /** Defaults matching the shipped config, for tests and for headless tooling. */
     public static SimParams defaults() {
-        return new SimParams(200, 72000L, 1, 3, 3, 20, 4, true,
+        return new SimParams(200, 72000L, 1, 3, 3, 20, 4, 0.002, 5, true,
                 new PopulationParams(0.02, 90, 3, 20, 4, 4, 4, 3, 180, 18, 4, 0.01, 0.0008, true));
     }
 

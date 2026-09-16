@@ -48,6 +48,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.DoubleValue MILITIA_RATIO_CAP;
     public static final ModConfigSpec.DoubleValue ROUT_THRESHOLD;
     public static final ModConfigSpec.DoubleValue RAID_CHANCE_PER_STEP;
+    public static final ModConfigSpec.IntValue RAID_MIN_POPULATION;
     public static final ModConfigSpec.DoubleValue RAID_LOOT_FRACTION;
     public static final ModConfigSpec.IntValue MILITIA_WEIGHT;
     public static final ModConfigSpec.IntValue WALL_WEIGHT;
@@ -153,6 +154,12 @@ public final class PlacitumConfig {
                         "PER STEP: one game day is 120 steps, so 0.002 is about one raid",
                         "every four days. 0.02 would be 2.4 a day and no village would survive.")
                 .defineInRange("raidChancePerStep", 0.002D, 0.0D, 1.0D);
+        RAID_MIN_POPULATION = b.comment("Settlements smaller than this are not raided.",
+                        "Nothing in vanilla sends a pillager band after two villagers either.",
+                        "Measured without it: a village of three with a defence rating of 8 lost",
+                        "five residents to nine raids and could not replace one of them.",
+                        "Set to 1 to raid everything, or raidChancePerStep to 0 for none at all.")
+                .defineInRange("raidMinPopulation", 5, 1, 1000);
         RAID_LOOT_FRACTION = b.comment("Share of each stored item a lost raid carries off.",
                         "A third emptied a granary over three unseen raids, which is harsh for",
                         "something the player never had a chance to respond to.")
@@ -186,9 +193,11 @@ public final class PlacitumConfig {
                         "PER STEP: 120 steps to a game day. 0.02 is roughly two births a day",
                         "before the logistic curve damps it - lower this first if growth feels fast.")
                 .defineInRange("baseBirthRate", 0.02D, 0.0D, 1.0D);
-        ENABLE_AGING = b.comment("Residents grow old and eventually die. Some players will not want",
-                        "a villager they have grown attached to dying of old age; this is for them.")
-                .define("enableAging", true);
+        ENABLE_AGING = b.comment("Residents grow old and eventually die.",
+                        "Off by default. Vanilla villagers do not age, and this mod's promise is",
+                        "that you can tell why somebody died - not that more of them do. It is",
+                        "here for anyone who wants a settlement with generations in it.")
+                .define("enableAging", false);
         ELDER_THRESHOLD_DAYS = b.defineInRange("elderThresholdDays", 90, 10, 10000);
         INFANT_DAYS = b.comment("Infants are records only and are never spawned as entities.")
                 .defineInRange("infantDays", 3, 0, 100);

@@ -64,6 +64,28 @@ class PopulationTest {
     }
 
     @Test
+    @DisplayName("a settlement too small to defend itself is not raided")
+    void smallSettlementsAreLeftAlone() {
+        // Measured: a village of three with a defence rating of 8 lost five residents to nine
+        // raids and could not replace one of them. A raid is meant to be a reason to build a
+        // wall, not a countdown on a village too small to build one - and nothing in vanilla
+        // sends a pillager band after two villagers either.
+        SimParams params = SimParams.defaults();
+        assertTrue(params.raidMinPopulation() > 2,
+                "the smallest legal settlement is two residents and it must survive being one");
+
+        Settlement tiny = SettlementFixture.adopted(2, 10, Map.of())
+                .withDefense(SettlementFixture.standard().defense()
+                        .withWall(com.syang.placitum.data.WallState.NONE));
+        Settlement after = run(tiny, 2000);
+
+        assertTrue(after.chronicle().entries().stream()
+                        .noneMatch(e -> e.type() == com.syang.placitum.data.EntryType.RAID_LOST
+                                || e.type() == com.syang.placitum.data.EntryType.RAID_REPELLED),
+                "something raided a village of two");
+    }
+
+    @Test
     @DisplayName("a village outlives its own founders")
     void theVillageOutlivesItsFounders() {
         // Measured in game: eleven residents became two over 295 game days, with seven houses

@@ -1,7 +1,6 @@
 package com.syang.placitum.sim.module;
 
 import com.syang.placitum.Placitum;
-import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.AlertState;
 import com.syang.placitum.defense.AlertMachine;
 import com.syang.placitum.defense.RaidResolver;
@@ -30,7 +29,11 @@ public class ThreatModule implements SimModule {
         if (settlement.alert() != AlertState.PEACE) {
             return;
         }
-        if (settlement.population() == 0) {
+        // Nothing in vanilla sends a pillager band after two villagers, and a settlement of
+        // three with a defence rating of eight lost five residents to nine raids without being
+        // able to replace one of them. A raid is meant to be a reason to build a wall, not a
+        // countdown on a village too small to build one.
+        if (settlement.population() < params.raidMinPopulation()) {
             return;
         }
         // Peaceful spawns nothing hostile, so no raid could have reached this village in the
@@ -38,7 +41,7 @@ public class ThreatModule implements SimModule {
         if (!params.hostilesExist()) {
             return;
         }
-        if (rng.nextDouble() >= PlacitumConfig.RAID_CHANCE_PER_STEP.get()) {
+        if (rng.nextDouble() >= params.raidChancePerStep()) {
             return;
         }
 
