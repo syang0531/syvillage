@@ -36,6 +36,9 @@ public final class BuildPlanner {
      */
     private static final int CLIFF = 5;
 
+    /** What clearing a way through looks like as an op. */
+    private static final BlockState AIR = Blocks.AIR.defaultBlockState();
+
     /** An op and where on the ring it came from, so ordering can follow the wall. */
     private record Placed(int ringIndex, BuildOp op) {}
 
@@ -70,12 +73,22 @@ public final class BuildPlanner {
                 continue;
             }
             if (gates.contains(i)) {
-                // A gate is one block of fence gate and nothing above it. Logs over the top
-                // would be a doorway with a ceiling a villager cannot path through, which is
-                // the same as no gate at all - and docs/defense.md is blunt about what happens
-                // then: a farmer standing in front of it for ever.
-                placed.add(new Placed(i, new BuildOp(new BlockPos(ring.get(i).getX(),
-                        ground + 1, ring.get(i).getZ()), gateState(box, i))));
+                // A gate is one block of fence gate with the way above it cleared. Logs over
+                // the top would be a doorway with a ceiling a villager cannot path through,
+                // which is the same as no gate at all - docs/defense.md is blunt about what
+                // happens then: a farmer standing in front of it for ever.
+                //
+                // Cleared with air ops, not by leaving the column out. Leaving it out means
+                // placing nothing, and placing nothing over a wall that is already standing
+                // leaves the old logs exactly where they were: a gate was cut into a finished
+                // palisade and stayed buried under it.
+                BlockPos gate = ring.get(i);
+                placed.add(new Placed(i, new BuildOp(
+                        new BlockPos(gate.getX(), ground + 1, gate.getZ()), gateState(box, i))));
+                for (int y = ground + 2; y <= ground + recipe.height(); y++) {
+                    placed.add(new Placed(i, new BuildOp(
+                            new BlockPos(gate.getX(), y, gate.getZ()), AIR)));
+                }
                 continue;
             }
             int top = ground + recipe.height();

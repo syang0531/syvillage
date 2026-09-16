@@ -61,13 +61,21 @@ public final class ConstructionTick {
             return null;
         }
         BuildRecipe recipe = planned.get();
-        int blocks = BuildPlanner.expand(recipe).size();
-        if (blocks == 0) {
+        List<com.syang.placitum.data.BuildOp> ops = BuildPlanner.expand(recipe);
+        if (ops.isEmpty()) {
             return null;
         }
-        Placitum.LOGGER.info("'{}' queued a {}: {} blocks, {} log(s)", settlement.name(),
-                recipe.template().getPath(), blocks, blocks);
-        return new BuildJob(job.id(), job.plotId(), recipe, 0, costOf(blocks),
+        // Clearing a doorway is work, not material. Charging a log for every op would bill the
+        // settlement for the air it takes out of its own gateways.
+        int timber = 0;
+        for (com.syang.placitum.data.BuildOp op : ops) {
+            if (!op.state().isAir()) {
+                timber++;
+            }
+        }
+        Placitum.LOGGER.info("'{}' queued a {}: {} op(s), {} log(s)", settlement.name(),
+                recipe.template().getPath(), ops.size(), timber);
+        return new BuildJob(job.id(), job.plotId(), recipe, 0, costOf(timber),
                 BuildStage.QUEUED);
     }
 

@@ -107,24 +107,28 @@ class BuildPlannerTest {
     }
 
     @Test
-    @DisplayName("a gate is one block tall with nothing over it")
+    @DisplayName("a gate has the way above it cleared, not merely left unbuilt")
     void gateLeavesTheWayOpen() {
-        BuildRecipe recipe = withGates(flat(64), 3, List.of(2));
-        List<BuildOp> ops = BuildPlanner.expand(recipe);
+        List<BuildOp> ops = BuildPlanner.expand(withGates(flat(64), 3, List.of(2)));
 
-        // 15 full columns of 3, plus one gate block.
-        assertEquals(15 * 3 + 1, ops.size(), "the gate column carries a gate and nothing else");
+        // 15 full columns of 3, plus the gate and the two blocks of air over it. Leaving the
+        // column out instead would place nothing - and placing nothing over a wall that already
+        // stands leaves the old logs where they were, which is how a gate cut into a finished
+        // palisade stayed buried under it.
+        assertEquals(15 * 3 + 3, ops.size());
 
-        BlockPos gatePos = new BlockPos(2, 65, 0);
-        int atGateColumn = 0;
         for (BuildOp op : ops) {
             if (op.pos().getX() == 2 && op.pos().getZ() == 0) {
-                atGateColumn++;
-                assertEquals(gatePos, op.pos(), "a log over the gate is a doorway with a"
-                        + " ceiling, which villagers cannot path through");
+                if (op.pos().getY() == 65) {
+                    assertTrue(op.state().is(net.minecraft.world.level.block.Blocks.OAK_FENCE_GATE),
+                            "the gate itself sits on the ground");
+                } else {
+                    assertTrue(op.state().isAir(),
+                            "a log over the gate is a doorway with a ceiling, which villagers"
+                                    + " cannot path through: " + op.pos());
+                }
             }
         }
-        assertEquals(1, atGateColumn);
     }
 
     @Test
