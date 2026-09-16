@@ -178,6 +178,22 @@ public final class Lifecycle {
     }
 
     /**
+     * Which job wins when the villager and the record disagree.
+     *
+     * <p>Vanilla is authoritative about the professions it has and silent about the ones it does
+     * not. A villager we made a woodcutter is a nitwit as far as the game is concerned, so
+     * taking its word unconditionally wiped the assignment on every write-back: the settlement
+     * cut timber right up until the player walked past, and then stopped.
+     *
+     * @param vanilla what the villager's profession maps to, possibly NONE
+     * @param current what the record already says
+     */
+    public static Identifier chooseJob(Identifier vanilla, Identifier current) {
+        boolean vanillaHasNothingToSay = vanilla.equals(Assignment.NONE);
+        return vanillaHasNothingToSay && !current.equals(Assignment.NONE) ? current : vanilla;
+    }
+
+    /**
      * Re-reads the villager's profession.
      *
      * <p>Vanilla villagers acquire professions by claiming a job site, which can happen long
@@ -189,7 +205,7 @@ public final class Lifecycle {
      * on demote and nowhere else.
      */
     private static Assignment refreshJob(Resident resident, Villager villager) {
-        Identifier job = ProfessionMap.of(villager);
+        Identifier job = chooseJob(ProfessionMap.of(villager), resident.assignment().job());
         if (job.equals(resident.assignment().job())) {
             return resident.assignment();
         }

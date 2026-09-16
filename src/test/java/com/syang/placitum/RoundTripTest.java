@@ -3,6 +3,8 @@ package com.syang.placitum;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.syang.placitum.data.Assignment;
+import com.syang.placitum.lifecycle.Lifecycle;
 import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.ResidentState;
 import com.syang.placitum.data.Settlement;
@@ -47,6 +49,26 @@ class RoundTripTest {
 
     private static Settlement decode(Tag tag) {
         return Settlement.CODEC.parse(ops, tag).getOrThrow();
+    }
+
+    @Test
+    @DisplayName("a job vanilla has no name for survives the round trip")
+    void ourOwnJobsSurviveWriteBack() {
+        // WOODCUTTER and BUILDER have no vanilla profession behind them, so a villager holding
+        // one reads back as a nitwit. Taking vanilla's word for that wiped the assignment on
+        // every write-back: the settlement cut timber until the player walked past, then
+        // stopped, and nothing said why.
+        assertEquals(Assignment.WOODCUTTER,
+                Lifecycle.chooseJob(Assignment.NONE, Assignment.WOODCUTTER));
+        assertEquals(Assignment.BUILDER,
+                Lifecycle.chooseJob(Assignment.NONE, Assignment.BUILDER));
+
+        // But vanilla still wins where it actually has an opinion. A villager that claimed a
+        // composter while we were away is a farmer, whatever we had written down.
+        assertEquals(Assignment.FARMER,
+                Lifecycle.chooseJob(Assignment.FARMER, Assignment.WOODCUTTER));
+        assertEquals(Assignment.NONE,
+                Lifecycle.chooseJob(Assignment.NONE, Assignment.NONE));
     }
 
     @Test
