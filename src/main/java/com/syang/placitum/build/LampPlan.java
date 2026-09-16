@@ -34,16 +34,21 @@ public final class LampPlan {
     private LampPlan() {}
 
     /**
-     * Lamp posts of the plan that are still dark.
+     * Posts of the plan with nothing standing on them yet.
      *
-     * <p>Block light only. Counting sunlight would call every post bright at noon and dark at
-     * midnight, which says nothing about where a mob can spawn tonight.
+     * <p>Every post gets a lamp, whether or not the spot happens to be lit. Skipping the lit
+     * ones sounds thriftier and is how two of the four posts around the bell never appeared:
+     * the posts either side of a three-wide road are four blocks apart, a lantern is light 15,
+     * so the first one of a pair lights the second past the threshold and the second is never
+     * built. The result was a lamp here and no lamp there with no rule a player could see.
+     *
+     * <p>Whether the village is actually dark is a different question, and
+     * {@link #darkPosts} answers that one for {@code /placitum light}.
      */
-    public static List<BlockPos> darkPosts(ServerLevel level, Settlement settlement) {
+    public static List<BlockPos> unlitPosts(ServerLevel level, Settlement settlement, int phase) {
         BlockPos bell = settlement.center();
-        int reach = TownPlan.reachBlocks(settlement);
-        int wanted = PlacitumConfig.MIN_LIGHT_LEVEL.get();
-        List<BlockPos> dark = new ArrayList<>();
+        int reach = TownPlan.phaseReach(phase);
+        List<BlockPos> todo = new ArrayList<>();
 
         for (int dz = -reach; dz <= reach; dz++) {
             for (int dx = -reach; dx <= reach; dx++) {
@@ -54,7 +59,40 @@ public final class LampPlan {
                 int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
                 if (ground == Ground.SKIP
                         || GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
-                    continue;   // no lamps in water, and none on top of somebody's build
+                    // No lamps in water, and none on top of somebody's build - which includes
+                    // the lamp we put here last time, so this is also what makes it converge.
+                    continue;
+                }
+                todo.add(new BlockPos(pos.getX(), ground + 1, pos.getZ()));
+            }
+        }
+        return List.copyOf(todo);
+    }
+
+    /**
+     * Where a mob can still spawn: ground inside the town below the light threshold.
+     *
+     * <p>Block light only. Counting sunlight would call everywhere bright at noon and dark at
+     * midnight, which says nothing about where a mob can spawn tonight.
+     *
+     * <p>A report, not a plan. It is the question the whole mod exists to answer, and it is
+     * worth being able to ask it separately from what has been built.
+     */
+    public static List<BlockPos> darkPosts(ServerLevel level, Settlement settlement) {
+        BlockPos bell = settlement.center();
+        int reach = TownPlan.phaseReach(TownPlan.maxPhase(settlement));
+        int wanted = PlacitumConfig.MIN_LIGHT_LEVEL.get();
+        List<BlockPos> dark = new ArrayList<>();
+
+        for (int dz = -reach; dz <= reach; dz++) {
+            for (int dx = -reach; dx <= reach; dx++) {
+                BlockPos pos = bell.offset(dx, 0, dz);
+                if (!TownPlan.isLampPost(pos, bell) || !level.hasChunkAt(pos)) {
+                    continue;
+                }
+                int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
+                if (ground == Ground.SKIP) {
+                    continue;
                 }
                 BlockPos standing = new BlockPos(pos.getX(), ground + 1, pos.getZ());
                 if (level.getBrightness(LightLayer.BLOCK, standing) < wanted) {
@@ -71,8 +109,9 @@ public final class LampPlan {
      * <p>Empty is the normal answer once a settlement has stood a while, which is what makes it
      * safe to ask on every pass.
      */
-    public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement) {
-        List<BlockPos> dark = darkPosts(level, settlement);
+    public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement,
+            int phase) {
+        List<BlockPos> dark = unlitPosts(level, settlement, phase);
         if (dark.isEmpty()) {
             return Optional.empty();
         }
@@ -80,10 +119,10 @@ public final class LampPlan {
         List<BlockPos> posts = new ArrayList<>(dark.subList(0, batch));
         List<Integer> profile = new ArrayList<>(posts.size());
         for (BlockPos post : posts) {
-            profile.add(post.getY() - 1);   // darkPosts reports standing height; freeze the ground
+            profile.add(post.getY() - 1);   // reported at standing height; freeze the ground
         }
-        Placitum.LOGGER.debug("'{}' has {} dark post(s); lighting {}", settlement.name(),
-                dark.size(), batch);
+        Placitum.LOGGER.debug("'{}' has {} bare post(s) in phase {}; lighting {}",
+                settlement.name(), dark.size(), phase, batch);
 
         return Optional.of(new BuildRecipe(LAMPS, posts.getFirst(), Rotation.NONE,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),

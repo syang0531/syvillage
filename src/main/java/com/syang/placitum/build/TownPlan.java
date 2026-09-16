@@ -158,21 +158,60 @@ public final class TownPlan {
         return Math.max(ringIndex(cell.gx()), ringIndex(cell.gz()));
     }
 
+    /** Which city block a lot sits on, along one axis. Two lots to a block. */
+    public static int blockOf(int g) {
+        return Math.floorDiv(g, LOTS_PER_BLOCK);
+    }
+
     /**
-     * Lots of the plan, nearest the bell first.
+     * Which phase a lot belongs to: how many city blocks out from the bell's crossroads it is.
      *
-     * <p>Ring order rather than raster, so a village fills outward from its centre and looks
-     * like it grew rather than like it was printed.
+     * <p>Phase 0 is the four blocks that meet at the bell - sixteen lots. Phase 1 is the twelve
+     * blocks around those, phase 2 the twenty around those. A settlement finishes a phase, roads
+     * and lamps and buildings, before it starts the next one, so it is a town of some size at
+     * every moment rather than a road network with a few houses scattered down it.
      */
-    public static List<CellPos> cells(Settlement settlement) {
-        int radius = radius(settlement);
+    public static int phaseOf(CellPos cell) {
+        return Math.max(ringIndex(blockOf(cell.gx())), ringIndex(blockOf(cell.gz())));
+    }
+
+    /**
+     * How far a phase reaches from the bell, in blocks.
+     *
+     * <p>Its own city blocks plus the one road column that closes them off - a phase whose outer
+     * road belonged to the next phase would be a ring of houses with no street on one side.
+     */
+    public static int phaseReach(int phase) {
+        return (phase + 1) * PERIOD + 1;
+    }
+
+    /** How many city blocks a phase adds: 4, then 12, then 20. */
+    public static int blocksInPhase(int phase) {
+        return 4 * (2 * phase + 1);
+    }
+
+    /** The lots of one phase, nearest the bell first. */
+    public static List<CellPos> lotsInPhase(int phase) {
+        int hi = LOTS_PER_BLOCK * (phase + 1) - 1;
         List<CellPos> out = new ArrayList<>();
-        for (int gz = -(radius + 1); gz <= radius; gz++) {
-            for (int gx = -(radius + 1); gx <= radius; gx++) {
-                out.add(new CellPos(gx, gz));
+        for (int gz = -hi - 1; gz <= hi; gz++) {
+            for (int gx = -hi - 1; gx <= hi; gx++) {
+                CellPos cell = new CellPos(gx, gz);
+                if (phaseOf(cell) == phase) {
+                    out.add(cell);
+                }
             }
         }
         out.sort((a, b) -> Integer.compare(order(a), order(b)));
+        return List.copyOf(out);
+    }
+
+    /** Every lot the settlement will ever consider, nearest first. */
+    public static List<CellPos> allLots(Settlement settlement) {
+        List<CellPos> out = new ArrayList<>();
+        for (int phase = 0; phase <= maxPhase(settlement); phase++) {
+            out.addAll(lotsInPhase(phase));
+        }
         return List.copyOf(out);
     }
 
@@ -183,36 +222,19 @@ public final class TownPlan {
     }
 
     /**
-     * How many rings of lots the plan currently reaches.
+     * The last phase a settlement will build, decided by its claim.
      *
-     * <p>One ring beyond the outermost thing the settlement has built, so a village of two
-     * houses is a village of two houses with a street round it - not two houses in the middle of
-     * a hundred and fifty blocks of empty road and lamps, which is what a fixed radius gives you
-     * and which took a very long time to build to no visible purpose.
-     *
-     * <p>It only ever grows, because it is measured from what stands. Nothing here shrinks a
-     * town back down after the player pulls a house apart.
+     * <p>The claim is the promise the settlement made when it was registered, so it is what
+     * bounds the town - not a cell count that had no relation to it. The config key is a
+     * ceiling on top of that, for anyone who wants a smaller village on a big claim.
      */
-    public static int radius(Settlement settlement) {
-        int ceiling = Math.min((settlement.grid().size() - 1) / 2,
-                PlacitumConfig.BUILD_RADIUS_CELLS.get());
-        int built = 0;
-        for (Plot plot : settlement.plots().values()) {
-            built = Math.max(built, ring(plot.anchor()));
+    public static int maxPhase(Settlement settlement) {
+        int claim = settlement.identity().claimRadiusChunks() * 16;
+        int ceiling = PlacitumConfig.BUILD_MAX_PHASES.get();
+        int phase = 0;
+        while (phase < ceiling && phaseReach(phase) < claim) {
+            phase++;
         }
-        return Math.max(0, Math.min(ceiling, built + 1));
-    }
-
-    /**
-     * How far the plan reaches, in blocks from the bell.
-     *
-     * <p>Measured from the outermost lot rather than multiplied out, because lots are not evenly
-     * spaced - eight blocks apart inside a city block, twelve across a road.
-     */
-    public static int reachBlocks(Settlement settlement) {
-        int r = radius(settlement);
-        int east = lotStart(r, 0) + LOT - 1 + MARGIN;
-        int west = -lotStart(-(r + 1), 0) + MARGIN;
-        return Math.max(east, west);
+        return phase;
     }
 }

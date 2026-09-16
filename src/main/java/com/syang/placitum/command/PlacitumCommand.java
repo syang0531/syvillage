@@ -172,8 +172,8 @@ public final class PlacitumCommand {
             source.sendSuccess(() -> Component.literal(settlement.name()
                     + " is not building anything").withStyle(ChatFormatting.GRAY), false);
             if (where != null) {
-                source.sendSuccess(() -> Component.literal("  lots within "
-                        + com.syang.placitum.build.TownPlan.radius(settlement) + " cell(s): "
+                source.sendSuccess(() -> Component.literal("  lots out to phase "
+                        + com.syang.placitum.build.TownPlan.maxPhase(settlement) + ": "
                         + com.syang.placitum.build.Lots.describe(
                                 com.syang.placitum.build.Lots.tally(where, settlement))), false);
             }

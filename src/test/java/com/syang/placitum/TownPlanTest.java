@@ -193,11 +193,7 @@ class TownPlanTest {
     @Test
     @DisplayName("the nearest lots are offered first")
     void cellsComeInRingOrder() {
-        List<CellPos> cells = TownPlan.cells(withPlotsAt(new CellPos(2, 0)));
-        assertEquals(0, TownPlan.ring(cells.getFirst()),
-                "a lot against the bell comes first, not one out on the edge: "
-                        + cells.getFirst().toKey());
-
+        List<CellPos> cells = TownPlan.lotsInPhase(1);
         int ring = 0;
         for (CellPos cell : cells) {
             int here = TownPlan.ring(cell);
@@ -207,20 +203,80 @@ class TownPlanTest {
     }
 
     @Test
-    @DisplayName("the town reaches one ring past what it has built, and no further")
-    void thePlanGrowsWithTheVillage() {
-        // A fixed radius meant a village of two houses spent an age laying a hundred and fifty
-        // blocks of road and lamps around nothing.
-        assertEquals(1, TownPlan.radius(withPlotsAt()),
-                "a settlement that has built nothing still needs the street round its own bell");
-        assertEquals(2, TownPlan.radius(withPlotsAt(new CellPos(1, 0))));
-        assertEquals(3, TownPlan.radius(withPlotsAt(new CellPos(1, 0), new CellPos(-3, 2))),
-                "measured from the outermost plot, whichever direction it is in - and lot -3"
-                        + " is ring 2, so the plan reaches ring 3");
+    @DisplayName("a phase is four city blocks, then twelve, then twenty")
+    void phasesAreRingsOfCityBlocks() {
+        // The shape the town grows in. A phase finishes - roads, lamps and buildings - before
+        // the next one starts, so the settlement is a finished piece of town plus the piece it
+        // is working on, never a road network with four houses scattered down it.
+        assertEquals(4, TownPlan.blocksInPhase(0), "the four blocks that meet at the bell");
+        assertEquals(12, TownPlan.blocksInPhase(1));
+        assertEquals(20, TownPlan.blocksInPhase(2));
 
-        assertTrue(TownPlan.reachBlocks(withPlotsAt(new CellPos(1, 0)))
-                        > TownPlan.reachBlocks(withPlotsAt()),
-                "building a house has to widen the ground the roads and lamps cover");
+        for (int phase = 0; phase <= 3; phase++) {
+            assertEquals(TownPlan.blocksInPhase(phase) * TownPlan.LOTS_PER_BLOCK
+                            * TownPlan.LOTS_PER_BLOCK,
+                    TownPlan.lotsInPhase(phase).size(),
+                    "four lots to every block of phase " + phase);
+        }
+        assertEquals(16, TownPlan.lotsInPhase(0).size(),
+                "phase 0 is sixteen lots: four blocks of four");
+    }
+
+    @Test
+    @DisplayName("every lot belongs to exactly one phase")
+    void phasesDoNotOverlapOrLeaveGaps() {
+        Set<CellPos> seen = new LinkedHashSet<>();
+        for (int phase = 0; phase <= 3; phase++) {
+            for (CellPos cell : TownPlan.lotsInPhase(phase)) {
+                assertTrue(seen.add(cell), cell.toKey() + " is in two phases at once");
+                assertEquals(phase, TownPlan.phaseOf(cell),
+                        cell.toKey() + " was listed under phase " + phase);
+            }
+        }
+        // Phases 0..3 must tile the square of lots they span, with nothing missing in between.
+        int hi = TownPlan.LOTS_PER_BLOCK * 4 - 1;
+        for (int gz = -hi - 1; gz <= hi; gz++) {
+            for (int gx = -hi - 1; gx <= hi; gx++) {
+                assertTrue(seen.contains(new CellPos(gx, gz)),
+                        "no phase covers lot " + new CellPos(gx, gz).toKey());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("a phase reaches past its own lots, so its outer road is its own")
+    void aPhaseOwnsTheRoadThatClosesIt() {
+        // A phase whose outer road belonged to the next one would be a ring of houses with no
+        // street along one side until the town grew again.
+        for (int phase = 0; phase <= 3; phase++) {
+            int reach = TownPlan.phaseReach(phase);
+            for (CellPos cell : TownPlan.lotsInPhase(phase)) {
+                BlockPos corner = TownPlan.lotCorner(cell, BELL);
+                int far = Math.max(
+                        Math.abs(corner.getX() + TownPlan.LOT - 1 - BELL.getX()),
+                        Math.abs(corner.getZ() + TownPlan.LOT - 1 - BELL.getZ()));
+                int near = Math.max(Math.abs(corner.getX() - BELL.getX()),
+                        Math.abs(corner.getZ() - BELL.getZ()));
+                assertTrue(Math.max(far, near) < reach,
+                        "phase " + phase + " reaches " + reach + " but lot " + cell.toKey()
+                                + " runs to " + Math.max(far, near));
+            }
+            assertTrue(TownPlan.isRoad(BELL.getX() + reach - 1, BELL.getX()),
+                    "phase " + phase + " has to stop on the road that closes it, not short of it");
+        }
+    }
+
+    @Test
+    @DisplayName("the claim decides how far the town goes")
+    void theClaimBoundsTheTown() {
+        // Five chunks of claim is eighty blocks, and phase 3 reaches eighty-one. The town stops
+        // where the settlement said it would when it was registered.
+        Settlement settlement = withPlotsAt();
+        assertEquals(5, settlement.identity().claimRadiusChunks());
+        assertEquals(3, TownPlan.maxPhase(settlement));
+        assertEquals(81, TownPlan.phaseReach(3));
+        assertTrue(TownPlan.phaseReach(2) < 5 * 16,
+                "phase 2 stops short of the claim, so there is a phase 3 to build");
     }
 
     /** Whether a position falls on the 7x7 lot of whatever cell it is in. */

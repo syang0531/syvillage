@@ -61,8 +61,8 @@ public final class SettlementTick {
             return settlement;
         }
         if (settlement.buildQueue().isEmpty()) {
-            Placitum.LOGGER.info("'{}' is building nothing. Lots within {} cell(s): {}",
-                    settlement.name(), TownPlan.radius(settlement),
+            Placitum.LOGGER.info("'{}' is building nothing. Lots out to phase {}: {}",
+                    settlement.name(), TownPlan.maxPhase(settlement),
                     Lots.describe(Lots.tally(level, settlement)));
         }
         return settlement.withGrid(GridSurvey.run(level, settlement).grid());
@@ -82,12 +82,16 @@ public final class SettlementTick {
                 || level.getGameTime() % PlacitumConfig.PLAN_INTERVAL_TICKS.get() != 0) {
             return settlement;
         }
-        Optional<BuildRecipe> next = LampPlan.plan(level, settlement);
-        if (next.isEmpty()) {
-            next = building(level, settlement);
-        }
-        if (next.isEmpty()) {
-            next = RoadPlan.plan(level, settlement);
+        Optional<BuildRecipe> next = Optional.empty();
+        int phase = 0;
+        for (; phase <= TownPlan.maxPhase(settlement) && next.isEmpty(); phase++) {
+            next = RoadPlan.plan(level, settlement, phase);
+            if (next.isEmpty()) {
+                next = LampPlan.plan(level, settlement, phase);
+            }
+            if (next.isEmpty()) {
+                next = building(level, settlement, phase);
+            }
         }
         if (next.isEmpty()) {
             return settlement;   // nothing missing, so nothing happens
@@ -97,8 +101,9 @@ public final class SettlementTick {
         if (blocks == 0) {
             return settlement;
         }
-        Placitum.LOGGER.info("'{}' starts a {} at {}: {} block(s)", settlement.name(),
-                recipe.template().getPath(), recipe.anchor().toShortString(), blocks);
+        Placitum.LOGGER.info("'{}' starts a {} at {} in phase {}: {} block(s)",
+                settlement.name(), recipe.template().getPath(),
+                recipe.anchor().toShortString(), phase - 1, blocks);
         return settlement.withBuildQueue(List.of(new BuildJob(UUID.randomUUID(),
                 settlement.id(), recipe, 0, Map.of(), BuildStage.EXECUTING, 0)));
     }
@@ -110,8 +115,9 @@ public final class SettlementTick {
      * Empty means no lot is built on twice; level means the settlement waits rather than
      * terracing a hillside, and picks the lot up again if somebody flattens it.
      */
-    private static Optional<BuildRecipe> building(ServerLevel level, Settlement settlement) {
-        for (CellPos cell : TownPlan.cells(settlement)) {
+    private static Optional<BuildRecipe> building(ServerLevel level, Settlement settlement,
+            int phase) {
+        for (CellPos cell : TownPlan.lotsInPhase(phase)) {
             if (!Lots.buildable(level, settlement, cell)) {
                 continue;
             }

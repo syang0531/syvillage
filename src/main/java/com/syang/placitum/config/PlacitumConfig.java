@@ -82,7 +82,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue PALISADE_HEIGHT;
     public static final ModConfigSpec.IntValue WALL_MIN_POPULATION;
     public static final ModConfigSpec.IntValue MAX_SITE_DROP;
-    public static final ModConfigSpec.IntValue BUILD_RADIUS_CELLS;
+    public static final ModConfigSpec.IntValue BUILD_MAX_PHASES;
     public static final ModConfigSpec.IntValue MIN_LIGHT_LEVEL;
     public static final ModConfigSpec.IntValue LAMPS_PER_JOB;
     public static final ModConfigSpec.IntValue ROAD_BLOCKS_PER_JOB;
@@ -264,10 +264,13 @@ public final class PlacitumConfig {
                         "house it built appeared eighteen blocks down a slope, out of sight.",
                         "A settlement that grows somewhere you cannot see it has not grown.")
                 .defineInRange("maxSiteDrop", 8, 1, 128);
-        BUILD_RADIUS_CELLS = b.comment("How far from the bell a settlement builds, in 8-block cells.",
-                        "Used to be tied to a population tier. There is no population model any",
-                        "more, so it is simply how big a village is allowed to get.")
-                .defineInRange("buildRadiusCells", 6, 1, 32);
+        BUILD_MAX_PHASES = b.comment("Ceiling on how many phases of city blocks a town builds.",
+                        "A phase is a ring of blocks around the bell: phase 0 is the four that",
+                        "meet at it, phase 1 the twelve around those, phase 2 the twenty around",
+                        "those. Each one finishes - roads, lamps, buildings - before the next",
+                        "begins. What normally decides the limit is the claim; this is a lower",
+                        "ceiling for anyone who wants a village rather than a city.")
+                .defineInRange("buildMaxPhases", 8, 0, 32);
         MIN_LIGHT_LEVEL = b.comment("Block light a cell needs before the settlement stops",
                         "lighting it. Hostile mobs spawn at block light 0, so anything above",
                         "that suppresses them; a little headroom covers a lantern being broken.",

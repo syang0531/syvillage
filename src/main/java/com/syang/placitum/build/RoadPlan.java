@@ -42,9 +42,10 @@ public final class RoadPlan {
      * soon as it has a batch - the search must not walk the whole claim every tick looking for
      * work that was finished an hour ago.
      */
-    public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement) {
+    public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement,
+            int phase) {
         BlockPos bell = settlement.center();
-        int reach = TownPlan.reachBlocks(settlement);
+        int reach = TownPlan.phaseReach(phase);
         int batch = PlacitumConfig.ROAD_BLOCKS_PER_JOB.get();
 
         List<BlockPos> todo = new ArrayList<>();
@@ -61,13 +62,18 @@ public final class RoadPlan {
                         continue;
                     }
                     int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
-                    if (ground == Ground.SKIP
-                            || GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
-                        continue;   // water, a building, the bell itself: the street goes round
+                    if (ground == Ground.SKIP) {
+                        continue;   // water: the street goes round
                     }
+                    // The cheap question first. Once a phase is paved this is the only test
+                    // almost every column reaches, and the settlement asks it of the whole
+                    // phase every time it looks for work.
                     if (level.getBlockState(new BlockPos(pos.getX(), ground, pos.getZ()))
                             .is(Blocks.DIRT_PATH)) {
                         continue;   // already a street
+                    }
+                    if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
+                        continue;   // a building, or the bell itself: the street goes round
                     }
                     todo.add(new BlockPos(pos.getX(), 0, pos.getZ()));
                     profile.add(ground);
@@ -77,8 +83,8 @@ public final class RoadPlan {
         if (todo.isEmpty()) {
             return Optional.empty();
         }
-        Placitum.LOGGER.debug("'{}' has {} block(s) of street to lay", settlement.name(),
-                todo.size());
+        Placitum.LOGGER.debug("'{}' has {} block(s) of street to lay in phase {}",
+                settlement.name(), todo.size(), phase);
         return Optional.of(new BuildRecipe(STREET, todo.getFirst(), Rotation.NONE,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
                 List.copyOf(profile), new BlockPos(todo.size(), 1, 0), Positions.encode(todo)));

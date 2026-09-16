@@ -114,7 +114,7 @@ public final class Lots {
      */
     public static Map<Verdict, Integer> tally(ServerLevel level, Settlement settlement) {
         Map<Verdict, Integer> counts = new EnumMap<>(Verdict.class);
-        for (CellPos cell : TownPlan.cells(settlement)) {
+        for (CellPos cell : TownPlan.allLots(settlement)) {
             counts.merge(verdict(level, settlement, cell), 1, Integer::sum);
         }
         return counts;

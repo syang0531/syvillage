@@ -48,8 +48,10 @@ public final class SettlementReport {
         if (settlement.buildQueue().isEmpty()) {
             lines.add(Component.literal("  building nothing").withStyle(ChatFormatting.GRAY));
             if (level != null) {
-                lines.add(Component.literal("  lots within " + TownPlan.radius(settlement)
-                        + " cell(s): " + Lots.describe(Lots.tally(level, settlement)))
+                lines.add(Component.literal("  lots out to phase "
+                        + TownPlan.maxPhase(settlement) + " ("
+                        + TownPlan.phaseReach(TownPlan.maxPhase(settlement)) + " blocks): "
+                        + Lots.describe(Lots.tally(level, settlement)))
                         .withStyle(ChatFormatting.GRAY));
             }
         }
