@@ -32,7 +32,7 @@ public class NeedsModule implements SimModule {
 
     @Override
     public void step(SettlementMut settlement, SimParams params, RandomSource rng) {
-        if (!settlement.buildQueue.isEmpty()) {
+        if (working(settlement)) {
             return;   // finish what was started
         }
         // docs/construction.md: food, housing, defence, production, convenience - except that
@@ -41,6 +41,22 @@ public class NeedsModule implements SimModule {
         if (needsWall(settlement, params)) {
             order(settlement, wallOrder(settlement));
         }
+    }
+
+    /**
+     * Whether anything in the queue still needs doing.
+     *
+     * <p>COMPLETE jobs linger until a visit lets their blocks be placed, so an empty-looking
+     * queue is not the same as an idle one - and treating a finished job as work in progress
+     * would stop a settlement ordering anything else until somebody walked past.
+     */
+    private static boolean working(SettlementMut settlement) {
+        for (BuildJob job : settlement.buildQueue) {
+            if (job.stage() != BuildStage.COMPLETE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

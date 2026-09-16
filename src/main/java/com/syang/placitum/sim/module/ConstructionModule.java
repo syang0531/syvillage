@@ -63,7 +63,16 @@ public class ConstructionModule implements SimModule {
             case QUEUED -> reserveMaterials(settlement, job);
             case WAITING_MATERIALS -> reserveMaterials(settlement, job);
             case EXECUTING -> execute(settlement, job, builders, params);
-            case COMPLETE -> null;
+            // A job finished virtually has laid no blocks anywhere. Dropping it here left the
+            // wall existing only as a record: /placitum info reported seven gates and the
+            // ground had none, because promote replays ops[0, progress) by walking the build
+            // queue and the queue was empty.
+            //
+            // So a completed job survives until the settlement has bodies again, which is the
+            // one moment its blocks can actually be put down. Five fields, not the 1618 ops
+            // they expand to - docs/data-model.md is firm that op lists are never stored, and
+            // this is why the recipe has to be enough on its own.
+            case COMPLETE -> settlement.anyMaterialized() ? null : job;
         };
     }
 

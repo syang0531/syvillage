@@ -164,6 +164,31 @@ class BuildPlannerTest {
     }
 
     @Test
+    @DisplayName("a job finished with nobody watching survives to be replayed")
+    void completedWorkWaitsForBodies() {
+        // Built virtually, a job has laid no blocks anywhere. Dropping it on completion left
+        // the wall as a record with nothing under it: info reported seven gates and the ground
+        // had none, because promote replays by walking the build queue and the queue was empty.
+        com.syang.placitum.data.BuildJob done = SettlementFixture.standard().buildQueue().get(0)
+                .withStage(com.syang.placitum.data.BuildStage.COMPLETE);
+
+        Settlement virtualStill = Simulation.catchUp(SettlementFixture.SEED,
+                SettlementFixture.full(4, com.syang.placitum.data.ResidentState.VIRTUAL)
+                        .withBuildQueue(List.of(done)),
+                SimParams.defaults(), SettlementFixture.START_TICK + 2000);
+        assertEquals(1, virtualStill.buildQueue().size(),
+                "nobody has been there to put the blocks down, so the job has to wait");
+
+        Settlement embodied = Simulation.catchUp(SettlementFixture.SEED,
+                SettlementFixture.full(4, com.syang.placitum.data.ResidentState.MATERIALIZED)
+                        .withBuildQueue(List.of(done)),
+                SimParams.defaults(), SettlementFixture.START_TICK + 2000);
+        assertTrue(embodied.buildQueue().isEmpty(),
+                "with bodies present the blocks are down, and a finished job kept for ever is a"
+                        + " queue that never empties");
+    }
+
+    @Test
     @DisplayName("a finished wall is one the settlement stops wanting")
     void completionStopsTheReorderLoop() {
         // In-game this cost 1761 logs a lap. The wall finished, the job left the queue, nothing
