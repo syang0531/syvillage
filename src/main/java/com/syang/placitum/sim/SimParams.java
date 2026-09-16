@@ -17,6 +17,7 @@ public record SimParams(
         long maxCatchupTicks,
         int consumptionPerHead,
         int yieldRate,
+        int timberRate,
         int opsPerBuilderStep,
         int wallMinPopulation,
         boolean hostilesExist,
@@ -58,6 +59,7 @@ public record SimParams(
                 PlacitumConfig.MAX_CATCHUP_TICKS.get(),
                 PlacitumConfig.CONSUMPTION_PER_HEAD.get(),
                 PlacitumConfig.YIELD_RATE.get(),
+                PlacitumConfig.TIMBER_RATE.get(),
                 PlacitumConfig.OPS_PER_BUILDER_STEP.get(),
                 PlacitumConfig.WALL_MIN_POPULATION.get(),
                 level.getDifficulty() != Difficulty.PEACEFUL,
@@ -84,7 +86,7 @@ public record SimParams(
 
     /** Defaults matching the shipped config, for tests and for headless tooling. */
     public static SimParams defaults() {
-        return new SimParams(200, 72000L, 1, 3, 4, 4, true,
+        return new SimParams(200, 72000L, 1, 3, 3, 4, 4, true,
                 new PopulationParams(0.02, 90, 3, 20, 4, 4, 4, 3, 180, 18, 4, 0.01, 0.0008, true));
     }
 

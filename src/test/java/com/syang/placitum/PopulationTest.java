@@ -2,13 +2,16 @@ package com.syang.placitum;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.syang.placitum.data.Assignment;
 import com.syang.placitum.data.ChronicleEntry;
 import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.population.Capacity;
 import com.syang.placitum.sim.SimParams;
+import com.syang.placitum.sim.module.LabourModule;
 import com.syang.placitum.sim.Simulation;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +62,54 @@ class PopulationTest {
     private static long count(Settlement s, EntryType type) {
         return s.chronicle().entries().stream().filter(e -> e.type() == type).count();
     }
+
+    @Test
+    @DisplayName("idle residents are put to the work the settlement is short of")
+    void idleResidentsAreEmployed() {
+        // Nothing is ever a woodcutter or a builder otherwise: neither job has a vanilla
+        // profession behind it, so adoption can never produce one, and the first real wall
+        // wanted 1761 logs from a settlement that produced none.
+        Settlement before = SettlementFixture.adopted(6, 40, Map.of());
+        long idleBefore = before.residents().stream()
+                .filter(r -> r.assignment().job().equals(Assignment.NONE)).count();
+
+        Settlement after = run(before, 400);
+        long idleAfter = after.residents().stream()
+                .filter(r -> r.assignment().job().equals(Assignment.NONE)).count();
+
+        assertTrue(idleAfter < idleBefore || idleBefore == 0,
+                "unemployed residents stayed unemployed: " + idleBefore + " -> " + idleAfter);
+    }
+
+    @Test
+    @DisplayName("the job a settlement needs most follows what is actually short")
+    void neededJobFollowsTheShortage() {
+        SimParams params = SimParams.defaults();
+
+        // No farmers at all: food is the binding constraint and nothing else matters, because
+        // hunger kills and a missing wall does not.
+        Settlement hungry = SettlementFixture.adopted(6, 40, Map.of())
+                .withResidents(SettlementFixture.standard().residents().stream()
+                        .map(r -> r.withAssignment(r.assignment()
+                                .withJob(com.syang.placitum.data.Assignment.NONE)))
+                        .toList());
+        assertEquals(Assignment.FARMER, LabourModule.mostNeeded(hungry, params));
+
+        // Fed, with a build waiting on timber: somebody has to go and cut it. Everyone farms,
+        // so food is comfortably ahead of the population and stops being the binding limit -
+        // otherwise this would pass for the reason the case above does.
+        Settlement waiting = SettlementFixture.standard()
+                .withResidents(SettlementFixture.standard().residents().stream()
+                        .map(r -> r.withAssignment(r.assignment().withJob(Assignment.FARMER)))
+                        .toList())
+                .withBuildQueue(List.of(SettlementFixture.standard().buildQueue().get(0)
+                        .withStage(com.syang.placitum.data.BuildStage.WAITING_MATERIALS)));
+        assertNotEquals(Capacity.Bottleneck.FOOD,
+                Capacity.of(waiting, params).bottleneck(), "premise: this village eats");
+        assertEquals(Assignment.WOODCUTTER, LabourModule.mostNeeded(waiting, params),
+                "a wall nobody is cutting timber for is a wall that never gets built");
+    }
+
 
     @Test
     @DisplayName("given room, the settlement fills up to its capacity and then stops")

@@ -10,35 +10,56 @@ import com.syang.placitum.store.SettlementMut;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Items;
 
-/** Farmers put food into the stock. Order 10 - first, so consumption sees it. */
+/**
+ * Work that turns into stock. Order 10 - first, so consumption sees this step's harvest.
+ *
+ * <p>Farmers grow food and woodcutters cut timber. The second half exists because
+ * docs/construction.md promises it and nothing delivered it: the first real wall cost 1761 logs
+ * and the mod produced no logs at all, so a settlement could want a wall for ever and never be
+ * able to pay for one. A village that can only build what a player carries in is not a village
+ * that grows by itself.
+ */
 public class ProductionModule implements SimModule {
 
     @Override
     public void step(SettlementMut settlement, SimParams params, RandomSource rng) {
-        int yield = params.yieldRate();
-        int produced = 0;
+        int wheat = 0;
+        int logs = 0;
         int farmers = 0;
+        int woodcutters = 0;
+
         for (Resident r : settlement.residents) {
             // Materialized residents are acting as real entities and would be counted twice.
             if (r.materialized() || !r.counts()) {
                 continue;
             }
-            if (!r.assignment().job().equals(Assignment.FARMER)) {
-                continue;
-            }
             if (r.stage() == LifeStage.INFANT || r.stage() == LifeStage.CHILD) {
                 continue;
             }
-            farmers++;
-            produced += r.stage() == LifeStage.ELDER ? Math.max(1, yield / 2) : yield;
+            if (r.assignment().job().equals(Assignment.FARMER)) {
+                farmers++;
+                wheat += output(r, params.yieldRate());
+            } else if (r.assignment().job().equals(Assignment.WOODCUTTER)) {
+                woodcutters++;
+                logs += output(r, params.timberRate());
+            }
         }
-        if (produced > 0) {
-            settlement.addStock(Items.WHEAT, produced);
+        if (wheat > 0) {
+            settlement.addStock(Items.WHEAT, wheat);
+        }
+        if (logs > 0) {
+            settlement.addStock(Items.OAK_LOG, logs);
         }
         if (Placitum.LOGGER.isDebugEnabled()) {
-            Placitum.LOGGER.debug("  step {}: {} farmer(s) of {} resident(s) produced {} wheat",
-                    settlement.simStep(), farmers, settlement.residents.size(), produced);
+            Placitum.LOGGER.debug("  step {}: {} farmer(s) made {} wheat, {} woodcutter(s) made"
+                            + " {} log(s), of {} resident(s)", settlement.simStep(), farmers,
+                    wheat, woodcutters, logs, settlement.residents.size());
         }
+    }
+
+    /** An elder does half a day's work, rounded up so it is never nothing. */
+    private static int output(Resident r, int rate) {
+        return r.stage() == LifeStage.ELDER ? Math.max(1, rate / 2) : rate;
     }
 
     @Override

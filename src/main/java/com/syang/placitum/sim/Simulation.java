@@ -6,6 +6,7 @@ import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SimClock;
 import com.syang.placitum.sim.module.ConsumptionModule;
 import com.syang.placitum.sim.module.ProductionModule;
+import com.syang.placitum.sim.module.LabourModule;
 import com.syang.placitum.sim.module.NeedsModule;
 import com.syang.placitum.sim.module.ConstructionModule;
 import com.syang.placitum.sim.module.PopulationModule;
@@ -36,6 +37,7 @@ public final class Simulation {
         modules.add(new ConsumptionModule());
         modules.add(new ThreatModule());
         modules.add(new PopulationModule());
+        modules.add(new LabourModule());
         modules.add(new NeedsModule());
         modules.add(new ConstructionModule());
         modules.sort(Comparator.comparingInt(SimModule::order));

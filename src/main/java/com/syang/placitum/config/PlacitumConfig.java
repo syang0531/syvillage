@@ -59,6 +59,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue CONSUMPTION_PER_HEAD;
     public static final ModConfigSpec.IntValue YIELD_RATE;
     public static final ModConfigSpec.IntValue SAFETY_WINDOW_DAYS;
+    public static final ModConfigSpec.IntValue TIMBER_RATE;
     public static final ModConfigSpec.DoubleValue BASE_BIRTH_RATE;
     public static final ModConfigSpec.IntValue ELDER_THRESHOLD_DAYS;
     public static final ModConfigSpec.IntValue INFANT_DAYS;
@@ -167,6 +168,10 @@ public final class PlacitumConfig {
                 .defineInRange("consumptionPerHead", 1, 0, 64);
         YIELD_RATE = b.comment("Food produced per farmer per step.")
                 .defineInRange("yieldRate", 3, 0, 64);
+        TIMBER_RATE = b.comment("Logs cut per woodcutter per step.",
+                        "PER STEP: 120 steps to a game day, so 3 is 360 logs a day and a small",
+                        "palisade is several days of one person's work.")
+                .defineInRange("timberRate", 3, 0, 1000);
         SAFETY_WINDOW_DAYS = b.comment("Length of the combat-casualty ring buffer, in game days.")
                 .defineInRange("safetyWindowDays", 7, 1, 64);
         BASE_BIRTH_RATE = b.comment("Birth chance per step in an empty settlement with good morale.",

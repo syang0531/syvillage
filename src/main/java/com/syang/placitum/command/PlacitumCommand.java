@@ -853,7 +853,9 @@ public final class PlacitumCommand {
             source.sendSuccess(() -> Component.literal("    " + explain(job, total)
                             + (job.stage() == com.syang.placitum.data.BuildStage.EXECUTING
                                     ? embodiedNote(settlement) + loadedNote(source, settlement, job)
-                                    : ""))
+                                    : "")
+                            + (job.stage() == com.syang.placitum.data.BuildStage.WAITING_MATERIALS
+                                    ? shortageNote(settlement) : ""))
                     .withStyle(ChatFormatting.DARK_GRAY), false);
         }
         return settlement.buildQueue().size();
@@ -871,6 +873,19 @@ public final class PlacitumCommand {
                     : "expands to nothing, which should not happen";
             case COMPLETE -> "done";
         };
+    }
+
+    /**
+     * Why the stores are not filling while you stand there.
+     *
+     * <p>Production skips embodied residents - they are meant to be working as real entities -
+     * so a village you are standing in cuts no timber. Waiting for materials that cannot arrive
+     * until you leave is a stall like any other, and it gets said rather than guessed at.
+     */
+    private static String shortageNote(Settlement settlement) {
+        int materialized = settlement.materializedCount();
+        return materialized == 0 ? "" : "  (" + materialized + " resident(s) are embodied, so"
+                + " nothing is being produced either - walk away, or bring the materials)";
     }
 
     /**
