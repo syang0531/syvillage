@@ -4,6 +4,8 @@ import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -81,7 +83,20 @@ public final class CottagePlan {
             return List.of();
         }
         Direction door = doorFacing(recipe.rotation());
-        List<BuildOp> ops = new ArrayList<>();
+
+        // Fixtures first, so the shell knows which positions are already spoken for. Letting
+        // both passes write the same block and relying on the later one to win works only
+        // because the sort happens to be stable - eight of 253 ops were doing exactly that,
+        // which is a shape decided by insertion order rather than by anything readable.
+        List<BuildOp> fixtures = new ArrayList<>();
+        fixtures.addAll(doorway(recipe.anchor(), floor, door));
+        fixtures.addAll(furnish(recipe.anchor(), floor));
+        Set<BlockPos> claimed = new HashSet<>();
+        for (BuildOp fixture : fixtures) {
+            claimed.add(fixture.pos());
+        }
+
+        List<BuildOp> ops = new ArrayList<>(fixtures);
 
         for (int i = 0; i < columns.size(); i++) {
             BlockPos column = columns.get(i);
@@ -93,19 +108,16 @@ public final class CottagePlan {
             for (int y = profile.get(i) + 1; y < floor; y++) {
                 ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), FOUNDATION));
             }
-            ops.add(new BuildOp(new BlockPos(column.getX(), floor, column.getZ()), FLOOR));
+            add(ops, claimed, new BlockPos(column.getX(), floor, column.getZ()), FLOOR);
 
             for (int course = 1; course <= HEIGHT - 2; course++) {
                 int y = floor + course;
                 BlockState state = edge ? wallBlock(dx, dz, course, door) : AIR;
-                ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), state));
+                add(ops, claimed, new BlockPos(column.getX(), y, column.getZ()), state);
             }
-            ops.add(new BuildOp(new BlockPos(column.getX(), floor + HEIGHT - 1, column.getZ()),
-                    ROOF));
+            add(ops, claimed, new BlockPos(column.getX(), floor + HEIGHT - 1, column.getZ()),
+                    ROOF);
         }
-
-        ops.addAll(furnish(recipe.anchor(), floor));
-        ops.addAll(doorway(recipe.anchor(), floor, door));
 
         // Y-ascending, so a builder stands on what it has laid; then a fixed order within a
         // course so the list is the same every time it is expanded.
@@ -113,6 +125,14 @@ public final class CottagePlan {
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));
         return List.copyOf(ops);
+    }
+
+    /** Adds a shell block unless a fixture already owns that position. */
+    private static void add(List<BuildOp> ops, Set<BlockPos> claimed, BlockPos pos,
+            BlockState state) {
+        if (!claimed.contains(pos)) {
+            ops.add(new BuildOp(pos, state));
+        }
     }
 
     /**
@@ -191,8 +211,11 @@ public final class CottagePlan {
             ops.add(new BuildOp(new BlockPos(head.getX(), y, head.getZ()),
                     base.setValue(BedBlock.PART, BedPart.HEAD)));
         }
-        ops.add(new BuildOp(northWest.offset(SIDE / 2, floor + 2 - floor, 1)
-                .atY(floor + 2), Blocks.TORCH.defaultBlockState()));
+        // Standing on the floor in a corner. A torch in mid-air has nothing to attach to and
+        // pops off as an item the moment the chunk ticks, which leaves the room dark and the
+        // spawning it was meant to prevent happening anyway.
+        ops.add(new BuildOp(new BlockPos(northWest.getX() + 1, y, northWest.getZ() + 1),
+                Blocks.TORCH.defaultBlockState()));
         return ops;
     }
 

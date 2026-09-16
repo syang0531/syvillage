@@ -74,6 +74,33 @@ class BuildPlannerTest {
     }
 
     @Test
+    @DisplayName("a cottage writes each position once, and is the height it says it is")
+    void cottageShapeIsWhatItClaims() {
+        BuildRecipe recipe = new BuildRecipe(
+                com.syang.placitum.build.HousePlanner.COTTAGE,
+                new BlockPos(0, 0, 0), Rotation.NONE,
+                Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
+                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE, 64),
+                new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
+                List.of());
+
+        List<BuildOp> ops = BuildPlanner.expand(recipe);
+        Set<BlockPos> seen = new HashSet<>();
+        int lowest = Integer.MAX_VALUE;
+        int highest = Integer.MIN_VALUE;
+        for (BuildOp op : ops) {
+            // The shell and the fixtures used to both write the door, the beds and the torch,
+            // and which one survived was decided by the sort being stable - a shape that
+            // depends on insertion order rather than on anything a reader can see.
+            assertTrue(seen.add(op.pos()), "written twice: " + op.pos());
+            lowest = Math.min(lowest, op.pos().getY());
+            highest = Math.max(highest, op.pos().getY());
+        }
+        assertEquals(CottagePlan.HEIGHT, highest - lowest + 1,
+                "floor, three courses and a roof is five blocks");
+    }
+
+    @Test
     @DisplayName("a cottage has beds in it, and a way in and out")
     void cottageIsHabitable() {
         BuildRecipe recipe = new BuildRecipe(
