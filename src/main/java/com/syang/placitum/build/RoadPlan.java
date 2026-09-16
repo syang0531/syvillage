@@ -94,6 +94,14 @@ public final class RoadPlan {
                 profile.add(WallGeometry.SKIP);
                 continue;
             }
+            // A path goes on the ground, and the ground is whatever is lowest there - a bed,
+            // the bell, a gate post. All three were paved over on the first run. Anything
+            // somebody put there stays, and the road simply has a gap in it.
+            if (GridSurvey.builtOn(level, column.getX(), column.getZ())
+                    || settlement.onWall(column)) {
+                profile.add(WallGeometry.SKIP);
+                continue;
+            }
             int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
             profile.add(ground);
             if (ground != WallGeometry.SKIP) {

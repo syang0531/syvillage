@@ -234,6 +234,28 @@ class BuildPlannerTest {
     }
 
     @Test
+    @DisplayName("the settlement can see its own wall, which the world cannot show it")
+    void theWallIsVisibleToTheRecordIfNotToTheGround() {
+        // A palisade is oak logs and the ground scan walks down past logs as though they were
+        // trees, so every check that reads blocks is blind to our own wall. A house was sited on
+        // one and built straight through it; a road paved over a gate.
+        Settlement walled = SettlementFixture.standard().withDefense(
+                SettlementFixture.standard().defense().withWall(new WallState(
+                        com.syang.placitum.data.WallTier.PALISADE,
+                        List.of(new BlockPos(40, 70, -12)), List.of(), true)));
+
+        assertTrue(walled.onWall(new BlockPos(40, 99, -12)),
+                "the height does not matter - the column is the wall");
+        assertFalse(walled.onWall(new BlockPos(41, 70, -12)),
+                "one block over is not the wall");
+        assertFalse(SettlementFixture.standard()
+                        .withDefense(SettlementFixture.standard().defense()
+                                .withWall(WallState.NONE))
+                        .onWall(new BlockPos(40, 70, -12)),
+                "a settlement with no wall is not standing on one");
+    }
+
+    @Test
     @DisplayName("a settlement with no roads lays some before anything else")
     void aRoadlessSettlementBuildsItsOwnRoads() {
         // Two beds, two residents, a bell in an empty field. Site selection only puts a house

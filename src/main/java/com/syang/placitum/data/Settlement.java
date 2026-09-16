@@ -248,6 +248,23 @@ public record Settlement(
      * what the vanilla village already had. Without this fallback M2's carrying capacity would
      * be zero in every settlement and no child would ever be born.
      */
+    /**
+     * Whether a column is part of the wall.
+     *
+     * <p>Asked of the record rather than the world, because the world cannot answer it. A
+     * palisade is oak logs, and the ground scan walks down past logs on the assumption they are
+     * trees - so the settlement's own wall is invisible to every check that reads blocks. A
+     * house was sited on top of one and built straight through it.
+     */
+    public boolean onWall(BlockPos pos) {
+        for (BlockPos post : defense.wall().ring()) {
+            if (post.getX() == pos.getX() && post.getZ() == pos.getZ()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public int bedCount() {
         int built = 0;
         for (Plot p : plots.values()) {

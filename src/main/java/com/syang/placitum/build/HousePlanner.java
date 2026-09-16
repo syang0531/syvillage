@@ -136,7 +136,11 @@ public final class HousePlanner {
             }
             // The grid said this cell was free and the world is the one that knows. A roof
             // reads as ground, so without this the second house goes on top of the first.
-            if (GridSurvey.builtOn(level, column.getX(), column.getZ())) {
+            // builtOn reads blocks, and blocks cannot tell us about our own palisade: it is
+            // made of logs and the ground scan walks down past logs as though they were trees.
+            // The ring is the only thing that knows, so it is asked directly.
+            if (GridSurvey.builtOn(level, column.getX(), column.getZ())
+                    || settlement.onWall(column)) {
                 Placitum.LOGGER.debug("No house for '{}': cell {} already has something on it",
                         settlement.name(), site.get().toKey());
                 return Optional.empty();

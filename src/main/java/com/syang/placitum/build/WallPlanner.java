@@ -52,6 +52,10 @@ public final class WallPlanner {
         List<Integer> profile = new ArrayList<>(ring.size());
         int unreadable = 0;
 
+        int bellGround = GridSurvey.groundAt(level, settlement.center().getX(),
+                settlement.center().getZ());
+        int maxDrop = PlacitumConfig.MAX_SITE_DROP.get();
+
         for (BlockPos column : ring) {
             if (!level.hasChunkAt(column)) {
                 // Frozen as a skip rather than sampled later. A profile half read now and half
@@ -60,7 +64,16 @@ public final class WallPlanner {
                 unreadable++;
                 continue;
             }
-            profile.add(GridSurvey.groundOrSkip(level, column.getX(), column.getZ()));
+            int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
+            // A wall that follows the ground wherever it goes climbs down into every ravine it
+            // meets and keeps building along the bottom. The cliff rule only compares each
+            // position with the next, so a steady four-block descent never trips it; this bounds
+            // the drop against the settlement's own level instead, which is what "the wall of
+            // this village" means.
+            if (ground != WallGeometry.SKIP && Math.abs(ground - bellGround) > maxDrop) {
+                ground = WallGeometry.SKIP;
+            }
+            profile.add(ground);
         }
         profile = dropCliffs(profile);
 
