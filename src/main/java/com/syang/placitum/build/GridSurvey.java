@@ -225,7 +225,7 @@ public final class GridSurvey {
      * <p>Trees are not terrain. Clearing them is part of building somewhere, which is why they
      * must not be allowed to veto a site; a cliff is a different matter and still does.
      */
-    private static int groundAt(ServerLevel level, int x, int z) {
+    public static int groundAt(ServerLevel level, int x, int z) {
         int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
         int floor = level.getMinY();
         while (y > floor && isGrowth(level.getBlockState(new BlockPos(x, y, z)))) {

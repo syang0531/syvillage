@@ -79,6 +79,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue WALL_MARGIN_CELLS;
     public static final ModConfigSpec.IntValue PALISADE_HEIGHT;
     public static final ModConfigSpec.IntValue WALL_MIN_POPULATION;
+    public static final ModConfigSpec.IntValue MAX_SITE_DROP;
     public static final ModConfigSpec.IntValue BUILD_OP_INTERVAL_TICKS;
     public static final ModConfigSpec.DoubleValue BUILDER_REACH;
     public static final ModConfigSpec.DoubleValue BUILDER_WALK_SPEED;
@@ -235,6 +236,12 @@ public final class PlacitumConfig {
         WALL_MIN_POPULATION = b.comment("Below this, a settlement has better things to do with",
                         "its timber than fortify.")
                 .defineInRange("wallMinPopulation", 4, 1, 1000);
+        MAX_SITE_DROP = b.comment("How far below or above the bell a house may be built.",
+                        "Site selection otherwise only measures distance across the map, and a",
+                        "village on a plateau has no free ground at its own height - so every",
+                        "house it built appeared eighteen blocks down a slope, out of sight.",
+                        "A settlement that grows somewhere you cannot see it has not grown.")
+                .defineInRange("maxSiteDrop", 8, 1, 128);
         BUILD_OP_INTERVAL_TICKS = b.comment("Ticks between blocks while somebody is watching.",
                         "10 is a block every half second: long enough to look like work and",
                         "short enough that a wall does not take an evening.")

@@ -7,6 +7,8 @@ import com.syang.placitum.data.CellState;
 import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.ScaleTier;
 import com.syang.placitum.data.Settlement;
+import java.util.Comparator;
+import com.syang.placitum.config.PlacitumConfig;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -31,8 +33,20 @@ public final class HousePlanner {
 
     private HousePlanner() {}
 
-    /** A free cell touching a road, or nothing. */
+    /** The best free cell touching a road, by distance alone. */
     public static Optional<CellPos> findSite(Settlement settlement) {
+        List<CellPos> sites = findSites(settlement);
+        return sites.isEmpty() ? Optional.empty() : Optional.of(sites.getFirst());
+    }
+
+    /**
+     * Every free cell touching a road, nearest the centre first.
+     *
+     * <p>A list rather than a winner, because distance across the map is only half of what makes
+     * a site good and the other half needs the world. Ordering is settled here from stored data;
+     * the planner walks the list and applies what only loaded chunks can answer.
+     */
+    public static List<CellPos> findSites(Settlement settlement) {
         PlotGrid grid = settlement.grid();
         int mapRadius = (grid.size() - 1) / 2;
         // The tier is a budget on how far a settlement may spread - but never tighter than its
@@ -43,22 +57,17 @@ public final class HousePlanner {
         int buildRadius = Math.min(mapRadius,
                 Math.max(settlement.scale().buildRadiusCells(), occupiedRadius(grid) + 1));
 
-        CellPos best = null;
-        int bestDistance = Integer.MAX_VALUE;
+        List<CellPos> sites = new ArrayList<>();
         for (int gz = -buildRadius; gz <= buildRadius; gz++) {
             for (int gx = -buildRadius; gx <= buildRadius; gx++) {
                 CellPos cell = new CellPos(gx, gz);
-                if (grid.stateAt(cell) != CellState.FREE || !touchesRoad(grid, cell)) {
-                    continue;
-                }
-                int distance = gx * gx + gz * gz;
-                if (distance < bestDistance) {
-                    bestDistance = distance;
-                    best = cell;
+                if (grid.stateAt(cell) == CellState.FREE && touchesRoad(grid, cell)) {
+                    sites.add(cell);
                 }
             }
         }
-        return Optional.ofNullable(best);
+        sites.sort(Comparator.comparingInt(c -> c.gx() * c.gx() + c.gz() * c.gz()));
+        return List.copyOf(sites);
     }
 
     /** How far out the settlement already reaches, in cells. */
@@ -84,10 +93,39 @@ public final class HousePlanner {
      * exists to answer.
      */
     public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement) {
-        Optional<CellPos> site = findSite(settlement);
-        if (site.isEmpty()) {
+        int bellGround = GridSurvey.groundAt(level, settlement.center().getX(),
+                settlement.center().getZ());
+        int maxDrop = PlacitumConfig.MAX_SITE_DROP.get();
+
+        CellPos chosen = null;
+        int chosenDrop = Integer.MAX_VALUE;
+        for (CellPos candidate : findSites(settlement)) {
+            BlockPos corner = settlement.grid().blockAt(candidate);
+            if (!level.hasChunkAt(corner)) {
+                continue;
+            }
+            int drop = Math.abs(GridSurvey.groundAt(level, corner.getX() + CottagePlan.SIDE / 2,
+                    corner.getZ() + CottagePlan.SIDE / 2) - bellGround);
+            if (drop <= maxDrop) {
+                chosen = candidate;   // near enough the village's own level, and nearest first
+                chosenDrop = drop;
+                break;
+            }
+            if (drop < chosenDrop) {
+                // Kept only so a settlement on genuinely broken ground still builds somewhere
+                // rather than stopping, but the flattest option rather than the closest.
+                chosen = candidate;
+                chosenDrop = drop;
+            }
+        }
+        if (chosen == null) {
             return Optional.empty();
         }
+        if (chosenDrop > maxDrop) {
+            Placitum.LOGGER.info("'{}' has no level ground left; building {} block(s) off the"
+                    + " bell's level", settlement.name(), chosenDrop);
+        }
+        Optional<CellPos> site = Optional.of(chosen);
         BlockPos northWest = settlement.grid().blockAt(site.get());
         List<Integer> profile = new ArrayList<>();
         Rotation facing = towardsRoad(settlement, site.get());

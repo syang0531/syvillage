@@ -861,9 +861,12 @@ public final class PlacitumCommand {
         for (BuildJob job : settlement.buildQueue()) {
             int total = BuildPlanner.expand(job.recipe()).size();
             String cost = job.cost().isEmpty() ? "not costed yet" : describeCost(job);
+            // Where, not just what. A cottage went up eighteen blocks down a slope and read as
+            // "no house is being built" from the middle of the village.
             source.sendSuccess(() -> Component.literal("  " + job.recipe().template().getPath()
                     + "  " + job.stage() + "  " + job.progress() + "/" + total
-                    + " blocks  (" + cost + ")"), false);
+                    + " blocks  (" + cost + ")  at " + job.recipe().anchor().toShortString()),
+                    false);
             source.sendSuccess(() -> Component.literal("    " + explain(job, total)
                             + (job.stage() == com.syang.placitum.data.BuildStage.EXECUTING
                                     ? embodiedNote(settlement) + loadedNote(source, settlement, job)
