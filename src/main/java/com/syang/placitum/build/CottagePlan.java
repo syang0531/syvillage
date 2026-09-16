@@ -34,8 +34,14 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
  */
 public final class CottagePlan {
 
-    /** Blocks to a side. Seven inside an eight-block cell leaves a block of breathing room. */
-    public static final int SIDE = 7;
+    /**
+     * Blocks to a side, walls included, so the room inside is three by three.
+     *
+     * <p>Seven was the first guess and it looks enormous next to anything vanilla builds - a
+     * five-by-five room for two beds. Five costs half the timber too, which matters while this
+     * is the only thing a settlement can spend timber on.
+     */
+    public static final int SIDE = 5;
 
     /** Floor, three courses of wall, and a roof. */
     public static final int HEIGHT = 5;
@@ -49,15 +55,34 @@ public final class CottagePlan {
 
     private CottagePlan() {}
 
-    /** Columns of the footprint, in the order the ground profile is stored in. */
-    public static List<BlockPos> footprint(BlockPos northWest) {
-        List<BlockPos> out = new ArrayList<>(SIDE * SIDE);
+    /**
+     * Columns the ground is sampled at, in the order the profile stores them.
+     *
+     * <p>The house itself, and then one column outside the door. That last one is not decoration:
+     * the floor is laid at the highest ground under the house, so on any slope the threshold ends
+     * up above the ground outside it and the door opens onto a wall of dirt. Somebody has to
+     * stand there to get in.
+     */
+    public static List<BlockPos> footprint(BlockPos northWest, Rotation rotation) {
+        List<BlockPos> out = new ArrayList<>(SIDE * SIDE + 1);
         for (int dz = 0; dz < SIDE; dz++) {
             for (int dx = 0; dx < SIDE; dx++) {
                 out.add(northWest.offset(dx, 0, dz));
             }
         }
+        out.add(doorstep(northWest, doorFacing(rotation)));
         return out;
+    }
+
+    /** The column immediately outside the door. */
+    public static BlockPos doorstep(BlockPos northWest, Direction door) {
+        int middle = SIDE / 2;
+        return switch (door) {
+            case NORTH -> northWest.offset(middle, 0, -1);
+            case SOUTH -> northWest.offset(middle, 0, SIDE);
+            case WEST -> northWest.offset(-1, 0, middle);
+            default -> northWest.offset(SIDE, 0, middle);
+        };
     }
 
     /** How many beds a finished cottage holds. What the whole loop is ultimately counting. */
@@ -74,7 +99,7 @@ public final class CottagePlan {
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Integer> profile = recipe.groundProfile();
-        List<BlockPos> columns = footprint(recipe.anchor());
+        List<BlockPos> columns = footprint(recipe.anchor(), recipe.rotation());
         if (profile.size() != columns.size()) {
             return List.of();
         }
@@ -98,7 +123,7 @@ public final class CottagePlan {
 
         List<BuildOp> ops = new ArrayList<>(fixtures);
 
-        for (int i = 0; i < columns.size(); i++) {
+        for (int i = 0; i < SIDE * SIDE; i++) {
             BlockPos column = columns.get(i);
             int dx = i % SIDE;
             int dz = i / SIDE;
@@ -119,6 +144,8 @@ public final class CottagePlan {
                     ROOF);
         }
 
+        ops.addAll(step(columns.getLast(), profile.getLast(), floor));
+
         // Y-ascending, so a builder stands on what it has laid; then a fixed order within a
         // course so the list is the same every time it is expanded.
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())
@@ -133,6 +160,28 @@ public final class CottagePlan {
         if (!claimed.contains(pos)) {
             ops.add(new BuildOp(pos, state));
         }
+    }
+
+    /**
+     * The step outside the door, and the air over it.
+     *
+     * <p>Built up where the ground outside is lower than the floor and cut down where it is
+     * higher. Both happen: the floor sits at the highest ground under the house, so downhill of
+     * it the threshold is a ledge and uphill of it the doorway is buried.
+     */
+    private static List<BuildOp> step(BlockPos outside, int ground, int floor) {
+        if (ground == WallGeometry.SKIP) {
+            return List.of();
+        }
+        List<BuildOp> ops = new ArrayList<>();
+        for (int y = ground + 1; y < floor; y++) {
+            ops.add(new BuildOp(new BlockPos(outside.getX(), y, outside.getZ()), FOUNDATION));
+        }
+        ops.add(new BuildOp(new BlockPos(outside.getX(), floor, outside.getZ()), FLOOR));
+        for (int y = floor + 1; y <= Math.max(floor + 2, ground + 2); y++) {
+            ops.add(new BuildOp(new BlockPos(outside.getX(), y, outside.getZ()), AIR));
+        }
+        return ops;
     }
 
     /**

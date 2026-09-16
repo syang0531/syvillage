@@ -80,7 +80,7 @@ class BuildPlannerTest {
                 com.syang.placitum.build.HousePlanner.COTTAGE,
                 new BlockPos(0, 0, 0), Rotation.NONE,
                 Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
-                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE, 64),
+                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE + 1, 64),
                 new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
                 List.of());
 
@@ -101,13 +101,44 @@ class BuildPlannerTest {
     }
 
     @Test
+    @DisplayName("the door has something to stand on outside it")
+    void thereIsAStepUpToTheDoor() {
+        // The floor is laid at the highest ground under the house, so downhill of that the
+        // threshold is a ledge with nothing under it. Reported from the game as "the entrance
+        // cannot be reached" - the door was there and could not be walked to.
+        java.util.List<Integer> sloping = new ArrayList<>(
+                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE, 70));
+        sloping.add(66);   // the ground outside the door, four blocks below the floor
+
+        BuildRecipe recipe = new BuildRecipe(
+                com.syang.placitum.build.HousePlanner.COTTAGE,
+                new BlockPos(0, 0, 0), Rotation.NONE,
+                Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
+                sloping,
+                new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
+                List.of());
+
+        BlockPos outside = CottagePlan.doorstep(new BlockPos(0, 0, 0),
+                net.minecraft.core.Direction.NORTH);
+        boolean standable = false;
+        for (BuildOp op : BuildPlanner.expand(recipe)) {
+            if (op.pos().getX() == outside.getX() && op.pos().getZ() == outside.getZ()
+                    && op.pos().getY() == 70 && !op.state().isAir()) {
+                standable = true;
+            }
+        }
+        assertTrue(standable, "nothing was laid at floor level outside the door, so the only way"
+                + " in is a four-block jump");
+    }
+
+    @Test
     @DisplayName("a cottage has beds in it, and a way in and out")
     void cottageIsHabitable() {
         BuildRecipe recipe = new BuildRecipe(
                 com.syang.placitum.build.HousePlanner.COTTAGE,
                 new BlockPos(0, 0, 0), Rotation.NONE,
                 Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
-                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE, 64),
+                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE + 1, 64),
                 new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
                 List.of());
 
@@ -135,7 +166,7 @@ class BuildPlannerTest {
                 com.syang.placitum.build.HousePlanner.COTTAGE,
                 new BlockPos(10, 0, -4), Rotation.CLOCKWISE_90,
                 Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
-                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE, 70),
+                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE + 1, 70),
                 new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
                 List.of());
         assertEquals(BuildPlanner.expand(recipe), BuildPlanner.expand(recipe));

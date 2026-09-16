@@ -90,7 +90,8 @@ public final class HousePlanner {
         }
         BlockPos northWest = settlement.grid().blockAt(site.get());
         List<Integer> profile = new ArrayList<>();
-        for (BlockPos column : CottagePlan.footprint(northWest)) {
+        Rotation facing = towardsRoad(settlement, site.get());
+        for (BlockPos column : CottagePlan.footprint(northWest, facing)) {
             if (!level.hasChunkAt(column)) {
                 profile.add(WallGeometry.SKIP);
                 continue;
@@ -110,7 +111,6 @@ public final class HousePlanner {
             return Optional.empty();
         }
 
-        Rotation facing = towardsRoad(settlement, site.get());
         int low = profile.stream().mapToInt(Integer::intValue).min().orElse(0);
         int high = profile.stream().mapToInt(Integer::intValue).max().orElse(0);
         Placitum.LOGGER.info("Planned a cottage for '{}' on cell {} at {}: ground {}..{},"

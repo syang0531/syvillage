@@ -49,9 +49,16 @@ public final class BuildTick {
      * up with the top of a door floating over a gap nobody could walk through. Read back out of
      * the world it was unmistakable - "#...B.." where the south wall should be.
      *
+     * <p>UPDATE_CLIENTS alone was not enough, which cost a second round of half-built beds:
+     * it silences the neighbour notification but updateNeighbourShapes still runs, so laying
+     * a wall beside a bed asked the bed to check for its other half and it removed itself
+     * when the answer was no. UPDATE_KNOWN_SHAPE is the half that actually closes that door.
+     *
      * <p>This is what vanilla's own structure placement uses, for the same reason.
      */
-    public static final int PLACE_FLAGS = net.minecraft.world.level.block.Block.UPDATE_CLIENTS;
+    public static final int PLACE_FLAGS =
+            net.minecraft.world.level.block.Block.UPDATE_CLIENTS
+                    | net.minecraft.world.level.block.Block.UPDATE_KNOWN_SHAPE;
 
     private BuildTick() {}
 
