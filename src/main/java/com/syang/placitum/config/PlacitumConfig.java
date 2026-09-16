@@ -90,6 +90,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue VERIFY_SAMPLE_EVERY;
     public static final ModConfigSpec.IntValue MAX_REBUILD_ATTEMPTS;
     public static final ModConfigSpec.IntValue BUILD_BLOCKS_PER_TICK;
+    public static final ModConfigSpec.IntValue PLAN_INTERVAL_TICKS;
     public static final ModConfigSpec.DoubleValue BUILDER_REACH;
     public static final ModConfigSpec.DoubleValue BUILDER_WALK_SPEED;
     public static final ModConfigSpec.DoubleValue BUILDER_WORK_RADIUS;
@@ -297,6 +298,11 @@ public final class PlacitumConfig {
                         "cannot disagree with itself. 10 is a development speed; 1 is what a",
                         "finished mod would ship.")
                 .defineInRange("buildBlocksPerTick", 10, 1, 256);
+        PLAN_INTERVAL_TICKS = b.comment("How often an idle settlement looks for work.",
+                        "Looking means reading the ground under every lot of the plan, which is",
+                        "far too much to do sixty times a second for a village that finished",
+                        "building an hour ago. 20 is once a second, which no one can see.")
+                .defineInRange("planIntervalTicks", 20, 1, 1200);
         BUILDER_REACH = b.comment("How far a builder can place from where it stands.",
                         "Wider than a player arm on purpose - the alternative is scaffolding,",
                         "which has to be put up, taken down, and got wrong.")

@@ -73,9 +73,13 @@ public final class SettlementTick {
      *
      * <p>One job at a time. Four things on order reports four things waiting and starts none of
      * them, which tells a player nothing about what is happening.
+     *
+     * <p>Only on the interval. Asking costs a read of the ground under every lot of the plan,
+     * and a village that finished building an hour ago would pay it sixty times a second.
      */
     private static Settlement start(ServerLevel level, Settlement settlement) {
-        if (!settlement.buildQueue().isEmpty()) {
+        if (!settlement.buildQueue().isEmpty()
+                || level.getGameTime() % PlacitumConfig.PLAN_INTERVAL_TICKS.get() != 0) {
             return settlement;
         }
         Optional<BuildRecipe> next = LampPlan.plan(level, settlement);
@@ -107,12 +111,14 @@ public final class SettlementTick {
      * terracing a hillside, and picks the lot up again if somebody flattens it.
      */
     private static Optional<BuildRecipe> building(ServerLevel level, Settlement settlement) {
-        Need.Kind want = Need.next(level, settlement);
         for (CellPos cell : TownPlan.cells(settlement)) {
-            if (!Lots.available(settlement, cell) || !Lots.buildable(level, settlement, cell)) {
+            if (!Lots.buildable(level, settlement, cell)) {
                 continue;
             }
-            return want == Need.Kind.HOUSE
+            // Asked only once there is somewhere to put the answer. It counts villagers with an
+            // entity scan over the claim, which is not a thing to do while deciding there is
+            // nowhere to build.
+            return Need.next(level, settlement) == Need.Kind.HOUSE
                     ? HousePlanner.plan(level, settlement, cell)
                     : FarmPlan.plan(level, settlement, cell);
         }
