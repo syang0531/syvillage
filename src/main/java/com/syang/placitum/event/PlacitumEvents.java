@@ -99,7 +99,7 @@ public final class PlacitumEvents {
         SettlementManager manager = SettlementManager.get(level.getServer());
         for (Settlement existing : manager.all()) {
             if (existing.dimension().equals(level.dimension()) && existing.center().equals(pos)) {
-                SettlementReport.of(existing).forEach(player::sendSystemMessage);
+                SettlementReport.of(existing, level).forEach(player::sendSystemMessage);
                 return;
             }
         }

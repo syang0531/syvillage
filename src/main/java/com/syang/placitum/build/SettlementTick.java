@@ -48,10 +48,22 @@ public final class SettlementTick {
         return lay(level, out);
     }
 
-    /** Re-reads the ground now and then, so building notices what a player has changed. */
+    /**
+     * Re-reads the ground now and then, so building notices what a player has changed - and says
+     * why it is not building, if it is not.
+     *
+     * <p>An idle settlement used to log nothing at all, which reads as a bug whether or not it
+     * is one. The most expensive thing this project has learnt is that "nothing is happening"
+     * always has more than one explanation; the tool has to say which.
+     */
     private static Settlement resurvey(ServerLevel level, Settlement settlement) {
         if (level.getGameTime() % PlacitumConfig.SURVEY_INTERVAL_TICKS.get() != 0) {
             return settlement;
+        }
+        if (settlement.buildQueue().isEmpty()) {
+            Placitum.LOGGER.info("'{}' is building nothing. Lots within {} cell(s): {}",
+                    settlement.name(), TownPlan.radius(settlement),
+                    Lots.describe(Lots.tally(level, settlement)));
         }
         return settlement.withGrid(GridSurvey.run(level, settlement).grid());
     }
@@ -66,12 +78,12 @@ public final class SettlementTick {
         if (!settlement.buildQueue().isEmpty()) {
             return settlement;
         }
-        Optional<BuildRecipe> next = RoadPlan.plan(level, settlement);
-        if (next.isEmpty()) {
-            next = LampPlan.plan(level, settlement);
-        }
+        Optional<BuildRecipe> next = LampPlan.plan(level, settlement);
         if (next.isEmpty()) {
             next = building(level, settlement);
+        }
+        if (next.isEmpty()) {
+            next = RoadPlan.plan(level, settlement);
         }
         if (next.isEmpty()) {
             return settlement;   // nothing missing, so nothing happens
@@ -110,17 +122,15 @@ public final class SettlementTick {
     /**
      * Lays the next few blocks, on the interval, and finishes the job when it runs out.
      *
-     * <p>A tick is the floor of the interval, so laying several blocks per pass is the only way
-     * to build faster than a block a tick - and watching a road appear a block a tick is the
-     * whole reason this mod is fun to look at, which is why the rate is a config key rather than
-     * something the code decides.
+     * <p>One key, not two. There used to be an interval and a batch size, and a config file left
+     * over from an earlier world put the interval back to 10 - so ten blocks every ten ticks
+     * came out at exactly the old speed, and the change looked like it had done nothing.
      *
      * <p>One sound for the batch. Ten wood-place sounds in the same tick is a crack, not a
      * building site.
      */
     private static Settlement lay(ServerLevel level, Settlement settlement) {
-        if (settlement.buildQueue().isEmpty()
-                || level.getGameTime() % PlacitumConfig.BUILD_OP_INTERVAL_TICKS.get() != 0) {
+        if (settlement.buildQueue().isEmpty()) {
             return settlement;
         }
         BuildJob job = settlement.buildQueue().getFirst();
@@ -130,7 +140,8 @@ public final class SettlementTick {
         }
         int laid = 0;
         int at = job.progress();
-        for (int n = PlacitumConfig.BUILD_OPS_PER_TICK.get(); laid < n && at < ops.size(); at++) {
+        for (int n = PlacitumConfig.BUILD_BLOCKS_PER_TICK.get();
+                laid < n && at < ops.size(); at++) {
             BuildOp op = ops.get(at);
             if (!level.isLoaded(op.pos())) {
                 break;   // that ground is not loaded; it comes round again

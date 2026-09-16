@@ -152,7 +152,8 @@ public final class PlacitumCommand {
             source.sendFailure(Component.literal("No such settlement: " + rawId));
             return 0;
         }
-        for (Component line : SettlementReport.of(settlement)) {
+        for (Component line : SettlementReport.of(settlement,
+                source.getServer().getLevel(settlement.dimension()))) {
             source.sendSuccess(() -> line, false);
         }
         return settlement.houseCount();
@@ -167,10 +168,15 @@ public final class PlacitumCommand {
             return 0;
         }
         if (settlement.buildQueue().isEmpty()) {
+            ServerLevel where = source.getServer().getLevel(settlement.dimension());
             source.sendSuccess(() -> Component.literal(settlement.name()
-                            + " is not building anything - nothing is missing, or the ground it"
-                            + " needs is not loaded")
-                    .withStyle(ChatFormatting.GRAY), false);
+                    + " is not building anything").withStyle(ChatFormatting.GRAY), false);
+            if (where != null) {
+                source.sendSuccess(() -> Component.literal("  lots within "
+                        + com.syang.placitum.build.TownPlan.radius(settlement) + " cell(s): "
+                        + com.syang.placitum.build.Lots.describe(
+                                com.syang.placitum.build.Lots.tally(where, settlement))), false);
+            }
             return 0;
         }
         for (BuildJob job : settlement.buildQueue()) {

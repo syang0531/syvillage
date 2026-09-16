@@ -5,11 +5,13 @@ import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.CellState;
 import com.syang.placitum.data.Plot;
 import com.syang.placitum.data.Settlement;
+import java.util.EnumMap;
+import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * Whether a lot can be built on.
+ * Whether a lot can be built on, and if not, which of the reasons it is.
  *
  * <p>Roads and lamps go down on any ground at all - a village on a hillside still needs streets,
  * and light is what keeps the mobs out. A building is different: it needs flat ground, and if
@@ -18,8 +20,30 @@ import net.minecraft.server.level.ServerLevel;
  *
  * <p>Waiting is not giving up. A lot rejected today is checked again, so a player who levels a
  * slope gets a house on it - which is a much better way to direct a village than any command.
+ *
+ * <p>The verdict is an enum rather than a boolean because of the most expensive thing this
+ * project has learnt: "nothing is happening" always has more than one explanation, and a tool
+ * that will not say which one it is costs a day every time. See docs/why-the-reset.md.
  */
 public final class Lots {
+
+    /** Why a lot is or is not available. One value per reason, never a bare false. */
+    public enum Verdict {
+        /** Free, flat, loaded, dry. Build here. */
+        OK,
+        /** The settlement has already built on it. */
+        TAKEN,
+        /** The player forbade it. */
+        FORBIDDEN,
+        /** Off the edge of what is loaded; it comes round again when somebody walks over. */
+        UNLOADED,
+        /** Somebody is standing on it - us, the player, or the village vanilla generated. */
+        BUILT_ON,
+        /** Water. A house in a pond is not a house. */
+        WATER,
+        /** Too steep. Level it and the settlement picks it up. */
+        STEEP
+    }
 
     private Lots() {}
 
@@ -32,39 +56,79 @@ public final class Lots {
      * start the argument over again.
      */
     public static boolean available(Settlement settlement, CellPos cell) {
+        return record(settlement, cell) == Verdict.OK;
+    }
+
+    /** The part of the verdict that needs no world: the settlement's own record. */
+    private static Verdict record(Settlement settlement, CellPos cell) {
         if (settlement.grid().stateAt(cell) == CellState.FORBIDDEN) {
-            return false;
+            return Verdict.FORBIDDEN;
         }
         for (Plot plot : settlement.plots().values()) {
             if (plot.anchor().equals(cell)) {
-                return false;
+                return Verdict.TAKEN;
             }
         }
-        return true;
+        return Verdict.OK;
     }
 
     /** Every column of the lot is loaded, clear, out of the water and level with its neighbours. */
     public static boolean buildable(ServerLevel level, Settlement settlement, CellPos cell) {
+        return verdict(level, settlement, cell) == Verdict.OK;
+    }
+
+    /** The whole answer: the record first, then the ground. */
+    public static Verdict verdict(ServerLevel level, Settlement settlement, CellPos cell) {
+        Verdict onPaper = record(settlement, cell);
+        if (onPaper != Verdict.OK) {
+            return onPaper;
+        }
         BlockPos corner = TownPlan.lotCorner(cell, settlement.center());
         if (!level.hasChunkAt(corner)
                 || !level.hasChunkAt(corner.offset(TownPlan.LOT - 1, 0, TownPlan.LOT - 1))) {
-            return false;
+            return Verdict.UNLOADED;
         }
         int lowest = Integer.MAX_VALUE;
         int highest = Integer.MIN_VALUE;
 
         for (BlockPos column : TownPlan.lotColumns(cell, settlement.center())) {
             if (GridSurvey.builtOn(level, column.getX(), column.getZ())) {
-                return false;   // somebody is already there, us or the player
+                return Verdict.BUILT_ON;
             }
             int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
             if (ground == Ground.SKIP) {
-                return false;   // water, and a house in a pond is not a house
+                return Verdict.WATER;
             }
             lowest = Math.min(lowest, ground);
             highest = Math.max(highest, ground);
         }
-        return highest - lowest <= PlacitumConfig.MAX_CELL_SLOPE.get();
+        return highest - lowest <= PlacitumConfig.MAX_CELL_SLOPE.get()
+                ? Verdict.OK : Verdict.STEEP;
+    }
+
+    /**
+     * Every lot of the plan, counted by what is wrong with it.
+     *
+     * <p>This is what a settlement says when it has stopped building. "Nothing is happening" is
+     * not an answer; "forty are taken, eleven are too steep, and ninety are not loaded" is.
+     */
+    public static Map<Verdict, Integer> tally(ServerLevel level, Settlement settlement) {
+        Map<Verdict, Integer> counts = new EnumMap<>(Verdict.class);
+        for (CellPos cell : TownPlan.cells(settlement)) {
+            counts.merge(verdict(level, settlement, cell), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    /** The tally as one line, reasons only, commonest first. */
+    public static String describe(Map<Verdict, Integer> counts) {
+        StringBuilder out = new StringBuilder();
+        counts.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                .forEach(e -> out.append(out.isEmpty() ? "" : ", ")
+                        .append(e.getValue()).append(' ')
+                        .append(e.getKey().name().toLowerCase(java.util.Locale.ROOT)));
+        return out.isEmpty() ? "no lots in the plan at all" : out.toString();
     }
 
     /** The level a building on this lot stands at: the highest ground under it. */
