@@ -254,12 +254,48 @@ public final class Lifecycle {
         releasePoi(level, villager, MemoryModuleType.MEETING_POINT);
     }
 
+    /**
+     * Erases memories of places that no longer exist, without releasing anything.
+     *
+     * <p>Vanilla looks for a new home only when the memory is empty, so a villager remembering a
+     * bed somebody broke walks to the same empty patch of floor every night for ever.
+     */
+    public static void forgetMissingPois(ServerLevel level, Villager villager) {
+        forgetIfGone(level, villager, MemoryModuleType.HOME);
+        forgetIfGone(level, villager, MemoryModuleType.JOB_SITE);
+        forgetIfGone(level, villager, MemoryModuleType.MEETING_POINT);
+    }
+
+    private static void forgetIfGone(ServerLevel level, Villager villager,
+            MemoryModuleType<GlobalPos> memory) {
+        villager.getBrain().getMemory(memory).ifPresent(pos -> {
+            if (pos.dimension().equals(level.dimension())
+                    && level.getPoiManager().getType(pos.pos()).isEmpty()) {
+                villager.getBrain().eraseMemory(memory);
+                Placitum.LOGGER.debug("{} forgot a {} at {}: it is not there any more",
+                        villager.getUUID(), memory, pos.pos().toShortString());
+            }
+        });
+    }
+
     private static void releasePoi(ServerLevel level, Villager villager,
             MemoryModuleType<GlobalPos> memory) {
         villager.getBrain().getMemory(memory).ifPresent(pos -> {
-            if (pos.dimension().equals(level.dimension())) {
-                level.getPoiManager().release(pos.pos());
+            if (!pos.dimension().equals(level.dimension())) {
+                return;
             }
+            // The villager remembers a bed the player has since broken. PoiManager.release
+            // throws outright on a position it has no record of, and this runs inside demote,
+            // so a broken bed took the server down with it. Forget the memory instead - there
+            // is no claim left to give back, and a brain still pointing at a bed that is not
+            // there sends its owner to stand in an empty room.
+            if (level.getPoiManager().getType(pos.pos()).isEmpty()) {
+                villager.getBrain().eraseMemory(memory);
+                Placitum.LOGGER.debug("{} remembered a {} at {} that is gone; forgetting it",
+                        villager.getUUID(), memory, pos.pos().toShortString());
+                return;
+            }
+            level.getPoiManager().release(pos.pos());
         });
     }
 

@@ -38,6 +38,7 @@ public final class DefenseTick {
         if (now % 20L == 0L) {
             Curfew.enforce(level, manager, out);
             DoorWatch.closeUp(level, out);
+            com.syang.placitum.settlement.PoiRepair.forgetMissing(level, manager, out);
         }
         return out;
     }

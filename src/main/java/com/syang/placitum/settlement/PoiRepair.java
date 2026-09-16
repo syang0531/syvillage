@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
+import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
@@ -37,10 +38,42 @@ import net.minecraft.world.entity.npc.villager.Villager;
  */
 public final class PoiRepair {
 
+    /** Roughly every five seconds; a brain check, not a scan. */
+    private static final int FORGET_INTERVAL_TICKS = 100;
+
     /** What one repair pass found. */
     public record Result(int scanned, int freed) {}
 
     private PoiRepair() {}
+
+    /**
+     * Makes villagers forget places that are no longer there.
+     *
+     * <p>The other direction from {@link #run}, and the one a player actually causes. Break a
+     * bed and its owner keeps the memory of it: vanilla only looks for a new home when that
+     * memory is empty, so the villager goes on walking to an empty patch of floor every night
+     * and the settlement never regains the bed it lost.
+     *
+     * <p>It also stops a broken bed taking the server down. PoiManager.release throws outright
+     * on a position it has no record of, and demote releases every claim a villager holds - so
+     * one bed broken at the wrong moment crashed the tick loop.
+     */
+    public static void forgetMissing(ServerLevel level, SettlementManager manager,
+            Settlement settlement) {
+        if (level.getGameTime() % FORGET_INTERVAL_TICKS != 0) {
+            return;
+        }
+        for (Resident resident : settlement.residents()) {
+            if (!resident.materialized()) {
+                continue;
+            }
+            UUID entityId = manager.entityOf(resident.id());
+            if (entityId != null
+                    && level.getEntity(entityId) instanceof Villager villager) {
+                com.syang.placitum.lifecycle.Lifecycle.forgetMissingPois(level, villager);
+            }
+        }
+    }
 
     public static Result run(ServerLevel level, SettlementManager manager, Settlement settlement) {
         int radius = settlement.identity().claimRadiusChunks() * 16;
