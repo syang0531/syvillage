@@ -5,20 +5,16 @@ import com.syang.placitum.data.CellState;
 import com.syang.placitum.data.Chronicle;
 import com.syang.placitum.data.ChronicleEntry;
 import com.syang.placitum.data.EntryType;
-import com.syang.placitum.data.GateNode;
 import com.syang.placitum.data.Plot;
 import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.PlotKind;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
-import com.syang.placitum.data.WallState;
-import com.syang.placitum.data.WallTier;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Rotation;
@@ -59,18 +55,13 @@ public final class SettlementFixture {
                 Identifier.fromNamespaceAndPath("placitum", "house/cottage"),
                 PlotKind.HOUSE, 2, List.of()));
 
-        WallState wall = new WallState(WallTier.PALISADE,
-                List.of(new BlockPos(100, 68, -300), new BlockPos(101, 68, -300)),
-                List.of(new GateNode(new BlockPos(104, 68, -300), Direction.NORTH, true)),
-                true);
-
         Chronicle chronicle = Chronicle.EMPTY
                 .with(new ChronicleEntry(900_000L, EntryType.BUILD, "Hearthwood",
                         "finished a road/cross"));
 
         return new Settlement(identity(),
                 new PlotGrid(new BlockPos(112, 68, -304), 9, cells),
-                plots, List.of(), List.of(), wall, chronicle);
+                plots, List.of(), List.of(), chronicle);
     }
 
     /** A settlement that has only just been registered: a bell and unread ground. */

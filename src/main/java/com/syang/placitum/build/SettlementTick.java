@@ -12,8 +12,6 @@ import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Plot;
 import com.syang.placitum.data.PlotKind;
 import com.syang.placitum.data.Settlement;
-import com.syang.placitum.data.WallState;
-import com.syang.placitum.data.WallTier;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +23,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Rotation;
 
 /**
  * Everything a settlement does, once per tick, while somebody is there to see it.
@@ -34,9 +33,9 @@ import net.minecraft.world.level.block.Block;
  * and in exchange the whole L0/L2 boundary disappears - six of the seven bugs the wall pipeline
  * produced lived on that boundary.
  *
- * <p>The order is the design. Roads first because nothing can be sited without one, then light
- * because the original complaint was mobs killing villagers at night, then houses for beds,
- * then a wall.
+ * <p>The order is the design. Roads first because nothing can be sited without one, then
+ * light because the original complaint was mobs killing villagers at night, then fields and
+ * houses - beds and food, which is everything vanilla breeding asks for.
  */
 public final class SettlementTick {
 
@@ -97,14 +96,17 @@ public final class SettlementTick {
         if (lamp.isPresent()) {
             return lamp;   // light first: mobs spawning indoors is the original complaint
         }
-        Optional<BuildRecipe> house = HousePlanner.plan(level, settlement);
-        if (house.isPresent()) {
-            return house;
+        // One field per three cottages. Beds without a field is a village that will never
+        // have a second generation: vanilla breeding needs villagers carrying food, and food
+        // comes from a farmer harvesting a crop.
+        int farms = countOf(settlement, PlotKind.FARM);
+        if (farms == 0 || settlement.houseCount() >= farms * 3) {
+            Optional<BuildRecipe> field = FarmPlan.plan(level, settlement);
+            if (field.isPresent()) {
+                return field;
+            }
         }
-        if (settlement.wall().tier() == WallTier.NONE) {
-            return WallPlanner.plan(level, settlement);
-        }
-        return Optional.empty();
+        return HousePlanner.plan(level, settlement);
     }
 
     /** Lays the next block or two, on the interval, and finishes the job when it runs out. */
@@ -120,7 +122,7 @@ public final class SettlementTick {
         }
         BuildOp op = ops.get(job.progress());
         if (!level.isLoaded(op.pos())) {
-            return settlement;   // that part of the ring is not loaded; it comes round again
+            return settlement;   // that ground is not loaded; it comes round again
         }
 
         // Clients are told; neighbours are not. A door and a bed are two blocks each and go down
@@ -148,9 +150,14 @@ public final class SettlementTick {
             out = out.withPlots(plots).withGrid(out.grid().with(cell, CellState.BUILT));
         } else if (template.equals(RoadPlan.CROSS)) {
             out = out.withGrid(RoadPlan.markCells(out.grid(), job.recipe()));
-        } else if (template.equals(WallPlanner.PALISADE)) {
-            out = out.withWall(new WallState(WallTier.PALISADE,
-                    BuildPlanner.ringOf(job.recipe()), BuildPlanner.gatesOf(job.recipe()), true));
+        } else if (template.equals(FarmPlan.FIELD)) {
+            CellPos cell = out.grid().cellAt(job.recipe().anchor());
+            UUID plotId = UUID.nameUUIDFromBytes(("plot:" + job.id()).getBytes(
+                    java.nio.charset.StandardCharsets.UTF_8));
+            Map<UUID, Plot> plots = new LinkedHashMap<>(out.plots());
+            plots.put(plotId, new Plot(plotId, cell, 1, 1, Rotation.NONE, template,
+                    PlotKind.FARM, 0, List.of()));
+            out = out.withPlots(plots).withGrid(out.grid().with(cell, CellState.BUILT));
         }
 
         Placitum.LOGGER.info("'{}' finished a {} ({} blocks)", out.name(), template.getPath(),
@@ -159,8 +166,13 @@ public final class SettlementTick {
                 "finished a " + template.getPath(), level.getGameTime());
     }
 
-    /** Where a settlement's own blocks are, so undo can take them back out. */
-    public static List<BlockPos> placedBy(Settlement settlement) {
-        return settlement.pendingOps().stream().map(BuildOp::pos).toList();
+    private static int countOf(Settlement settlement, PlotKind kind) {
+        int n = 0;
+        for (Plot plot : settlement.plots().values()) {
+            if (plot.kind() == kind) {
+                n++;
+            }
+        }
+        return n;
     }
 }

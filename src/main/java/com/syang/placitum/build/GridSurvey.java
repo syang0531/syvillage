@@ -244,7 +244,7 @@ public final class GridSurvey {
     public static int groundOrSkip(ServerLevel level, int x, int z) {
         int y = groundAt(level, x, z);
         BlockState top = level.getBlockState(new BlockPos(x, y, z));
-        return top.getFluidState().isEmpty() ? y : WallGeometry.SKIP;
+        return top.getFluidState().isEmpty() ? y : Ground.SKIP;
     }
 
     /**

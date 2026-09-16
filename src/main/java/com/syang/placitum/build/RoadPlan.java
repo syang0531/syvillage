@@ -92,20 +92,19 @@ public final class RoadPlan {
 
         for (BlockPos column : columns(centre, arm)) {
             if (!level.hasChunkAt(column)) {
-                profile.add(WallGeometry.SKIP);
+                profile.add(Ground.SKIP);
                 continue;
             }
             // A path goes on the ground, and the ground is whatever is lowest there - a bed,
-            // the bell, a gate post. All three were paved over on the first run. Anything
+            // the bell, a lamp post. All of those were paved over on the first run. Anything
             // somebody put there stays, and the road simply has a gap in it.
-            if (GridSurvey.builtOn(level, column.getX(), column.getZ())
-                    || settlement.onWall(column)) {
-                profile.add(WallGeometry.SKIP);
+            if (GridSurvey.builtOn(level, column.getX(), column.getZ())) {
+                profile.add(Ground.SKIP);
                 continue;
             }
             int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
             profile.add(ground);
-            if (ground != WallGeometry.SKIP) {
+            if (ground != Ground.SKIP) {
                 placeable++;
             }
         }
@@ -134,7 +133,7 @@ public final class RoadPlan {
         }
         List<BuildOp> ops = new ArrayList<>();
         for (int i = 0; i < columns.size(); i++) {
-            if (profile.get(i) == WallGeometry.SKIP) {
+            if (profile.get(i) == Ground.SKIP) {
                 continue;
             }
             BlockPos column = columns.get(i);
@@ -152,7 +151,7 @@ public final class RoadPlan {
         List<Integer> profile = recipe.groundProfile();
         List<BlockPos> columns = columns(recipe.anchor(), recipe.width());
         for (int i = 0; i < columns.size() && i < profile.size(); i++) {
-            if (profile.get(i) == WallGeometry.SKIP) {
+            if (profile.get(i) == Ground.SKIP) {
                 continue;
             }
             CellPos cell = out.cellAt(columns.get(i));

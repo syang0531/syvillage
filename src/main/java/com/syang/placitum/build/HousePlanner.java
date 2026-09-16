@@ -91,7 +91,29 @@ public final class HousePlanner {
      * because "the village stopped growing" with no reason given is the complaint this whole mod
      * exists to answer.
      */
-    public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement) {
+    /** Nothing already standing on the footprint, our own wall included. */
+    private static boolean clear(ServerLevel level, BlockPos corner) {
+        for (int dx = 0; dx < CottagePlan.SIDE; dx++) {
+            for (int dz = 0; dz < CottagePlan.SIDE; dz++) {
+                if (GridSurvey.builtOn(level, corner.getX() + dx, corner.getZ() + dz)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The best free site, judged by distance first and level ground second.
+     *
+     * <p>Shared with fields, because a field wants the same thing a house does: near the centre,
+     * beside a road, and on ground the village is actually standing on. Site selection used to
+     * measure distance alone and put every cottage eighteen blocks down a slope, out of sight.
+     *
+     * @param usable what the caller needs of the ground, checked once a candidate is chosen
+     */
+    public static Optional<CellPos> pickSite(ServerLevel level, Settlement settlement,
+            java.util.function.BiPredicate<ServerLevel, BlockPos> usable) {
         int bellGround = GridSurvey.groundAt(level, settlement.center().getX(),
                 settlement.center().getZ());
         int maxDrop = PlacitumConfig.MAX_SITE_DROP.get();
@@ -100,15 +122,13 @@ public final class HousePlanner {
         int chosenDrop = Integer.MAX_VALUE;
         for (CellPos candidate : findSites(settlement)) {
             BlockPos corner = settlement.grid().blockAt(candidate);
-            if (!level.hasChunkAt(corner)) {
+            if (!level.hasChunkAt(corner) || !usable.test(level, corner)) {
                 continue;
             }
             int drop = Math.abs(GridSurvey.groundAt(level, corner.getX() + CottagePlan.SIDE / 2,
                     corner.getZ() + CottagePlan.SIDE / 2) - bellGround);
             if (drop <= maxDrop) {
-                chosen = candidate;   // near enough the village's own level, and nearest first
-                chosenDrop = drop;
-                break;
+                return Optional.of(candidate);   // level enough, and nearest first
             }
             if (drop < chosenDrop) {
                 // Kept only so a settlement on genuinely broken ground still builds somewhere
@@ -117,34 +137,25 @@ public final class HousePlanner {
                 chosenDrop = drop;
             }
         }
-        if (chosen == null) {
-            return Optional.empty();
-        }
-        if (chosenDrop > maxDrop) {
+        if (chosen != null) {
             Placitum.LOGGER.info("'{}' has no level ground left; building {} block(s) off the"
                     + " bell's level", settlement.name(), chosenDrop);
         }
-        Optional<CellPos> site = Optional.of(chosen);
+        return Optional.ofNullable(chosen);
+    }
+
+    public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement) {
+        Optional<CellPos> site = pickSite(level, settlement, HousePlanner::clear);
+        if (site.isEmpty()) {
+            return Optional.empty();
+        }
         BlockPos northWest = settlement.grid().blockAt(site.get());
         List<Integer> profile = new ArrayList<>();
         Rotation facing = towardsRoad(settlement, site.get());
         for (BlockPos column : CottagePlan.footprint(northWest, facing)) {
-            if (!level.hasChunkAt(column)) {
-                profile.add(WallGeometry.SKIP);
-                continue;
-            }
-            // The grid said this cell was free and the world is the one that knows. A roof
-            // reads as ground, so without this the second house goes on top of the first.
-            // builtOn reads blocks, and blocks cannot tell us about our own palisade: it is
-            // made of logs and the ground scan walks down past logs as though they were trees.
-            // The ring is the only thing that knows, so it is asked directly.
-            if (GridSurvey.builtOn(level, column.getX(), column.getZ())
-                    || settlement.onWall(column)) {
-                Placitum.LOGGER.debug("No house for '{}': cell {} already has something on it",
-                        settlement.name(), site.get().toKey());
-                return Optional.empty();
-            }
-            profile.add(GridSurvey.groundOrSkip(level, column.getX(), column.getZ()));
+            profile.add(level.hasChunkAt(column)
+                    ? GridSurvey.groundOrSkip(level, column.getX(), column.getZ())
+                    : Ground.SKIP);
         }
         if (unreadable(profile)) {
             Placitum.LOGGER.debug("No house for '{}': the site at {} could not be read",
@@ -174,7 +185,7 @@ public final class HousePlanner {
 
     private static boolean unreadable(List<Integer> profile) {
         for (int height : profile) {
-            if (height == WallGeometry.SKIP) {
+            if (height == Ground.SKIP) {
                 return true;   // a house half on ground nobody has seen is not a house
             }
         }

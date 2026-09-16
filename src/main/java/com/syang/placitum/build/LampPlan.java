@@ -36,7 +36,7 @@ public final class LampPlan {
             Identifier.fromNamespaceAndPath(Placitum.MODID, "light/lamps");
 
     /** Marks a column the lamp pass skips - water, a building, or already bright enough. */
-    private static final int SKIP = WallGeometry.SKIP;
+    private static final int SKIP = Ground.SKIP;
 
     private LampPlan() {}
 
@@ -95,8 +95,7 @@ public final class LampPlan {
         for (int i = 0; i < batch; i++) {
             BlockPos centre = settlement.grid().centreOf(dark.get(i));
             posts.add(centre);
-            boolean blocked = GridSurvey.builtOn(level, centre.getX(), centre.getZ())
-                    || settlement.onWall(centre);
+            boolean blocked = GridSurvey.builtOn(level, centre.getX(), centre.getZ());
             profile.add(blocked ? SKIP
                     : GridSurvey.groundOrSkip(level, centre.getX(), centre.getZ()));
         }

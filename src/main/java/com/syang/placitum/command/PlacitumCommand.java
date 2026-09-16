@@ -159,10 +159,10 @@ public final class PlacitumCommand {
                 + settlement.dimension().identifier()), false);
         source.sendSuccess(() -> Component.literal("  " + settlement.houseCount() + " house(s), "
                 + settlement.grid().countOf(CellState.ROAD) + " road cell(s)"), false);
-        source.sendSuccess(() -> Component.literal("  wall " + settlement.wall().tier()
-                + (settlement.wall().ring().isEmpty() ? ""
-                        : ", " + settlement.wall().ring().size() + " post(s), "
-                                + settlement.wall().gates().size() + " gate(s)")), false);
+        source.sendSuccess(() -> Component.literal("  "
+                + settlement.plots().values().stream()
+                        .filter(p -> p.kind() == com.syang.placitum.data.PlotKind.FARM).count()
+                + " field(s)"), false);
         return settlement.houseCount();
     }
 

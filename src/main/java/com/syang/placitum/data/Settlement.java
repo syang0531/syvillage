@@ -22,7 +22,7 @@ import net.minecraft.world.level.Level;
  * invisible to play. See docs/why-the-reset.md.
  *
  * <p>What is left is the part a player can see: a village that builds itself roads, lamps,
- * houses, fields and a wall, one block at a time, while they watch.
+ * houses and fields, one block at a time, while they watch.
  */
 public record Settlement(
         SettlementId identity,
@@ -30,7 +30,6 @@ public record Settlement(
         Map<UUID, Plot> plots,
         List<BuildJob> buildQueue,
         List<BuildOp> pendingOps,
-        WallState wall,
         Chronicle chronicle) {
 
     public static final Codec<Settlement> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -41,7 +40,6 @@ public record Settlement(
             BuildJob.CODEC.listOf().fieldOf("build_queue").forGetter(Settlement::buildQueue),
             BuildOp.CODEC.listOf().optionalFieldOf("pending_ops", List.of())
                     .forGetter(Settlement::pendingOps),
-            WallState.CODEC.optionalFieldOf("wall", WallState.NONE).forGetter(Settlement::wall),
             Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle)
     ).apply(i, Settlement::new));
 
@@ -71,7 +69,7 @@ public record Settlement(
     public static Settlement founding(SettlementId identity) {
         return new Settlement(identity,
                 PlotGrid.empty(identity.center(), PlotGrid.sizeForClaim(identity.claimRadiusChunks())),
-                Map.of(), List.of(), List.of(), WallState.NONE, Chronicle.EMPTY);
+                Map.of(), List.of(), List.of(), Chronicle.EMPTY);
     }
 
     public UUID id() {
@@ -90,23 +88,6 @@ public record Settlement(
         return identity.dimension();
     }
 
-    /**
-     * Whether a column is part of the wall.
-     *
-     * <p>Asked of the record rather than the world, because the world cannot answer it. A
-     * palisade is oak logs, and the ground scan walks down past logs on the assumption they are
-     * trees - so the settlement's own wall is invisible to every check that reads blocks. A
-     * house was once sited on one and built straight through it.
-     */
-    public boolean onWall(BlockPos pos) {
-        for (BlockPos post : wall.ring()) {
-            if (post.getX() == pos.getX() && post.getZ() == pos.getZ()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public int houseCount() {
         int n = 0;
         for (Plot plot : plots.values()) {
@@ -120,27 +101,23 @@ public record Settlement(
     // Copy helpers. Callers do not rebuild the record by hand.
 
     public Settlement withGrid(PlotGrid newGrid) {
-        return new Settlement(identity, newGrid, plots, buildQueue, pendingOps, wall, chronicle);
+        return new Settlement(identity, newGrid, plots, buildQueue, pendingOps, chronicle);
     }
 
     public Settlement withPlots(Map<UUID, Plot> newPlots) {
-        return new Settlement(identity, grid, newPlots, buildQueue, pendingOps, wall, chronicle);
+        return new Settlement(identity, grid, newPlots, buildQueue, pendingOps, chronicle);
     }
 
     public Settlement withBuildQueue(List<BuildJob> newQueue) {
-        return new Settlement(identity, grid, plots, newQueue, pendingOps, wall, chronicle);
+        return new Settlement(identity, grid, plots, newQueue, pendingOps, chronicle);
     }
 
     public Settlement withPendingOps(List<BuildOp> newOps) {
-        return new Settlement(identity, grid, plots, buildQueue, newOps, wall, chronicle);
-    }
-
-    public Settlement withWall(WallState newWall) {
-        return new Settlement(identity, grid, plots, buildQueue, pendingOps, newWall, chronicle);
+        return new Settlement(identity, grid, plots, buildQueue, newOps, chronicle);
     }
 
     public Settlement withChronicle(Chronicle newChronicle) {
-        return new Settlement(identity, grid, plots, buildQueue, pendingOps, wall, newChronicle);
+        return new Settlement(identity, grid, plots, buildQueue, pendingOps, newChronicle);
     }
 
     public Settlement record(EntryType type, String subject, String detail, long gameTime) {

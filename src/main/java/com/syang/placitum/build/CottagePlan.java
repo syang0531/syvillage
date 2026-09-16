@@ -112,7 +112,7 @@ public final class CottagePlan {
             return List.of();
         }
         int floor = highest(profile);
-        if (floor == WallGeometry.SKIP) {
+        if (floor == Ground.SKIP) {
             return List.of();
         }
         Direction door = doorFacing(recipe.rotation());
@@ -178,7 +178,7 @@ public final class CottagePlan {
      * it the threshold is a ledge and uphill of it the doorway is buried.
      */
     private static List<BuildOp> step(BlockPos outside, int ground, int floor) {
-        if (ground == WallGeometry.SKIP) {
+        if (ground == Ground.SKIP) {
             return List.of();
         }
         List<BuildOp> ops = new ArrayList<>();
@@ -340,9 +340,9 @@ public final class CottagePlan {
 
     /** The highest ground under the house. SKIP if none of it could be read. */
     private static int highest(List<Integer> profile) {
-        int best = WallGeometry.SKIP;
+        int best = Ground.SKIP;
         for (int height : profile) {
-            if (height != WallGeometry.SKIP && (best == WallGeometry.SKIP || height > best)) {
+            if (height != Ground.SKIP && (best == Ground.SKIP || height > best)) {
                 best = height;
             }
         }
