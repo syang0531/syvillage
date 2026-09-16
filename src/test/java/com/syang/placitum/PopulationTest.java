@@ -126,6 +126,35 @@ class PopulationTest {
     }
 
     @Test
+    @DisplayName("somebody retrains when nobody at all does the job that is needed")
+    void aVillageOfFarmersCanStillCutTimber() {
+        // Two residents, both made farmers while food was short, a house waiting on 111 logs and
+        // nobody able to cut one. Four thousand wheat in store and the settlement could not
+        // build anything, so beds stayed at two, capacity stayed at two, no child was ever born,
+        // and the first death of old age finished it.
+        SimParams params = SimParams.defaults();
+        Settlement farmersOnly = SettlementFixture.standard()
+                .withResidents(SettlementFixture.standard().residents().stream()
+                        .map(r -> r.withAssignment(r.assignment().withJob(Assignment.FARMER)))
+                        .toList())
+                .withBuildQueue(List.of(SettlementFixture.standard().buildQueue().get(0)
+                        .withStage(com.syang.placitum.data.BuildStage.WAITING_MATERIALS)));
+        assertEquals(Assignment.WOODCUTTER, LabourModule.mostNeeded(farmersOnly, params),
+                "premise: what this village needs is timber");
+
+        // One step. Longer and the need has already moved on - materials arrive, the job goes
+        // to EXECUTING, and what the settlement wants next is a builder.
+        Settlement after = run(farmersOnly, 1);
+
+        assertTrue(after.residents().stream()
+                        .anyMatch(r -> r.assignment().job().equals(Assignment.WOODCUTTER)),
+                "everyone is still a farmer, so the house will never be built");
+        assertTrue(after.residents().stream()
+                        .anyMatch(r -> r.assignment().job().equals(Assignment.FARMER)),
+                "the last farmer was taken as well, which trades one starvation for another");
+    }
+
+    @Test
     @DisplayName("the job a settlement needs most follows what is actually short")
     void neededJobFollowsTheShortage() {
         SimParams params = SimParams.defaults();

@@ -42,6 +42,58 @@ public class LabourModule implements SimModule {
                     r.lineage().fullName(), wanted.getPath());
             return;
         }
+        retrain(settlement, params, wanted);
+    }
+
+    /**
+     * Moves somebody across when nobody at all holds the job the settlement needs.
+     *
+     * <p>Assignment used to be one-way: only the unemployed were ever given work. A village that
+     * made everyone a farmer while food was short could then never produce a single log, so the
+     * house it needed stayed at WAITING_MATERIALS for ever, beds stayed at two, capacity stayed
+     * at two, and the first resident to die of old age ended it. Two farmers with four thousand
+     * wheat and nothing to build with.
+     *
+     * <p>Only when nobody holds the needed job, only one person, and never the last farmer that
+     * a settlement is relying on to eat. Retraining is for a gap, not for balancing.
+     */
+    private void retrain(SettlementMut settlement, SimParams params, Identifier wanted) {
+        if (wanted.equals(Assignment.NONE) || countOf(settlement, wanted) > 0) {
+            return;
+        }
+        for (int i = 0; i < settlement.residents.size(); i++) {
+            Resident r = settlement.residents.get(i);
+            if (!r.counts() || r.stage() == LifeStage.INFANT || r.stage() == LifeStage.CHILD
+                    || r.assignment().job().equals(wanted)) {
+                continue;
+            }
+            if (r.assignment().job().equals(Assignment.FARMER)
+                    && wouldStarve(settlement, params)) {
+                continue;   // somebody has to keep growing the food
+            }
+            settlement.residents.set(i, r.withAssignment(r.assignment().withJob(wanted)));
+            Placitum.LOGGER.info("  step {}: {} retrains from {} to {} - nobody else does it",
+                    settlement.simStep(), r.lineage().fullName(),
+                    r.assignment().job().getPath(), wanted.getPath());
+            return;
+        }
+    }
+
+    /** Whether losing one farmer would leave the settlement unable to feed itself. */
+    private static boolean wouldStarve(SettlementMut settlement, SimParams params) {
+        int farmers = countOf(settlement, Assignment.FARMER);
+        int fed = (farmers - 1) * params.yieldRate() / Math.max(1, params.consumptionPerHead());
+        return fed < settlement.population();
+    }
+
+    private static int countOf(SettlementMut settlement, Identifier job) {
+        int n = 0;
+        for (Resident r : settlement.residents) {
+            if (r.counts() && r.assignment().job().equals(job)) {
+                n++;
+            }
+        }
+        return n;
     }
 
     /** Adults and elders with no job. Children are not put to work. */
