@@ -96,8 +96,14 @@ public class NeedsModule implements SimModule {
      */
     private boolean needsHouse(SettlementMut settlement, SimParams params) {
         Capacity capacity = Capacity.of(settlement.freezeView(), params);
-        return capacity.bottleneck() == Capacity.Bottleneck.BEDS
-                && settlement.population() + 1 >= capacity.value();
+        if (capacity.bottleneck() != Capacity.Bottleneck.BEDS
+                || settlement.population() + 1 < capacity.value()) {
+            return false;
+        }
+        // Site selection reads the stored grid and nothing else, so wanting a house and having
+        // somewhere to put one can be settled here rather than discovered later at the edge.
+        // Ordering blind meant a job created and dropped every single step, for ever.
+        return HousePlanner.findSite(settlement.freezeView()).isPresent();
     }
 
     /**

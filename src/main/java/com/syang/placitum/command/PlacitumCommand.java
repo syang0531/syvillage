@@ -957,6 +957,13 @@ public final class PlacitumCommand {
             return "population " + settlement.population() + " is below the wall threshold of "
                     + params.wallMinPopulation() + ", and nothing is attacking";
         }
+        Capacity capacity = Capacity.of(settlement, params);
+        if (capacity.bottleneck() == Capacity.Bottleneck.BEDS
+                && com.syang.placitum.build.HousePlanner.findSite(settlement).isEmpty()) {
+            return "it wants a house and has nowhere to put one - no free cell beside a road"
+                    + " within " + settlement.scale().buildRadiusCells() + " cell(s) of the bell."
+                    + " /placitum plot show marks what is free";
+        }
         return "the need has not been noticed yet - it is checked once a simulation step,"
                 + " and a step is " + SimParams.fromConfig(source.getServer().overworld())
                         .stepTicks() + " ticks";

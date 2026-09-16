@@ -101,6 +101,22 @@ class GridMapTest {
     }
 
     @Test
+    @DisplayName("a settlement may build further out than its own market square")
+    void buildRadiusIsARadius() {
+        // These numbers were written as grid widths, back when the grid was sized from the
+        // tier. Read as a radius, an OUTPOST's 3 became one cell - eight blocks around the
+        // bell, all of it the village square - and every house order was dropped for nowhere
+        // to put it.
+        int cells = com.syang.placitum.data.ScaleTier.OUTPOST.buildRadiusCells();
+        assertTrue(cells * PlotGrid.CELL_BLOCKS >= 16,
+                "the smallest settlement still has to reach past its own centre: " + cells
+                        + " cell(s)");
+        assertTrue(com.syang.placitum.data.ScaleTier.CITY.buildRadiusCells()
+                        > com.syang.placitum.data.ScaleTier.OUTPOST.buildRadiusCells(),
+                "growing has to mean being allowed to spread");
+    }
+
+    @Test
     @DisplayName("the grid covers the claim, not the population tier")
     void gridCoversTheClaim() {
         // Five chunks is 80 blocks of claim in each direction, so ten cells each way plus the

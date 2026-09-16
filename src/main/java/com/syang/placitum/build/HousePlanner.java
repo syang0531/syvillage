@@ -35,9 +35,9 @@ public final class HousePlanner {
     public static Optional<CellPos> findSite(Settlement settlement) {
         PlotGrid grid = settlement.grid();
         int mapRadius = (grid.size() - 1) / 2;
-        // The tier is a budget on how far a settlement of this size may spread, which is what
-        // ScaleTier.gridSize() was always for; the grid itself maps the whole claim.
-        int buildRadius = Math.min(mapRadius, (settlement.scale().gridSize() - 1) / 2);
+        // The tier is a budget on how far a settlement of this size may spread; the grid
+        // itself maps the whole claim.
+        int buildRadius = Math.min(mapRadius, settlement.scale().buildRadiusCells());
 
         CellPos best = null;
         int bestDistance = Integer.MAX_VALUE;

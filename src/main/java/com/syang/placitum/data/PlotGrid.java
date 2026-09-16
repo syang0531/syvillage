@@ -47,7 +47,7 @@ public record PlotGrid(BlockPos origin, int size, Map<CellPos, CellState> cells)
      * How many cells across a grid must be to cover a settlement claim.
      *
      * <p>The extent of the grid is a question about ground, so it is answered by the claim -
-     * not by {@link ScaleTier#gridSize()}, which is a question about how far a settlement of
+     * not by {@link ScaleTier#buildRadiusCells()}, which is a question about how far a settlement of
      * that size is allowed to spread. Sizing the map from the tier is how an adopted village
      * ends up with a 24-block grid sitting entirely inside its own market square: every cell
      * built, nowhere to put a house, and a growth loop that can never close.
