@@ -43,6 +43,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue WATCH_INTERVAL_TICKS;
     public static final ModConfigSpec.IntValue MAX_WATCH_POINTS;
     public static final ModConfigSpec.IntValue ANCHOR_REFRESH_TICKS;
+    public static final ModConfigSpec.IntValue ANCHOR_REFRESH_NEAR_TICKS;
     public static final ModConfigSpec.DoubleValue CURFEW_WALK_SPEED;
     public static final ModConfigSpec.DoubleValue MILITIA_RATIO_CAP;
     public static final ModConfigSpec.DoubleValue ROUT_THRESHOLD;
@@ -135,6 +136,11 @@ public final class PlacitumConfig {
         ANCHOR_REFRESH_TICKS = b.comment("How often to re-scan shelters and watch points while a",
                         "settlement has bodies. 6000 = five minutes.")
                 .defineInRange("anchorRefreshTicks", 6000, 200, 72000);
+        ANCHOR_REFRESH_NEAR_TICKS = b.comment("How often to re-read beds while a player is",
+                        "actually in the settlement. 100 = five seconds.",
+                        "This is a POI query, not the block survey, so it is cheap enough to",
+                        "run at the speed a player expects a placed bed to be noticed.")
+                .defineInRange("anchorRefreshNearTicks", 100, 20, 6000);
         CURFEW_WALK_SPEED = b.comment("Walk speed modifier when heading home under curfew.")
                 .defineInRange("curfewWalkSpeed", 0.6D, 0.1D, 2.0D);
         MILITIA_RATIO_CAP = b.comment("Most of the population that may be under arms at once.",

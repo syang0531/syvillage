@@ -140,11 +140,17 @@ public final class LifecycleManager {
         out = Simulation.catchUp(level.getServer().overworld().getSeed(), out,
                 SimParams.fromConfig(level), now);
 
-        if (out.anchors().staleAt(now, PlacitumConfig.ANCHOR_REFRESH_TICKS.get())) {
+        // Anchors are a POI query and nothing more, so while somebody is standing here they are
+        // re-read every few seconds. Five minutes was right for a village nobody is touching and
+        // wrong the moment somebody is: a player places a bed, nothing changes for five minutes,
+        // and there is no way to tell a slow refresh from a broken one.
+        if (out.anchors().staleAt(now, PlacitumConfig.ANCHOR_REFRESH_NEAR_TICKS.get())) {
             out = out.withAnchors(AnchorScan.scan(level, out));
-            // The grid rides along with the anchors. Both need loaded chunks, both go stale for
-            // the same reason - the player has been building - and one timer for the pair beats
-            // two that can disagree about how old the world model is.
+            manager.put(out);
+        }
+        // The survey is 441 cells of block reads and stays on the long timer. Terrain does not
+        // change as often as furniture, and it is not what the player is waiting on.
+        if (now % PlacitumConfig.ANCHOR_REFRESH_TICKS.get() == 0) {
             out = out.withGrid(GridSurvey.run(level, out).grid());
             manager.put(out);
         }

@@ -30,6 +30,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.level.block.BellBlock;
+import com.syang.placitum.settlement.Claims;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -240,6 +241,40 @@ public final class PlacitumEvents {
         villager.removeData(ModAttachments.RESIDENT_ID);
         Placitum.LOGGER.info("Released orphaned villager {} back to vanilla", villager.getUUID());
     }
+
+    /**
+     * A villager turned up after registration.
+     *
+     * <p>Adoption used to happen once, at registration, and never again - so a villager that
+     * wandered in, was cured, was traded in by a player or simply bred somewhere nearby was
+     * never part of the settlement. Reported from the game: two villagers spawned into a dying
+     * village and it did not notice them at all.
+     *
+     * <p>On the event rather than by sweeping the claim. The entity knows where it is, which is
+     * the cheap direction to search from, and CLAUDE.md is explicit about not scanning a whole
+     * claim for entities.
+     */
+    @SubscribeEvent
+    public static void onVillagerArrived(EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide()
+                || !(event.getEntity() instanceof Villager villager)) {
+            return;
+        }
+        SettlementManager manager = SettlementManager.peek();
+        if (manager == null || manager.residentOf(villager.getUUID()) != null) {
+            return;   // already somebody's
+        }
+        Settlement settlement = Claims.at(manager, villager.level().dimension(),
+                villager.blockPosition());
+        if (settlement == null || com.syang.placitum.lifecycle.Lifecycle.isSelfSpawn()) {
+            return;
+        }
+        Settlement joined = Registration.adoptOne(settlement, manager, villager);
+        manager.put(Claims.stale(joined));
+        Placitum.LOGGER.info("'{}' has taken in a villager that arrived at {}",
+                settlement.name(), villager.blockPosition().toShortString());
+    }
+
 
     /**
      * Vanilla breeding is off in registered settlements.

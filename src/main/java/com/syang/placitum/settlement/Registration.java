@@ -104,6 +104,63 @@ public final class Registration {
     }
 
     /**
+     * Takes in a villager that turned up after registration.
+     *
+     * <p>Adoption used to be a one-off at registration, so anyone who wandered in, was cured, or
+     * was brought by a player stayed a stranger for ever - a village could be standing next to
+     * two villagers and have a population of zero.
+     *
+     * <p>Their age comes from the same spread as a founder's. We have no idea how old somebody
+     * who walked out of the woods is, and giving every arrival the same age is what gave the
+     * first generation a shared date of death.
+     */
+    public static Settlement adoptOne(Settlement settlement, SettlementManager manager,
+            Villager villager) {
+        Set<String> taken = new HashSet<>();
+        for (Resident existing : settlement.residents()) {
+            taken.add(existing.lineage().fullName());
+        }
+        RandomSource rng = RandomSource.create(villager.getUUID().getMostSignificantBits());
+        Resident resident = makeResident(villager, manager, rng, taken);
+
+        List<Resident> roll = new ArrayList<>(settlement.residents());
+        roll.add(resident);
+        Settlement out = settlement.withResidents(roll);
+        return out.withChronicle(out.chronicle().with(new com.syang.placitum.data.ChronicleEntry(
+                villager.level().getGameTime(), com.syang.placitum.data.EntryType.IMMIGRATION,
+                resident.lineage().fullName(), "arrived and settled here")));
+    }
+
+    /** One resident, built from a villager and bound to it. */
+    private static Resident makeResident(Villager villager, SettlementManager manager,
+            RandomSource rng, Set<String> takenNames) {
+        UUID residentId = UUID.randomUUID();
+        Lineage lineage = NameGenerator.founder(rng, takenNames);
+        Identifier job = ProfessionMap.of(villager);
+
+        // First generation has no parents. Their history starts here, and pretending
+        // otherwise would put births in the chronicle that nobody witnessed.
+        Resident resident = new Resident(
+                residentId,
+                lineage,
+                villager.isBaby() ? LifeStage.CHILD : LifeStage.ADULT,
+                villager.isBaby() ? 3 : founderAge(rng),
+                new Assignment(job, Optional.empty(), Optional.empty()),
+                new Vitals((int) Math.ceil(villager.getHealth()), 50, 50),
+                ProfessionMap.militiaEligible(job),
+                false,
+                GearSet.EMPTY,
+                ResidentTask.IDLE,
+                villager.blockPosition(),
+                ResidentState.MATERIALIZED,
+                com.syang.placitum.lifecycle.Lifecycle.writeVanillaState(villager));
+
+        villager.setData(ModAttachments.RESIDENT_ID, residentId);
+        manager.bind(residentId, villager.getUUID());
+        return resident;
+    }
+
+    /**
      * How old an adopted villager is.
      *
      * <p>Spread, not a constant. Every adult used to start at exactly 25, which meant a village
@@ -131,31 +188,8 @@ public final class Registration {
         Map<String, Integer> professions = new TreeMap<>();
         List<Resident> residents = new ArrayList<>();
         for (Villager villager : villagers) {
-            UUID residentId = UUID.randomUUID();
-            Lineage lineage = NameGenerator.founder(rng, takenNames);
-            Identifier job = ProfessionMap.of(villager);
             professions.merge(ProfessionMap.vanillaName(villager), 1, Integer::sum);
-
-            // First generation has no parents. Their history starts here, and pretending
-            // otherwise would put births in the chronicle that nobody witnessed.
-            Resident resident = new Resident(
-                    residentId,
-                    lineage,
-                    villager.isBaby() ? LifeStage.CHILD : LifeStage.ADULT,
-                    villager.isBaby() ? 3 : founderAge(rng),
-                    new Assignment(job, Optional.empty(), Optional.empty()),
-                    new Vitals((int) Math.ceil(villager.getHealth()), 50, 50),
-                    ProfessionMap.militiaEligible(job),
-                    false,
-                    GearSet.EMPTY,
-                    ResidentTask.IDLE,
-                    villager.blockPosition(),
-                    ResidentState.MATERIALIZED,
-                    com.syang.placitum.lifecycle.Lifecycle.writeVanillaState(villager));
-
-            villager.setData(ModAttachments.RESIDENT_ID, residentId);
-            manager.bind(residentId, villager.getUUID());
-            residents.add(resident);
+            residents.add(makeResident(villager, manager, rng, takenNames));
         }
         // What vanilla actually reported, not what we mapped it to. A village of freshly
         // generated villagers is mostly unemployed, and without this line that is
