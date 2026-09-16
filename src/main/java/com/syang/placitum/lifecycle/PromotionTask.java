@@ -105,7 +105,7 @@ public final class PromotionTask {
         while (applied < budget && !pending.isEmpty()) {
             BuildOp op = pending.removeFirst();
             if (level.isLoaded(op.pos())) {
-                level.setBlock(op.pos(), op.state(), 3);
+                level.setBlock(op.pos(), op.state(), com.syang.placitum.build.BuildTick.PLACE_FLAGS);
             }
             applied++;
         }
@@ -138,7 +138,7 @@ public final class PromotionTask {
                 }
                 BuildOp op = ops.get(replayCursor);
                 if (level.isLoaded(op.pos())) {
-                    level.setBlock(op.pos(), op.state(), 3);
+                    level.setBlock(op.pos(), op.state(), com.syang.placitum.build.BuildTick.PLACE_FLAGS);
                 }
                 replayCursor++;
                 spent++;

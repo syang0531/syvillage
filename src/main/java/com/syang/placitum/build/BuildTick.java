@@ -39,6 +39,20 @@ public final class BuildTick {
     private static final java.util.Set<java.util.UUID> WARNED =
             java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    /**
+     * How a settlement writes a block.
+     *
+     * <p>Clients are told; neighbours are not. That second half matters more than it sounds: a
+     * door and a bed are two blocks each, they go down as two separate writes, and vanilla's
+     * updateShape turns a half without its partner straight into air. With neighbour updates on,
+     * placing the lower door half destroyed it before the upper half existed, and the house ended
+     * up with the top of a door floating over a gap nobody could walk through. Read back out of
+     * the world it was unmistakable - "#...B.." where the south wall should be.
+     *
+     * <p>This is what vanilla's own structure placement uses, for the same reason.
+     */
+    public static final int PLACE_FLAGS = net.minecraft.world.level.block.Block.UPDATE_CLIENTS;
+
     private BuildTick() {}
 
     /** Places at most one block, on the interval, for each job being worked. */
@@ -116,7 +130,7 @@ public final class BuildTick {
             walkSomebodyOver(builders, op.pos());
         }
 
-        level.setBlock(op.pos(), op.state(), 3);
+        level.setBlock(op.pos(), op.state(), PLACE_FLAGS);
         level.playSound(null, op.pos(), SoundEvents.WOOD_PLACE, SoundSource.BLOCKS, 0.8F, 1.0F);
         return job.withProgress(job.progress() + 1);
     }

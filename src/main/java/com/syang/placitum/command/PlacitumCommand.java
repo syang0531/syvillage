@@ -133,6 +133,11 @@ public final class PlacitumCommand {
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(ctx -> debugHouse(ctx.getSource(),
                                         StringArgumentType.getString(ctx, "id")))))
+                .then(Commands.literal("rehouse")
+                        .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(ctx -> debugRehouse(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id")))))
                 .then(Commands.literal("rewall")
                         .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -1090,6 +1095,40 @@ public final class PlacitumCommand {
             return "c";
         }
         return "o";
+    }
+
+    /**
+     * Forgets every house, so the settlement plans new ones.
+     *
+     * <p>Only the records and the cells they reserved - the blocks stay standing. Like rewall,
+     * this exists because planning happens once and a change to how houses are planned is
+     * otherwise untestable without finding a fresh village every time.
+     */
+    private static int debugRehouse(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        java.util.Map<java.util.UUID, com.syang.placitum.data.Plot> kept =
+                new java.util.LinkedHashMap<>();
+        com.syang.placitum.data.PlotGrid grid = settlement.grid();
+        int forgotten = 0;
+        for (var entry : settlement.plots().entrySet()) {
+            if (entry.getValue().kind() == com.syang.placitum.data.PlotKind.HOUSE) {
+                grid = grid.with(entry.getValue().anchor(), CellState.FREE);
+                forgotten++;
+            } else {
+                kept.put(entry.getKey(), entry.getValue());
+            }
+        }
+        int count = forgotten;
+        manager.put(settlement.withPlots(kept).withGrid(grid).withBuildQueue(java.util.List.of()));
+        source.sendSuccess(() -> Component.literal("Forgot " + count + " house(s) of "
+                + settlement.name() + ". The blocks are still standing; it will plan new ones."),
+                true);
+        return count;
     }
 
     private static Optional<Settlement> resolve(SettlementManager manager, String rawId) {

@@ -35,9 +35,13 @@ public final class HousePlanner {
     public static Optional<CellPos> findSite(Settlement settlement) {
         PlotGrid grid = settlement.grid();
         int mapRadius = (grid.size() - 1) / 2;
-        // The tier is a budget on how far a settlement of this size may spread; the grid
-        // itself maps the whole claim.
-        int buildRadius = Math.min(mapRadius, settlement.scale().buildRadiusCells());
+        // The tier is a budget on how far a settlement may spread - but never tighter than its
+        // own edge plus one. An OUTPOST allowed three cells around the bell is allowed the
+        // village square it was adopted with and nothing else: one house fits, and then beds
+        // cannot grow, so population cannot grow, so the tier cannot rise, so the radius cannot
+        // widen. A settlement may always build just outside itself.
+        int buildRadius = Math.min(mapRadius,
+                Math.max(settlement.scale().buildRadiusCells(), occupiedRadius(grid) + 1));
 
         CellPos best = null;
         int bestDistance = Integer.MAX_VALUE;
@@ -55,6 +59,20 @@ public final class HousePlanner {
             }
         }
         return Optional.ofNullable(best);
+    }
+
+    /** How far out the settlement already reaches, in cells. */
+    private static int occupiedRadius(PlotGrid grid) {
+        int radius = 0;
+        for (var entry : grid.cells().entrySet()) {
+            CellState state = entry.getValue();
+            if (state != CellState.BUILT && state != CellState.ROAD) {
+                continue;
+            }
+            CellPos cell = entry.getKey();
+            radius = Math.max(radius, Math.max(Math.abs(cell.gx()), Math.abs(cell.gz())));
+        }
+        return radius;
     }
 
     /**
