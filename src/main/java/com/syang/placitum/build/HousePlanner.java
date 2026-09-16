@@ -84,8 +84,11 @@ public final class HousePlanner {
         }
 
         Rotation facing = towardsRoad(settlement, site.get());
-        Placitum.LOGGER.debug("Planned a cottage for '{}' on cell {}, door {}",
-                settlement.name(), site.get().toKey(), CottagePlan.doorFacing(facing));
+        int low = profile.stream().mapToInt(Integer::intValue).min().orElse(0);
+        int high = profile.stream().mapToInt(Integer::intValue).max().orElse(0);
+        Placitum.LOGGER.info("Planned a cottage for '{}' on cell {} at {}: ground {}..{},"
+                        + " floor {}, door {}", settlement.name(), site.get().toKey(),
+                northWest.toShortString(), low, high, high, CottagePlan.doorFacing(facing));
         return Optional.of(new BuildRecipe(
                 COTTAGE,
                 northWest,

@@ -129,6 +129,10 @@ public final class PlacitumCommand {
                                                 IntegerArgumentType.getInteger(ctx, "count")))))));
 
         root.then(Commands.literal("debug")
+                .then(Commands.literal("house")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(ctx -> debugHouse(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id")))))
                 .then(Commands.literal("rewall")
                         .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -991,6 +995,101 @@ public final class PlacitumCommand {
                 + "'s wall (" + posts + " post(s)). The blocks are still standing; it will plan"
                 + " a new one."), true);
         return posts;
+    }
+
+    /**
+     * Reads a finished house back out of the world.
+     *
+     * <p>Screenshots are how the last three shape bugs were found, which means they were found
+     * by luck and described in prose. A house is a column of blocks and the server can simply
+     * say what they are - whether there is a roof over it, whether the door is where a villager
+     * could reach it, whether the whole thing is buried.
+     */
+    private static int debugHouse(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        ServerLevel level = source.getServer().getLevel(settlement.identity().dimension());
+        if (level == null) {
+            source.sendFailure(Component.literal("That dimension is not loaded"));
+            return 0;
+        }
+        int houses = 0;
+        for (com.syang.placitum.data.Plot plot : settlement.plots().values()) {
+            if (plot.kind() != com.syang.placitum.data.PlotKind.HOUSE) {
+                continue;
+            }
+            houses++;
+            describeHouse(source, level, settlement, plot);
+        }
+        if (houses == 0) {
+            source.sendSuccess(() -> Component.literal(settlement.name()
+                    + " has built no houses yet").withStyle(ChatFormatting.GRAY), false);
+        }
+        return houses;
+    }
+
+    /** A north-south slice through the middle of the plot, drawn from the world. */
+    private static void describeHouse(CommandSourceStack source, ServerLevel level,
+            Settlement settlement, com.syang.placitum.data.Plot plot) {
+        BlockPos northWest = settlement.grid().blockAt(plot.anchor());
+        int side = com.syang.placitum.build.CottagePlan.SIDE;
+        int middleX = northWest.getX() + side / 2;
+
+        int surface = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types
+                .MOTION_BLOCKING_NO_LEAVES, middleX, northWest.getZ() + side / 2);
+        int base = surface - com.syang.placitum.build.CottagePlan.HEIGHT - 2;
+
+        source.sendSuccess(() -> Component.literal(plot.template().getPath() + " on cell "
+                        + plot.anchor().toKey() + " at " + northWest.toShortString()
+                        + ", " + plot.bedCount() + " bed(s)").withStyle(ChatFormatting.GOLD),
+                false);
+
+        for (int y = surface + 2; y >= base; y--) {
+            StringBuilder row = new StringBuilder();
+            for (int dz = 0; dz < side; dz++) {
+                row.append(glyphAt(level, new BlockPos(middleX, y, northWest.getZ() + dz)));
+            }
+            int atY = y;
+            source.sendSuccess(() -> Component.literal("  " + atY + "  " + row), false);
+        }
+        source.sendSuccess(() -> Component.literal(
+                        "  north -> south through the middle.  . air  # solid  D door"
+                                + "  W window  B bed  t torch  = floor/roof")
+                .withStyle(ChatFormatting.DARK_GRAY), false);
+    }
+
+    private static String glyphAt(ServerLevel level, BlockPos pos) {
+        if (!level.isLoaded(pos)) {
+            return "?";
+        }
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+        if (state.isAir()) {
+            return ".";
+        }
+        if (state.getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
+            return "D";
+        }
+        if (state.getBlock() instanceof net.minecraft.world.level.block.BedBlock) {
+            return "B";
+        }
+        if (state.is(net.minecraft.world.level.block.Blocks.TORCH)
+                || state.is(net.minecraft.world.level.block.Blocks.WALL_TORCH)) {
+            return "t";
+        }
+        if (state.is(net.minecraft.world.level.block.Blocks.GLASS_PANE)) {
+            return "W";
+        }
+        if (state.is(net.minecraft.world.level.block.Blocks.OAK_PLANKS)) {
+            return "#";
+        }
+        if (state.is(net.minecraft.world.level.block.Blocks.COBBLESTONE)) {
+            return "c";
+        }
+        return "o";
     }
 
     private static Optional<Settlement> resolve(SettlementManager manager, String rawId) {

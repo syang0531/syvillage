@@ -50,16 +50,6 @@ public final class AnchorScan {
 
     /** Somewhere with a roof. Beds are the only reliable marker a vanilla village offers. */
     private static List<BlockPos> shelters(ServerLevel level, Settlement settlement) {
-        List<BlockPos> fromPlots = new ArrayList<>();
-        for (Plot plot : settlement.plots().values()) {
-            if (plot.kind() == PlotKind.HOUSE && plot.bedCount() > 0) {
-                fromPlots.add(settlement.grid().blockAt(plot.anchor()));
-            }
-        }
-        if (!fromPlots.isEmpty()) {
-            return List.copyOf(fromPlots);
-        }
-
         int radius = settlement.identity().claimRadiusChunks() * 16;
         PoiManager poi = level.getPoiManager();
         List<BlockPos> beds = poi
@@ -70,7 +60,24 @@ public final class AnchorScan {
                         .thenComparingInt(BlockPos::getZ)
                         .thenComparingInt(BlockPos::getY))
                 .toList();
-        return beds;
+        if (!beds.isEmpty()) {
+            return beds;
+        }
+        // Only when the scan found nothing at all, which means chunks rather than an empty
+        // village. Preferring plots to the scan is what this method used to do, and it cost the
+        // settlement every bed it was adopted with the moment it finished its first cottage:
+        // five beds became one shelter, capacity fell from five to two, and a village of five
+        // was suddenly over its own limit.
+        //
+        // The scan is the world's own answer and already covers both - vanilla's beds and ours,
+        // once ours are actually placed.
+        List<BlockPos> fromPlots = new ArrayList<>();
+        for (Plot plot : settlement.plots().values()) {
+            if (plot.kind() == PlotKind.HOUSE && plot.bedCount() > 0) {
+                fromPlots.add(settlement.grid().blockAt(plot.anchor()));
+            }
+        }
+        return List.copyOf(fromPlots);
     }
 
     /**
