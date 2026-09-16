@@ -1063,8 +1063,50 @@ public final class PlacitumCommand {
         }
         source.sendSuccess(() -> Component.literal(
                         "  north -> south through the middle.  . air  # solid  D door"
-                                + "  W window  B bed  t torch  = floor/roof")
+                                + "  W window  B bed  t torch")
                 .withStyle(ChatFormatting.DARK_GRAY), false);
+        verdict(source, level, settlement, plot, northWest, side);
+    }
+
+    /**
+     * What the house has, counted over the whole footprint rather than one slice.
+     *
+     * <p>The slice is for looking; this is for judging. A five-wide cottage puts its beds either
+     * side of the middle, so the slice through the middle shows neither of them - the drawing
+     * said nothing and I read that as evidence, which is the mistake this whole project keeps
+     * paying for.
+     */
+    private static void verdict(CommandSourceStack source, ServerLevel level,
+            Settlement settlement, com.syang.placitum.data.Plot plot, BlockPos northWest,
+            int side) {
+        int doors = 0;
+        int beds = 0;
+        int floorY = Integer.MAX_VALUE;
+        for (int dx = 0; dx < side; dx++) {
+            for (int dz = 0; dz < side; dz++) {
+                for (int dy = 0; dy < com.syang.placitum.build.CottagePlan.HEIGHT + 4; dy++) {
+                    BlockPos at = northWest.offset(dx, 0, dz)
+                            .atY(level.getHeight(net.minecraft.world.level.levelgen.Heightmap
+                                    .Types.MOTION_BLOCKING_NO_LEAVES,
+                                    northWest.getX() + dx, northWest.getZ() + dz) - dy);
+                    var state = level.getBlockState(at);
+                    if (state.getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
+                        doors++;
+                    }
+                    if (state.getBlock() instanceof net.minecraft.world.level.block.BedBlock) {
+                        beds++;
+                        floorY = Math.min(floorY, at.getY());
+                    }
+                }
+            }
+        }
+        int doorHalves = doors;
+        int bedHalves = beds;
+        source.sendSuccess(() -> Component.literal("  found " + doorHalves + " door half/halves"
+                        + " (want 2) and " + bedHalves + " bed half/halves (want "
+                        + plot.bedCount() * 2 + ")")
+                .withStyle(doorHalves == 2 && bedHalves == plot.bedCount() * 2
+                        ? ChatFormatting.GREEN : ChatFormatting.RED), false);
     }
 
     private static String glyphAt(ServerLevel level, BlockPos pos) {
