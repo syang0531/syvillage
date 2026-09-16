@@ -64,6 +64,28 @@ class PopulationTest {
     }
 
     @Test
+    @DisplayName("a village outlives its own founders")
+    void theVillageOutlivesItsFounders() {
+        // Measured in game: eleven residents became two over 295 game days, with seven houses
+        // built and food piled to 130,000. Every adopted adult started at exactly 25, so the
+        // whole village crossed into old age together and by then was too old to replace
+        // itself. A settlement should not have a date of death.
+        SimParams params = SimParams.defaults();
+        Settlement village = SettlementFixture.adopted(8, 40);
+        int founders = village.population();
+
+        // Two hundred game days - twice the lifespan of anyone alive at the start.
+        Settlement after = run(village, 200 * params.stepsPerDay());
+
+        assertTrue(after.population() > 0,
+                "the village died out: " + founders + " founders, nobody left after 200 days");
+        assertTrue(after.residents().stream()
+                        .anyMatch(r -> r.ageDays() < params.elderThresholdDays()),
+                "everyone left is past child-bearing age, so this village is finished even"
+                        + " though it is not empty yet");
+    }
+
+    @Test
     @DisplayName("building a house never makes the village smaller")
     void aNewPlotCannotLowerCapacity() {
         // Preferring plots over anchors meant the first cottage erased the beds the village was

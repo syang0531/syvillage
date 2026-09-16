@@ -104,6 +104,22 @@ public final class Registration {
     }
 
     /**
+     * How old an adopted villager is.
+     *
+     * <p>Spread, not a constant. Every adult used to start at exactly 25, which meant a village
+     * aged as one block: the whole population crossed into old age on the same day and died
+     * inside the same fortnight. Measured over 295 game days a village of eleven went to two,
+     * with no generation in between to replace it.
+     *
+     * <p>Eighteen to seventy-seven, so every founder is an adult with somewhere between a decade
+     * and most of a lifetime left. A village that was already standing when we found it has
+     * people of different ages in it, and that is also what keeps it alive.
+     */
+    private static int founderAge(RandomSource rng) {
+        return 18 + rng.nextInt(60);
+    }
+
+    /**
      * Converts the villagers already living here into residents.
      *
      * <p>The entities are kept, not replaced: they keep their trades, their professions and
@@ -126,7 +142,7 @@ public final class Registration {
                     residentId,
                     lineage,
                     villager.isBaby() ? LifeStage.CHILD : LifeStage.ADULT,
-                    villager.isBaby() ? 3 : 25,
+                    villager.isBaby() ? 3 : founderAge(rng),
                     new Assignment(job, Optional.empty(), Optional.empty()),
                     new Vitals((int) Math.ceil(villager.getHealth()), 50, 50),
                     ProfessionMap.militiaEligible(job),
