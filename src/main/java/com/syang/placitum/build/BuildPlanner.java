@@ -55,6 +55,9 @@ public final class BuildPlanner {
         if (recipe.template().equals(HousePlanner.COTTAGE)) {
             return CottagePlan.expand(recipe);
         }
+        if (recipe.template().equals(RoadPlan.CROSS)) {
+            return RoadPlan.expand(recipe);
+        }
         return expandWall(recipe);
     }
 

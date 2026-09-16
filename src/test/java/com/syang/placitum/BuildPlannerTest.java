@@ -234,6 +234,47 @@ class BuildPlannerTest {
     }
 
     @Test
+    @DisplayName("a settlement with no roads lays some before anything else")
+    void aRoadlessSettlementBuildsItsOwnRoads() {
+        // Two beds, two residents, a bell in an empty field. Site selection only puts a house
+        // beside a road and nothing had laid one, so no house was ever sited, beds stayed at
+        // two, population stayed at two, and the pair grew old. The smallest legal settlement
+        // was a settlement with a death sentence.
+        Settlement founded = SettlementFixture.adopted(2, 2)
+                .withGrid(com.syang.placitum.data.PlotGrid.empty(new BlockPos(0, 64, 0), 21))
+                .withDefense(SettlementFixture.standard().defense().withWall(WallState.NONE))
+                .withBuildQueue(List.of());
+        assertEquals(0, founded.grid().countOf(com.syang.placitum.data.CellState.ROAD),
+                "premise: nobody has laid a path here");
+
+        Settlement after = Simulation.catchUp(SettlementFixture.SEED, founded,
+                SimParams.defaults(), SettlementFixture.START_TICK + 2000);
+
+        assertTrue(after.buildQueue().stream()
+                        .anyMatch(j -> j.recipe().template().equals(
+                                com.syang.placitum.build.RoadPlan.CROSS)),
+                "nothing was ordered, so there will never be anywhere to put a house");
+    }
+
+    @Test
+    @DisplayName("a crossroads is wide enough for the survey to see")
+    void theRoadIsWiderThanTheSurveyStride() {
+        List<BlockPos> columns = com.syang.placitum.build.RoadPlan.columns(
+                new BlockPos(0, 0, 0), 8);
+        java.util.Set<Integer> xs = new java.util.HashSet<>();
+        for (BlockPos column : columns) {
+            if (column.getZ() == 0) {
+                xs.add(column.getX());
+            }
+        }
+        // The survey samples every other block. A single-block path can fall between samples,
+        // and a road no cell reads as a road is not a road.
+        assertTrue(xs.size() >= 17, "the east-west arm is too short: " + xs.size());
+        long acrossAtCentre = columns.stream().filter(c -> c.getX() == 0).count();
+        assertTrue(acrossAtCentre >= 3, "the crossing is " + acrossAtCentre + " block(s) wide");
+    }
+
+    @Test
     @DisplayName("a wall builds at the same speed whether or not you are watching")
     void bothPathsLayAtTheSameRate() {
         SimParams params = SimParams.defaults();

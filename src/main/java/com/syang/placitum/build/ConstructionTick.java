@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -54,10 +55,15 @@ public final class ConstructionTick {
 
     /** Null drops the job: there was nothing there to build. */
     private static BuildJob freeze(ServerLevel level, Settlement settlement, BuildJob job) {
-        boolean house = job.recipe().template().equals(HousePlanner.COTTAGE);
-        Optional<BuildRecipe> planned = house
-                ? HousePlanner.plan(level, settlement)
-                : WallPlanner.plan(level, settlement);
+        Identifier template = job.recipe().template();
+        Optional<BuildRecipe> planned;
+        if (template.equals(HousePlanner.COTTAGE)) {
+            planned = HousePlanner.plan(level, settlement);
+        } else if (template.equals(RoadPlan.CROSS)) {
+            planned = RoadPlan.plan(level, settlement);
+        } else {
+            planned = WallPlanner.plan(level, settlement);
+        }
         if (planned.isEmpty()) {
             Placitum.LOGGER.debug("Dropping the {} order for '{}': nowhere to put it",
                     job.recipe().template().getPath(), settlement.name());
@@ -78,7 +84,11 @@ public final class ConstructionTick {
         }
         Placitum.LOGGER.info("'{}' queued a {}: {} op(s), {} log(s)", settlement.name(),
                 recipe.template().getPath(), ops.size(), timber);
-        return new BuildJob(job.id(), job.plotId(), recipe, 0, costOf(timber),
+        // A road is dug rather than bought. Charging timber for it would stall the one
+        // thing a settlement has to finish before it can build anything at all.
+        Map<Item, Integer> cost = recipe.template().equals(RoadPlan.CROSS)
+                ? Map.of() : costOf(timber);
+        return new BuildJob(job.id(), job.plotId(), recipe, 0, cost,
                 BuildStage.QUEUED, job.attempts());
     }
 

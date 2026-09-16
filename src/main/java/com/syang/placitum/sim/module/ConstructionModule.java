@@ -163,6 +163,12 @@ public class ConstructionModule implements SimModule {
             registerHouse(settlement, job);
             return;
         }
+        if (job.recipe().template().equals(com.syang.placitum.build.RoadPlan.CROSS)) {
+            settlement.grid = com.syang.placitum.build.RoadPlan.markCells(settlement.grid,
+                    job.recipe());
+            Placitum.LOGGER.info("'{}' finished its crossroads", settlement.identity.name());
+            return;
+        }
         List<BlockPos> ring = BuildPlanner.ringOf(job.recipe());
         settlement.defense = settlement.defense.withWall(
                 new WallState(WallTier.PALISADE, ring, BuildPlanner.gatesOf(job.recipe()),

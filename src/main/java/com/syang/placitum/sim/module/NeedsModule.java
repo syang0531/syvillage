@@ -9,6 +9,8 @@ import com.syang.placitum.data.WallTier;
 import com.syang.placitum.build.HousePlanner;
 import com.syang.placitum.build.WallPlanner;
 import com.syang.placitum.population.Capacity;
+import com.syang.placitum.build.RoadPlan;
+import com.syang.placitum.data.CellState;
 import com.syang.placitum.sim.SimModule;
 import com.syang.placitum.sim.SimParams;
 import com.syang.placitum.store.SettlementMut;
@@ -41,6 +43,16 @@ public class NeedsModule implements SimModule {
         // docs/construction.md: food, housing, defence, production, convenience - except that
         // defence goes first the moment the horn has sounded. Only defence exists so far; the
         // ordering is written out anyway so the next author adds a branch rather than a policy.
+        // Roads first, ahead of even the alarm. Site selection will only put a house beside
+        // one and a settlement founded by hand has none, so without a road nothing else can
+        // ever be sited - and a road is dug rather than bought, so it is the one order a
+        // village of two can actually complete. Defence-first is a rule about walls and
+        // houses; a settlement under permanent alert would otherwise queue a palisade it
+        // cannot pay for and never lay the path that unblocks everything else.
+        if (needsRoad(settlement)) {
+            order(settlement, order(settlement, RoadPlan.CROSS, rng));
+            return;
+        }
         boolean underThreat = settlement.defense.alert() != AlertState.PEACE;
         if (underThreat && needsWall(settlement, params)) {
             order(settlement, order(settlement, WallPlanner.PALISADE, rng));
@@ -84,6 +96,16 @@ public class NeedsModule implements SimModule {
         }
         boolean underThreat = settlement.defense.alert() != AlertState.PEACE;
         return underThreat || settlement.population() >= params.wallMinPopulation();
+    }
+
+    /**
+     * Whether there is anywhere for a road to lead from.
+     *
+     * <p>Once, and only when the grid holds no road at all. An adopted village arrives with
+     * worldgen's paths and never needs this; one somebody founded in an empty field does.
+     */
+    private boolean needsRoad(SettlementMut settlement) {
+        return settlement.grid.countOf(CellState.ROAD) == 0;
     }
 
     /**
