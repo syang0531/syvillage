@@ -101,6 +101,67 @@ class BuildPlannerTest {
     }
 
     @Test
+    @DisplayName("each bed is two halves that agree which way they lie")
+    void bedsArePutTogetherTheRightWayRound() {
+        for (Rotation turn : Rotation.values()) {
+            BuildRecipe recipe = new BuildRecipe(
+                    com.syang.placitum.build.HousePlanner.COTTAGE,
+                    new BlockPos(0, 0, 0), turn,
+                    Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
+                    java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE + 1, 64),
+                    new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
+                    List.of());
+
+            java.util.Map<BlockPos, BuildOp> beds = new java.util.HashMap<>();
+            for (BuildOp op : BuildPlanner.expand(recipe)) {
+                if (op.state().getBlock() instanceof net.minecraft.world.level.block.BedBlock) {
+                    beds.put(op.pos(), op);
+                }
+            }
+            assertEquals(4, beds.size(), "two beds, two blocks each, facing " + turn);
+
+            for (BuildOp op : beds.values()) {
+                if (op.state().getValue(net.minecraft.world.level.block.BedBlock.PART)
+                        != net.minecraft.world.level.block.state.properties.BedPart.FOOT) {
+                    continue;
+                }
+                // FACING points from the foot towards the head. Getting this backwards is how
+                // the last pair ended up as mismatched halves with a villager lying across them.
+                net.minecraft.core.Direction facing = op.state().getValue(
+                        net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
+                BuildOp head = beds.get(op.pos().relative(facing));
+                assertTrue(head != null && head.state().getValue(
+                                net.minecraft.world.level.block.BedBlock.PART)
+                                == net.minecraft.world.level.block.state.properties.BedPart.HEAD,
+                        "the foot at " + op.pos() + " faces " + facing + " and there is no head"
+                                + " there");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("the way in is not blocked by a bed")
+    void theDoorwayIsClear() {
+        BuildRecipe recipe = new BuildRecipe(
+                com.syang.placitum.build.HousePlanner.COTTAGE,
+                new BlockPos(0, 0, 0), Rotation.NONE,
+                Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
+                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE + 1, 64),
+                new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
+                List.of());
+
+        // Door faces north, so the tile just inside it is the middle of the north wall.
+        BlockPos inside = new BlockPos(CottagePlan.SIDE / 2, 65, 1);
+        for (BuildOp op : BuildPlanner.expand(recipe)) {
+            if (op.pos().equals(inside)) {
+                assertTrue(op.state().isAir(),
+                        "the tile inside the door holds " + op.state().getBlock()
+                                + "; the way in has to be walkable");
+            }
+        }
+    }
+
+    @Test
     @DisplayName("the door has something to stand on outside it")
     void thereIsAStepUpToTheDoor() {
         // The floor is laid at the highest ground under the house, so downhill of that the

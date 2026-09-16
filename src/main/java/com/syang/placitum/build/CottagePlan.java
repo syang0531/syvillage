@@ -50,7 +50,15 @@ public final class CottagePlan {
     private static final BlockState WALL = Blocks.OAK_PLANKS.defaultBlockState();
     private static final BlockState FLOOR = Blocks.OAK_PLANKS.defaultBlockState();
     private static final BlockState ROOF = Blocks.OAK_PLANKS.defaultBlockState();
-    private static final BlockState WINDOW = Blocks.GLASS_PANE.defaultBlockState();
+    /**
+     * A block, not a pane.
+     *
+     * <p>A pane works out its own shape from what it is next to, and blocks are written with
+     * UPDATE_KNOWN_SHAPE so that beds and doors cannot destroy themselves mid-build - which also
+     * means a pane never gets asked to connect. It rendered as a bar floating in a hole. A solid
+     * pane of glass needs no neighbours to look like a window.
+     */
+    private static final BlockState WINDOW = Blocks.GLASS.defaultBlockState();
     private static final BlockState FOUNDATION = Blocks.COBBLESTONE.defaultBlockState();
 
     private CottagePlan() {}
@@ -115,7 +123,7 @@ public final class CottagePlan {
         // which is a shape decided by insertion order rather than by anything readable.
         List<BuildOp> fixtures = new ArrayList<>();
         fixtures.addAll(doorway(recipe.anchor(), floor, door));
-        fixtures.addAll(furnish(recipe.anchor(), floor));
+        fixtures.addAll(furnish(recipe.anchor(), floor, door));
         Set<BlockPos> claimed = new HashSet<>();
         for (BuildOp fixture : fixtures) {
             claimed.add(fixture.pos());
@@ -225,8 +233,15 @@ public final class CottagePlan {
             case WEST -> northWest.offset(0, 0, middle);
             default -> northWest.offset(SIDE - 1, 0, middle);
         };
+        // Shut, and both halves hinged the same way. The defaults happen to be right, but a
+        // door built ajar is a hole in the wall all night and neither half may disagree with the
+        // other about which side it swings from.
         BlockState lower = Blocks.OAK_DOOR.defaultBlockState()
                 .setValue(DoorBlock.FACING, door.getOpposite())
+                .setValue(DoorBlock.OPEN, false)
+                .setValue(DoorBlock.POWERED, false)
+                .setValue(DoorBlock.HINGE, net.minecraft.world.level.block.state.properties
+                        .DoorHingeSide.LEFT)
                 .setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER);
         return List.of(
                 new BuildOp(new BlockPos(at.getX(), floor + 1, at.getZ()), lower),
@@ -236,36 +251,86 @@ public final class CottagePlan {
     }
 
     /**
-     * Two beds and a light.
+     * Beds and a light, laid out to a plan rather than to whatever was convenient.
      *
-     * <p>The beds are the entire point: carrying capacity counts beds, so a house without them
-     * is a decoration that cost a settlement its timber. The torch is not decoration either - an
-     * unlit room spawns the things the walls were built to keep out.
+     * <pre>
+     *   w w W w w
+     *   w n B B w
+     *   D n n f W
+     *   w n B B w
+     *   w w W w w
+     * </pre>
+     *
+     * <p>Written with the door on the west and then turned to wherever the door actually is. The
+     * middle row is left clear on purpose: it is the way in, and beds across it would mean
+     * walking over somebody to get through your own front door.
+     *
+     * <p>FACING on a bed points from the foot towards the head. Setting it south and then putting
+     * the head to the north is how the last one ended up as two mismatched halves with a villager
+     * lying across them.
      */
-    private static List<BuildOp> furnish(BlockPos northWest, int floor) {
+    private static List<BuildOp> furnish(BlockPos northWest, int floor, Direction door) {
         List<BuildOp> ops = new ArrayList<>();
         int y = floor + 1;
-        for (int bed = 0; bed < bedCount(); bed++) {
-            int dx = 1 + bed * 2;
-            BlockPos foot = northWest.offset(dx, 0, SIDE - 2);
-            BlockPos head = northWest.offset(dx, 0, SIDE - 3);
-            // Beds are a ColorCollection in 26.2 - Blocks.BED.pick(colour) - rather
-            // than sixteen separate constants.
-            BlockState base = Blocks.BED.pick(net.minecraft.world.item.DyeColor.RED)
+        int turns = turnsFromWest(door);
+
+        for (int dz : new int[] {1, 3}) {
+            BlockPos foot = northWest.offset(0, 0, 0).offset(rotX(2, dz, turns), 0,
+                    rotZ(2, dz, turns));
+            BlockPos head = northWest.offset(rotX(3, dz, turns), 0, rotZ(3, dz, turns));
+            Direction facing = rotate(Direction.EAST, turns);
+            BlockState bed = Blocks.BED.pick(net.minecraft.world.item.DyeColor.RED)
                     .defaultBlockState()
                     .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING,
-                            Direction.SOUTH);
+                            facing);
             ops.add(new BuildOp(new BlockPos(foot.getX(), y, foot.getZ()),
-                    base.setValue(BedBlock.PART, BedPart.FOOT)));
+                    bed.setValue(BedBlock.PART, BedPart.FOOT)));
             ops.add(new BuildOp(new BlockPos(head.getX(), y, head.getZ()),
-                    base.setValue(BedBlock.PART, BedPart.HEAD)));
+                    bed.setValue(BedBlock.PART, BedPart.HEAD)));
         }
-        // Standing on the floor in a corner. A torch in mid-air has nothing to attach to and
-        // pops off as an item the moment the chunk ticks, which leaves the room dark and the
-        // spawning it was meant to prevent happening anyway.
-        ops.add(new BuildOp(new BlockPos(northWest.getX() + 1, y, northWest.getZ() + 1),
+
+        // Standing on the floor, never in mid-air: a torch with nothing under it pops off as an
+        // item and leaves the room dark enough to spawn what the walls are for.
+        BlockPos torch = northWest.offset(rotX(3, 2, turns), 0, rotZ(3, 2, turns));
+        ops.add(new BuildOp(new BlockPos(torch.getX(), y, torch.getZ()),
                 Blocks.TORCH.defaultBlockState()));
         return ops;
+    }
+
+    /** Quarter-turns clockwise that take a west-facing door to this one. */
+    private static int turnsFromWest(Direction door) {
+        return switch (door) {
+            case WEST -> 0;
+            case NORTH -> 1;
+            case EAST -> 2;
+            default -> 3;
+        };
+    }
+
+    private static int rotX(int dx, int dz, int turns) {
+        return switch (turns) {
+            case 1 -> SIDE - 1 - dz;
+            case 2 -> SIDE - 1 - dx;
+            case 3 -> dz;
+            default -> dx;
+        };
+    }
+
+    private static int rotZ(int dx, int dz, int turns) {
+        return switch (turns) {
+            case 1 -> dx;
+            case 2 -> SIDE - 1 - dz;
+            case 3 -> SIDE - 1 - dx;
+            default -> dz;
+        };
+    }
+
+    private static Direction rotate(Direction facing, int turns) {
+        Direction out = facing;
+        for (int i = 0; i < turns; i++) {
+            out = out.getClockWise();
+        }
+        return out;
     }
 
     /** The highest ground under the house. SKIP if none of it could be read. */
