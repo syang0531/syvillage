@@ -31,8 +31,14 @@ public final class FarmPlan {
     public static final Identifier FIELD =
             Identifier.fromNamespaceAndPath(Placitum.MODID, "farm/field");
 
-    /** Same footprint as a cottage, so either fits the same lot. */
-    public static final int SIDE = TownPlan.BUILDING;
+    /**
+     * The whole lot, not the building footprint.
+     *
+     * <p>A house leaves the lot's edge free for eaves and a doorstep. A field has neither and
+     * every block of it feeds somebody, so a field that stopped where a wall would have stood
+     * was throwing away nearly half its area for nothing.
+     */
+    public static final int SIDE = TownPlan.LOT;
 
     private FarmPlan() {}
 
@@ -49,7 +55,7 @@ public final class FarmPlan {
 
     public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement,
             CellPos cell) {
-        BlockPos corner = TownPlan.buildingCorner(cell, settlement.center());
+        BlockPos corner = TownPlan.lotCorner(cell, settlement.center());
         List<Integer> profile = new ArrayList<>();
         for (BlockPos column : footprint(corner)) {
             if (!level.hasChunkAt(column)) {
@@ -71,8 +77,8 @@ public final class FarmPlan {
      * flat to hold water, and cutting down to the low point keeps the water in the field rather
      * than spilling out of it.
      *
-     * <p>Farmland stays hydrated within four blocks and two is the furthest any part of a
-     * five-wide field gets from the middle, so one row of water does the whole thing.
+     * <p>Farmland stays hydrated within four blocks and three is the furthest any part of a
+     * seven-wide field gets from the middle, so one row of water does the whole thing.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Integer> profile = recipe.groundProfile();

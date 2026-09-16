@@ -56,25 +56,6 @@ class GridMapTest {
     }
 
     @Test
-    @DisplayName("the centre cell is centred on the bell, and the grid does not lean")
-    void theGridIsCentred() {
-        PlotGrid grid = PlotGrid.empty(new BlockPos(100, 64, -200), 21);
-        CellPos centre = new CellPos(0, 0);
-
-        BlockPos nw = grid.blockAt(centre);
-        assertTrue(nw.getX() < 100 && nw.getX() + PlotGrid.CELL_BLOCKS > 100,
-                "the bell has to be inside its own cell, not on its corner: " + nw);
-        assertEquals(100, grid.centreOf(centre).getX());
-        assertEquals(-200, grid.centreOf(centre).getZ());
-
-        // Reach in each direction, which must not differ by a whole cell.
-        int west = 100 - grid.blockAt(new CellPos(-10, 0)).getX();
-        int east = grid.blockAt(new CellPos(10, 0)).getX() + PlotGrid.CELL_BLOCKS - 1 - 100;
-        assertTrue(Math.abs(west - east) <= 1,
-                "a grid that reaches " + west + " west and " + east + " east is not centred");
-    }
-
-    @Test
     @DisplayName("the survey may overturn its own verdict, never the player one")
     void onlyThePlayerVetoIsFrozen() {
         assertTrue(GridSurvey.isFrozen(CellState.FORBIDDEN),
@@ -135,11 +116,11 @@ class GridMapTest {
         // plus the centre. The tier has nothing to say about it: a village vanilla built is the
         // size it is whether two people live in it or twenty. The count is derived rather than
         // written down, because the cell is the town plan's period and that has changed once.
-        int cellsEachWay = (5 * 16 + PlotGrid.CELL_BLOCKS - 1) / PlotGrid.CELL_BLOCKS;
+        int cellsEachWay = (5 * 16 + PlotGrid.LOT_STRIDE - 1) / PlotGrid.LOT_STRIDE;
         assertEquals(cellsEachWay * 2 + 1, PlotGrid.sizeForClaim(5));
-        assertEquals(5, PlotGrid.sizeForClaim(1), "one chunk is 16 blocks, so two cells each way");
+        assertEquals(5, PlotGrid.sizeForClaim(1), "one chunk is 16 blocks, so two lots each way");
 
-        int side = PlotGrid.sizeForClaim(5) * PlotGrid.CELL_BLOCKS;
+        int side = PlotGrid.sizeForClaim(5) * PlotGrid.LOT_STRIDE;
         assertTrue(side >= 5 * 16 * 2,
                 "a grid that does not reach the edge of the claim leaves ground unmapped: "
                         + side);

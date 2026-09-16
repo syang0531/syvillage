@@ -236,16 +236,15 @@ public final class PlacitumConfig {
         b.pop();
 
         b.comment("Construction. See docs/construction.md.").push("construction");
-        MAX_CELL_SLOPE = b.comment("Height difference across an 8-block cell before it is judged",
-                        "unbuildable. Raising it means more terracing and more flattening, which",
-                        "reads as griefing; lowering it means a hillside village never grows.",
+        MAX_CELL_SLOPE = b.comment("Blocks of relief a lot may have and still be built on.",
+                        "0 means dead flat. Above it the settlement waits instead, because the",
+                        "alternative is cutting the terrain, and a mod that reshapes a hillside",
+                        "to suit itself reads as griefing.",
                         "",
-                        "4 matches the wall terrain rules in docs/construction.md, which step up",
-                        "1-2, run a vertical segment at 3-4, and give up at 5. A site rule",
-                        "stricter than the wall rule refuses ground the walls would have crossed.",
-                        "Measured on a terraced hilltop village: 3 left 226 of 441 cells free,",
-                        "4 left 273, and the gain flattens out after 5.")
-                .defineInRange("maxCellSlope", 4, 0, 32);
+                        "Waiting is not giving up: level a lot by hand and the next pass builds",
+                        "on it, which is a better way to steer a village than any command. It was",
+                        "4, and houses went up on ground nobody would call flat.")
+                .defineInRange("maxCellSlope", 0, 0, 16);
         SURVEY_SCAN_HEIGHT = b.comment("How far above the surface a cell survey looks for existing",
                         "buildings. Too low and it misses a house's walls while seeing its floor.")
                 .defineInRange("surveyScanHeight", 6, 1, 64);

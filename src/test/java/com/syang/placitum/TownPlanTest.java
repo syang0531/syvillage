@@ -11,8 +11,10 @@ import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.PlotKind;
 import com.syang.placitum.data.Settlement;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
@@ -43,13 +45,19 @@ class TownPlanTest {
     @Test
     @DisplayName("road, margin and lot divide the period with nothing left over")
     void thePeriodIsExactlyAccountedFor() {
-        assertEquals(TownPlan.PERIOD, TownPlan.ROAD + TownPlan.MARGIN * 2 + TownPlan.LOT,
+        assertEquals(20, TownPlan.PERIOD,
+                "road 3 + (margin 1 + lot 7) twice + the last margin 1");
+        assertEquals(TownPlan.PERIOD,
+                TownPlan.ROAD + TownPlan.LOTS_PER_BLOCK * (TownPlan.MARGIN + TownPlan.LOT)
+                        + TownPlan.MARGIN,
                 "a period that does not add up leaves a strip of ground with no rule for it");
-        assertEquals(PlotGrid.CELL_BLOCKS, TownPlan.PERIOD,
-                "a cell of the grid and a cell of the plan have to be the same square");
+        assertEquals(PlotGrid.LOT_STRIDE, TownPlan.LOT_STRIDE,
+                "the grid sizes itself in lots, so it has to agree with how densely the plan"
+                        + " puts them down");
 
         int road = 0;
         int margin = 0;
+        int lot = 0;
         for (int v = 0; v < TownPlan.PERIOD; v++) {
             int x = BELL.getX() + v;
             if (TownPlan.isRoad(x, BELL.getX())) {
@@ -58,10 +66,54 @@ class TownPlanTest {
                         "no column can be road and margin at once: " + v);
             } else if (TownPlan.isMargin(x, BELL.getX())) {
                 margin++;
+            } else {
+                lot++;
             }
         }
         assertEquals(TownPlan.ROAD, road);
-        assertEquals(TownPlan.MARGIN * 2, margin);
+        assertEquals(TownPlan.LOTS_PER_BLOCK + 1, margin,
+                "a margin before each lot and one after the last: three to a period");
+        assertEquals(TownPlan.LOTS_PER_BLOCK * TownPlan.LOT, lot,
+                "two lots between one road and the next");
+    }
+
+    @Test
+    @DisplayName("a city block holds four lots and nine lamps")
+    void aBlockHoldsFourLots() {
+        // What the screenshot showed and the first version of the plan got wrong: the period is
+        // not one lot wide. A road every twelve blocks is a car park with houses in it.
+        Set<CellPos> lots = new LinkedHashSet<>();
+        int lamps = 0;
+        for (int dz = 0; dz < TownPlan.PERIOD; dz++) {
+            for (int dx = 0; dx < TownPlan.PERIOD; dx++) {
+                BlockPos pos = BELL.offset(dx, 0, dz);
+                if (TownPlan.isLampPost(pos, BELL)) {
+                    lamps++;
+                }
+                if (insideSomeLot(pos)) {
+                    lots.add(TownPlan.cellAt(pos, BELL));
+                }
+            }
+        }
+        assertEquals(4, lots.size(), "four lots to a block: " + lots);
+        assertEquals(9, lamps, "nine lamps round them: " + lamps);
+    }
+
+    @Test
+    @DisplayName("the lots either side of the bell are the same distance from it")
+    void thePlanIsSymmetricAboutTheBell() {
+        // Lot 0 and lot -1 are the two against the bell's crossroads. If they are not mirror
+        // images the whole town leans, and every ring after them leans further.
+        BlockPos east = TownPlan.lotCorner(new CellPos(0, 0), BELL);
+        BlockPos west = TownPlan.lotCorner(new CellPos(-1, -1), BELL);
+
+        assertEquals(east.getX() - BELL.getX(), BELL.getX() - (west.getX() + TownPlan.LOT - 1),
+                "lot 0 starts as far east of the bell as lot -1 ends west of it");
+        assertEquals(0, TownPlan.ring(new CellPos(-1, -1)),
+                "the four lots touching the bell's crossroads are all ring 0");
+        assertEquals(0, TownPlan.ring(new CellPos(0, 0)));
+        assertEquals(1, TownPlan.ring(new CellPos(-2, 0)));
+        assertEquals(1, TownPlan.ring(new CellPos(1, 0)));
     }
 
     @Test
@@ -94,7 +146,8 @@ class TownPlanTest {
                 assertFalse(insideSomeLot(pos), "lamp on a building lot at " + pos);
             }
         }
-        assertEquals(4, posts, "one at each corner of the lot, and no more: " + posts);
+        assertEquals(9, posts, "nine to a city block, at the corners of its four lots: "
+                + posts);
     }
 
     @Test
@@ -141,11 +194,13 @@ class TownPlanTest {
     @DisplayName("the nearest lots are offered first")
     void cellsComeInRingOrder() {
         List<CellPos> cells = TownPlan.cells(withPlotsAt(new CellPos(2, 0)));
-        assertEquals(new CellPos(0, 0), cells.getFirst(), "the bell's own cell comes first");
+        assertEquals(0, TownPlan.ring(cells.getFirst()),
+                "a lot against the bell comes first, not one out on the edge: "
+                        + cells.getFirst().toKey());
 
         int ring = 0;
         for (CellPos cell : cells) {
-            int here = Math.max(Math.abs(cell.gx()), Math.abs(cell.gz()));
+            int here = TownPlan.ring(cell);
             assertTrue(here >= ring, "ring " + here + " came after ring " + ring);
             ring = here;
         }
@@ -159,8 +214,9 @@ class TownPlanTest {
         assertEquals(1, TownPlan.radius(withPlotsAt()),
                 "a settlement that has built nothing still needs the street round its own bell");
         assertEquals(2, TownPlan.radius(withPlotsAt(new CellPos(1, 0))));
-        assertEquals(4, TownPlan.radius(withPlotsAt(new CellPos(1, 0), new CellPos(-3, 2))),
-                "measured from the outermost plot, whichever direction it is in");
+        assertEquals(3, TownPlan.radius(withPlotsAt(new CellPos(1, 0), new CellPos(-3, 2))),
+                "measured from the outermost plot, whichever direction it is in - and lot -3"
+                        + " is ring 2, so the plan reaches ring 3");
 
         assertTrue(TownPlan.reachBlocks(withPlotsAt(new CellPos(1, 0)))
                         > TownPlan.reachBlocks(withPlotsAt()),

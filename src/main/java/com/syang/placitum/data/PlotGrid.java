@@ -10,24 +10,25 @@ import java.util.Map;
 import net.minecraft.core.BlockPos;
 
 /**
- * The 8-block cell grid a settlement builds on.
+ * What the settlement knows about each lot of the town plan.
  *
- * <p>Not aligned to chunks: chunk alignment wastes the space that straddles a boundary and
- * makes settlements grow in chunk-shaped blocks. See docs/construction.md.
+ * <p>A cell is a lot, not a square of ground: the plan decides where lots are, and the grid only
+ * remembers what was found on them. It used to own the geometry as well, with a cell size that
+ * had to agree with the plan's period - two calculations for "which cell is this" that agreed
+ * most of the time.
  *
- * <p>Cell states are stored, never rescanned. Rescanning would need the chunks loaded, which
- * breaks principle 2.
+ * <p>Cell states are stored, never rescanned on demand. Rescanning needs loaded chunks.
  */
 public record PlotGrid(BlockPos origin, int size, Map<CellPos, CellState> cells) {
 
     /**
-     * One cell of the town plan: a road, a margin, a lot, a margin.
+     * Blocks from one lot to the next, averaged.
      *
-     * <p>Twelve rather than eight because the grid and the plan have to be the same square. When
-     * they were not, "which cell is this" and "where does a house go" were two different
-     * calculations that agreed most of the time.
+     * <p>Only ever used to work out how many lots fit across a claim. The lots themselves are
+     * not evenly spaced - eight blocks apart inside a city block, twelve across a road - so this
+     * is a density, not a position. Positions come from the plan.
      */
-    public static final int CELL_BLOCKS = 12;
+    public static final int LOT_STRIDE = 10;
 
     public static final Codec<PlotGrid> CODEC = RecordCodecBuilder.create(i -> i.group(
             BlockPos.CODEC.fieldOf("origin").forGetter(PlotGrid::origin),
@@ -63,7 +64,7 @@ public record PlotGrid(BlockPos origin, int size, Map<CellPos, CellState> cells)
      */
     public static int sizeForClaim(int claimRadiusChunks) {
         int radiusBlocks = claimRadiusChunks * 16;
-        int radiusCells = (radiusBlocks + CELL_BLOCKS - 1) / CELL_BLOCKS;
+        int radiusCells = (radiusBlocks + LOT_STRIDE - 1) / LOT_STRIDE;
         return radiusCells * 2 + 1;
     }
 
@@ -90,32 +91,6 @@ public record PlotGrid(BlockPos origin, int size, Map<CellPos, CellState> cells)
         Map<CellPos, CellState> next = new LinkedHashMap<>(cells);
         next.put(pos, state);
         return new PlotGrid(origin, size, next);
-    }
-
-    /**
-     * World position of a cell north-west corner.
-     *
-     * <p>Shifted half a cell so that cell (0,0) is centred on the origin rather than starting
-     * at it. Without the shift the bell sits on the corner of the middle cell and the grid
-     * leans one cell east and south - 21 cells reached 80 blocks west but 87 east, which is not
-     * what "centred on the bell" means and not how a settlement should grow.
-     */
-    public BlockPos blockAt(CellPos pos) {
-        int half = CELL_BLOCKS / 2;
-        return origin.offset(pos.gx() * CELL_BLOCKS - half, 0, pos.gz() * CELL_BLOCKS - half);
-    }
-
-    /** Which cell a world position falls in. The inverse of {@link #blockAt}. */
-    public CellPos cellAt(BlockPos pos) {
-        int half = CELL_BLOCKS / 2;
-        return new CellPos(
-                Math.floorDiv(pos.getX() - origin.getX() + half, CELL_BLOCKS),
-                Math.floorDiv(pos.getZ() - origin.getZ() + half, CELL_BLOCKS));
-    }
-
-    /** Centre of a cell, which is what site selection measures distances between. */
-    public BlockPos centreOf(CellPos pos) {
-        return blockAt(pos).offset(CELL_BLOCKS / 2, 0, CELL_BLOCKS / 2);
     }
 
     public int countOf(CellState state) {

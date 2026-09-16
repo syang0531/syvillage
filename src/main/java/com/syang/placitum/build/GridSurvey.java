@@ -29,11 +29,11 @@ import net.minecraft.world.level.levelgen.Heightmap;
 public final class GridSurvey {
 
     /**
-     * Every other block, in both axes: sixteen columns a cell.
+     * Every other block, in both axes.
      *
-     * <p>Not a balance number, a precision one. Every column would be four times the cost to
-     * tell apart cases that differ by a single block, and a one-block feature is not what
-     * decides whether a house fits.
+     * <p>This is the map, not the decision. What actually gates a building is
+     * {@link Lots#verdict}, which reads every column of the lot - the survey is for the player's
+     * benefit and for narrowing where to look.
      */
     private static final int SAMPLE_STRIDE = 2;
 
@@ -90,9 +90,9 @@ public final class GridSurvey {
         for (int gz = -radius; gz <= radius; gz++) {
             for (int gx = -radius; gx <= radius; gx++) {
                 CellPos cell = new CellPos(gx, gz);
-                BlockPos nw = grid.blockAt(cell);
-                int east = nw.getX() + PlotGrid.CELL_BLOCKS - 1;
-                int south = nw.getZ() + PlotGrid.CELL_BLOCKS - 1;
+                BlockPos nw = TownPlan.lotCorner(cell, grid.origin());
+                int east = nw.getX() + TownPlan.LOT - 1;
+                int south = nw.getZ() + TownPlan.LOT - 1;
 
                 if (!level.hasChunksAt(nw.getX(), nw.getZ(), east, south)) {
                     skipped++;
@@ -188,8 +188,8 @@ public final class GridSurvey {
         boolean built = false;
         boolean road = false;
 
-        for (int dx = 0; dx < PlotGrid.CELL_BLOCKS; dx += SAMPLE_STRIDE) {
-            for (int dz = 0; dz < PlotGrid.CELL_BLOCKS; dz += SAMPLE_STRIDE) {
+        for (int dx = 0; dx < TownPlan.LOT; dx += SAMPLE_STRIDE) {
+            for (int dz = 0; dz < TownPlan.LOT; dz += SAMPLE_STRIDE) {
                 int x = nw.getX() + dx;
                 int z = nw.getZ() + dz;
                 int surface = groundAt(level, x, z);
@@ -235,7 +235,7 @@ public final class GridSurvey {
     }
 
     /**
-     * Ground height for a wall column, or {@link WallGeometry#SKIP} where it stands in water.
+     * Ground height for a wall column, or {@link Ground#SKIP} where it stands in water.
      *
      * <p>Shares {@link #groundAt} with the survey on purpose. A wall that decided where the
      * ground was by different rules than the survey that judged the site buildable would put

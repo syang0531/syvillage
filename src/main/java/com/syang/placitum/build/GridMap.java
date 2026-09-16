@@ -32,10 +32,10 @@ public final class GridMap {
         int radius = (grid.size() - 1) / 2;
         List<Component> lines = new ArrayList<>();
 
-        int side = grid.size() * PlotGrid.CELL_BLOCKS;
+        int side = grid.size() * PlotGrid.LOT_STRIDE;
         lines.add(Component.literal(settlement.name() + " - plot grid "
                         + grid.size() + "x" + grid.size() + " cells of "
-                        + PlotGrid.CELL_BLOCKS + "x" + PlotGrid.CELL_BLOCKS + " blocks"
+                        + TownPlan.LOT + "x" + TownPlan.LOT + " lots"
                         + " = " + side + "x" + side + " blocks, centred on "
                         + grid.origin().toShortString())
                 .withStyle(ChatFormatting.GOLD));

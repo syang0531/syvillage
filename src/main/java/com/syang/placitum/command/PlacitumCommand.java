@@ -280,7 +280,8 @@ public final class PlacitumCommand {
                 block ? CellState.FORBIDDEN : CellState.FREE)));
         source.sendSuccess(() -> Component.literal((block ? "Blocked " : "Unblocked ")
                 + cell.toKey() + " - world position "
-                + settlement.grid().blockAt(cell).toShortString()), true);
+                + com.syang.placitum.build.TownPlan.lotCorner(cell, settlement.center())
+                        .toShortString()), true);
         return 1;
     }
 
