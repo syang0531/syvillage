@@ -134,6 +134,12 @@ public record Settlement(
                 pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
     }
 
+    public Settlement withPlots(Map<UUID, Plot> newPlots) {
+        return new Settlement(identity, scaleState, residents, newPlots, grid, stock,
+                buildQueue, pendingOps, defense, anchors, chronicle, clock, ruler,
+                parentId, forceLoadCore);
+    }
+
     public Settlement withGrid(PlotGrid newGrid) {
         return new Settlement(identity, scaleState, residents, plots, newGrid, stock, buildQueue,
                 pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
@@ -243,10 +249,19 @@ public record Settlement(
      * be zero in every settlement and no child would ever be born.
      */
     public int bedCount() {
-        int n = 0;
+        int built = 0;
         for (Plot p : plots.values()) {
-            n += p.bedCount();
+            built += p.bedCount();
         }
-        return n > 0 ? n : anchors.bedCount();
+        // The larger of the two, never one instead of the other. Preferring plots meant the
+        // first cottage a village ever built erased the beds it was adopted with: five became
+        // two, capacity fell, and the settlement answered by building another house - a growth
+        // loop running backwards.
+        //
+        // Not the sum, either. The anchor scan reads beds from the world as POIs, so once a
+        // cottage has actually been placed its beds are in both counts. Taking the larger
+        // undercounts a house built virtually and not yet replayed, which is right: those beds
+        // are not in the world for anyone to sleep in yet.
+        return Math.max(built, anchors.bedCount());
     }
 }

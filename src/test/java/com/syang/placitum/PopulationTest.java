@@ -64,6 +64,28 @@ class PopulationTest {
     }
 
     @Test
+    @DisplayName("building a house never makes the village smaller")
+    void aNewPlotCannotLowerCapacity() {
+        // Preferring plots over anchors meant the first cottage erased the beds the village was
+        // adopted with - five became two, capacity fell, and the settlement answered by
+        // building another house. The loop ran backwards.
+        Settlement adopted = SettlementFixture.adopted(6, 5, Map.of());
+        int before = adopted.bedCount();
+        assertEquals(5, before, "premise: this village came with five beds");
+
+        Settlement withCottage = adopted.withPlots(Map.of(SettlementFixture.id(500),
+                new com.syang.placitum.data.Plot(SettlementFixture.id(500),
+                        new com.syang.placitum.data.CellPos(1, 0), 1, 1,
+                        net.minecraft.world.level.block.Rotation.NONE,
+                        com.syang.placitum.build.HousePlanner.COTTAGE,
+                        com.syang.placitum.data.PlotKind.HOUSE, 2, List.of())));
+
+        assertTrue(withCottage.bedCount() >= before,
+                "a house with two beds cannot leave a five-bed village with two: "
+                        + withCottage.bedCount());
+    }
+
+    @Test
     @DisplayName("idle residents are put to the work the settlement is short of")
     void idleResidentsAreEmployed() {
         // Nothing is ever a woodcutter or a builder otherwise: neither job has a vanilla
