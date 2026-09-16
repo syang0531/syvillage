@@ -10,6 +10,13 @@ import com.syang.placitum.data.Resident;
 import com.syang.placitum.data.WallState;
 import com.syang.placitum.data.WallTier;
 import net.minecraft.core.BlockPos;
+import com.syang.placitum.build.CottagePlan;
+import com.syang.placitum.build.HousePlanner;
+import com.syang.placitum.data.CellPos;
+import com.syang.placitum.data.CellState;
+import com.syang.placitum.data.Plot;
+import com.syang.placitum.data.PlotKind;
+import java.util.UUID;
 import com.syang.placitum.sim.SimModule;
 import com.syang.placitum.sim.SimParams;
 import com.syang.placitum.store.SettlementMut;
@@ -152,10 +159,33 @@ public class ConstructionModule implements SimModule {
      * and the thing that decides whether to build is looking at exactly that trace.
      */
     private void complete(SettlementMut settlement, BuildJob job) {
+        if (job.recipe().template().equals(HousePlanner.COTTAGE)) {
+            registerHouse(settlement, job);
+            return;
+        }
         List<BlockPos> ring = BuildPlanner.ringOf(job.recipe());
         settlement.defense = settlement.defense.withWall(
                 new WallState(WallTier.PALISADE, ring, BuildPlanner.gatesOf(job.recipe()),
                         true));
+    }
+
+    /**
+     * Puts a finished cottage on the books.
+     *
+     * <p>The plot is what carrying capacity counts - {@code bedCount()} reads plots, not the
+     * world - so a house that is built and not registered raises capacity by nothing and the
+     * settlement immediately orders another one. The cell goes to BUILT for the same reason the
+     * plot exists: the next site search has to know this ground is taken.
+     */
+    private void registerHouse(SettlementMut settlement, BuildJob job) {
+        CellPos cell = settlement.grid.cellAt(job.recipe().anchor());
+        UUID plotId = UUID.nameUUIDFromBytes(("plot:" + job.id()).getBytes(
+                java.nio.charset.StandardCharsets.UTF_8));
+        settlement.plots.put(plotId, new Plot(plotId, cell, 1, 1, job.recipe().rotation(),
+                job.recipe().template(), PlotKind.HOUSE, CottagePlan.bedCount(), List.of()));
+        settlement.grid = settlement.grid.with(cell, CellState.BUILT);
+        Placitum.LOGGER.info("'{}' finished a house on cell {}: {} more bed(s)",
+                settlement.identity.name(), cell.toKey(), CottagePlan.bedCount());
     }
 
     /**

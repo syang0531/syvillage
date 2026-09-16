@@ -6,6 +6,9 @@ import com.syang.placitum.data.BuildJob;
 import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.BuildStage;
 import com.syang.placitum.data.WallTier;
+import com.syang.placitum.build.HousePlanner;
+import com.syang.placitum.build.WallPlanner;
+import com.syang.placitum.population.Capacity;
 import com.syang.placitum.sim.SimModule;
 import com.syang.placitum.sim.SimParams;
 import com.syang.placitum.store.SettlementMut;
@@ -38,8 +41,17 @@ public class NeedsModule implements SimModule {
         // docs/construction.md: food, housing, defence, production, convenience - except that
         // defence goes first the moment the horn has sounded. Only defence exists so far; the
         // ordering is written out anyway so the next author adds a branch rather than a policy.
+        boolean underThreat = settlement.defense.alert() != AlertState.PEACE;
+        if (underThreat && needsWall(settlement, params)) {
+            order(settlement, order(settlement, WallPlanner.PALISADE, rng));
+            return;
+        }
+        if (needsHouse(settlement, params)) {
+            order(settlement, order(settlement, HousePlanner.COTTAGE, rng));
+            return;
+        }
         if (needsWall(settlement, params)) {
-            order(settlement, wallOrder(settlement));
+            order(settlement, order(settlement, WallPlanner.PALISADE, rng));
         }
     }
 
@@ -75,6 +87,20 @@ public class NeedsModule implements SimModule {
     }
 
     /**
+     * Whether the settlement is short of somewhere to sleep.
+     *
+     * <p>Beds are the first thing docs/population.md counts, and a settlement at its bed limit
+     * has stopped growing outright. Ordered one house ahead of the need rather than in response
+     * to it - building takes days, and a village that waits until it is full has already spent
+     * those days not growing.
+     */
+    private boolean needsHouse(SettlementMut settlement, SimParams params) {
+        Capacity capacity = Capacity.of(settlement.freezeView(), params);
+        return capacity.bottleneck() == Capacity.Bottleneck.BEDS
+                && settlement.population() + 1 >= capacity.value();
+    }
+
+    /**
      * The order, with no recipe in it yet.
      *
      * <p>PLANNED means "somebody has to look at the ground first". The recipe cannot be frozen
@@ -83,12 +109,18 @@ public class NeedsModule implements SimModule {
      * player walks in, which is the same bargain every other world-reading task in this mod
      * makes.
      */
-    private BuildJob wallOrder(SettlementMut settlement) {
+    private BuildJob order(SettlementMut settlement, Identifier template,
+            RandomSource rng) {
+        // From the module's own stream, never UUID.randomUUID(). Principle 3 is not a
+        // style rule: a random id here made catchUp(1000) and catchUp(100 x 10) encode
+        // differently, so two players on different hardware would get different worlds.
+        // It went unnoticed while walls were the only thing ordered and the equivalence
+        // test caught it the moment houses were.
         return new BuildJob(
-                UUID.randomUUID(),
+                new UUID(rng.nextLong(), rng.nextLong()),
                 settlement.identity.id(),
                 new BuildRecipe(
-                        Identifier.fromNamespaceAndPath(Placitum.MODID, "wall/palisade"),
+                        template,
                         settlement.identity.center(),
                         Rotation.NONE,
                         Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),

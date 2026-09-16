@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.placitum.build.BuildPlanner;
+import com.syang.placitum.build.CottagePlan;
 import com.syang.placitum.build.WallGeometry;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.WallState;
@@ -70,6 +71,47 @@ class BuildPlannerTest {
             out.add(y);
         }
         return out;
+    }
+
+    @Test
+    @DisplayName("a cottage has beds in it, and a way in and out")
+    void cottageIsHabitable() {
+        BuildRecipe recipe = new BuildRecipe(
+                com.syang.placitum.build.HousePlanner.COTTAGE,
+                new BlockPos(0, 0, 0), Rotation.NONE,
+                Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
+                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE, 64),
+                new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
+                List.of());
+
+        List<BuildOp> ops = BuildPlanner.expand(recipe);
+        int beds = 0;
+        int doors = 0;
+        for (BuildOp op : ops) {
+            if (op.state().getBlock() instanceof net.minecraft.world.level.block.BedBlock) {
+                beds++;
+            }
+            if (op.state().getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
+                doors++;
+            }
+        }
+        // Two blocks a bed, two halves a door. Capacity counts beds, so a house without them is
+        // a decoration that cost the settlement its timber.
+        assertEquals(CottagePlan.bedCount() * 2, beds);
+        assertEquals(2, doors, "a house with no door is a box the residents cannot get into");
+    }
+
+    @Test
+    @DisplayName("a cottage expands the same way every time")
+    void cottageExpansionIsPure() {
+        BuildRecipe recipe = new BuildRecipe(
+                com.syang.placitum.build.HousePlanner.COTTAGE,
+                new BlockPos(10, 0, -4), Rotation.CLOCKWISE_90,
+                Identifier.fromNamespaceAndPath("placitum", "biome_palette/plains"),
+                java.util.Collections.nCopies(CottagePlan.SIDE * CottagePlan.SIDE, 70),
+                new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
+                List.of());
+        assertEquals(BuildPlanner.expand(recipe), BuildPlanner.expand(recipe));
     }
 
     @Test
@@ -180,14 +222,16 @@ class BuildPlannerTest {
                 SettlementFixture.full(4, com.syang.placitum.data.ResidentState.VIRTUAL)
                         .withBuildQueue(List.of(done)),
                 SimParams.defaults(), SettlementFixture.START_TICK + 2000);
-        assertEquals(1, virtualStill.buildQueue().size(),
+        assertTrue(virtualStill.buildQueue().stream()
+                        .anyMatch(j -> j.stage() == com.syang.placitum.data.BuildStage.COMPLETE),
                 "nobody has been there to put the blocks down, so the job has to wait");
 
         Settlement embodied = Simulation.catchUp(SettlementFixture.SEED,
                 SettlementFixture.full(4, com.syang.placitum.data.ResidentState.MATERIALIZED)
                         .withBuildQueue(List.of(done)),
                 SimParams.defaults(), SettlementFixture.START_TICK + 2000);
-        assertTrue(embodied.buildQueue().isEmpty(),
+        assertTrue(embodied.buildQueue().stream()
+                        .noneMatch(j -> j.stage() == com.syang.placitum.data.BuildStage.COMPLETE),
                 "with bodies present the blocks are down, and a finished job kept for ever is a"
                         + " queue that never empties");
     }

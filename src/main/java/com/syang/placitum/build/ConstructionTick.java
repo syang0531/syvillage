@@ -54,10 +54,13 @@ public final class ConstructionTick {
 
     /** Null drops the job: there was nothing there to build. */
     private static BuildJob freeze(ServerLevel level, Settlement settlement, BuildJob job) {
-        Optional<BuildRecipe> planned = WallPlanner.plan(level, settlement);
+        boolean house = job.recipe().template().equals(HousePlanner.COTTAGE);
+        Optional<BuildRecipe> planned = house
+                ? HousePlanner.plan(level, settlement)
+                : WallPlanner.plan(level, settlement);
         if (planned.isEmpty()) {
-            Placitum.LOGGER.debug("Dropping the wall order for '{}': nothing to enclose",
-                    settlement.name());
+            Placitum.LOGGER.debug("Dropping the {} order for '{}': nowhere to put it",
+                    job.recipe().template().getPath(), settlement.name());
             return null;
         }
         BuildRecipe recipe = planned.get();

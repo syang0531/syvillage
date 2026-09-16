@@ -52,6 +52,13 @@ public final class BuildPlanner {
      * and got wrong.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
+        if (recipe.template().equals(HousePlanner.COTTAGE)) {
+            return CottagePlan.expand(recipe);
+        }
+        return expandWall(recipe);
+    }
+
+    private static List<BuildOp> expandWall(BuildRecipe recipe) {
         List<Integer> profile = recipe.groundProfile();
         WallGeometry.Box box = new WallGeometry.Box(
                 recipe.anchor(), recipe.width(), recipe.depth());
