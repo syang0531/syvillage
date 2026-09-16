@@ -247,6 +247,28 @@ public final class GridSurvey {
         return top.getFluidState().isEmpty() ? y : WallGeometry.SKIP;
     }
 
+    /**
+     * Whether somebody has already built on this column.
+     *
+     * <p>{@link #groundAt} walks down past logs and undergrowth, and a plank roof is neither, so
+     * a finished house reads back as ground at roof height. A site chosen on that reading gets a
+     * second house built on the first one's roof - which is precisely what happened, and what a
+     * twelve-block plank wall in a screenshot turned out to be.
+     *
+     * <p>Cheaper than teaching groundAt to see through buildings, and more honest: the ground
+     * under a house genuinely is not available, whatever height it is at.
+     */
+    public static boolean builtOn(ServerLevel level, int x, int z) {
+        int ground = groundAt(level, x, z);
+        int scanHeight = PlacitumConfig.SURVEY_SCAN_HEIGHT.get();
+        for (int dy = 0; dy <= scanHeight; dy++) {
+            if (isBuilt(level.getBlockState(new BlockPos(x, ground + dy, z)))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Things that stand on the ground without being it. */
     private static boolean isGrowth(BlockState state) {
         return state.is(BlockTags.LOGS)

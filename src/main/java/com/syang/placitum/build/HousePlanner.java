@@ -91,9 +91,18 @@ public final class HousePlanner {
         BlockPos northWest = settlement.grid().blockAt(site.get());
         List<Integer> profile = new ArrayList<>();
         for (BlockPos column : CottagePlan.footprint(northWest)) {
-            profile.add(level.hasChunkAt(column)
-                    ? GridSurvey.groundOrSkip(level, column.getX(), column.getZ())
-                    : WallGeometry.SKIP);
+            if (!level.hasChunkAt(column)) {
+                profile.add(WallGeometry.SKIP);
+                continue;
+            }
+            // The grid said this cell was free and the world is the one that knows. A roof
+            // reads as ground, so without this the second house goes on top of the first.
+            if (GridSurvey.builtOn(level, column.getX(), column.getZ())) {
+                Placitum.LOGGER.debug("No house for '{}': cell {} already has something on it",
+                        settlement.name(), site.get().toKey());
+                return Optional.empty();
+            }
+            profile.add(GridSurvey.groundOrSkip(level, column.getX(), column.getZ()));
         }
         if (unreadable(profile)) {
             Placitum.LOGGER.debug("No house for '{}': the site at {} could not be read",

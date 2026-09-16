@@ -1117,7 +1117,8 @@ public final class PlacitumCommand {
         int forgotten = 0;
         for (var entry : settlement.plots().entrySet()) {
             if (entry.getValue().kind() == com.syang.placitum.data.PlotKind.HOUSE) {
-                grid = grid.with(entry.getValue().anchor(), CellState.FREE);
+                // The cell stays BUILT, because the house is still standing on it. Freeing it
+                // invited the settlement to build a second house on the first one's roof.
                 forgotten++;
             } else {
                 kept.put(entry.getKey(), entry.getValue());
