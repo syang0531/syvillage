@@ -5,6 +5,7 @@ import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.CellState;
 import com.syang.placitum.data.CellPos;
+import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.WallTier;
 import java.util.ArrayList;
@@ -104,13 +105,22 @@ public final class WallPlanner {
      */
     private static List<Integer> chooseGates(Settlement settlement, WallGeometry.Box box,
             List<BlockPos> ring, List<Integer> profile) {
+        // Looking only at the cell under the ring finds almost nothing, and the reason is the
+        // margin: the ring is deliberately a cell or two outside everything built, so it stands
+        // on empty ground while the road stops just short of it. Measured on a real village
+        // that was one gate in a ring of 538 posts.
+        //
+        // So look inward as well, as far as the margin reaches. A road that runs out at the
+        // edge of the village is a road that wants to leave it.
+        int reachIn = PlacitumConfig.WALL_MARGIN_CELLS.get() + 1;
+        BlockPos centre = settlement.center();
         List<Integer> onRoad = new ArrayList<>();
+
         for (int i = 0; i < ring.size(); i++) {
             if (profile.get(i) == WallGeometry.SKIP) {
                 continue;
             }
-            CellPos cell = settlement.grid().cellAt(ring.get(i));
-            if (settlement.grid().stateAt(cell) == CellState.ROAD) {
+            if (roadWithin(settlement, ring.get(i), centre, reachIn)) {
                 onRoad.add(i);
             }
         }
@@ -138,6 +148,32 @@ public final class WallPlanner {
             }
         }
         return List.copyOf(gates);
+    }
+
+    /**
+     * Whether a road reaches this stretch of wall from inside.
+     *
+     * <p>Steps from the ring position towards the settlement centre, a cell at a time. Towards
+     * the centre and not in every direction, because a road outside the wall is a road going
+     * somewhere else, and cutting a gate for it opens the village to a path it does not use.
+     */
+    private static boolean roadWithin(Settlement settlement, BlockPos onRing, BlockPos centre,
+            int cells) {
+        double dx = centre.getX() - onRing.getX();
+        double dz = centre.getZ() - onRing.getZ();
+        double length = Math.sqrt(dx * dx + dz * dz);
+        if (length < 1.0) {
+            return false;
+        }
+        for (int step = 0; step <= cells; step++) {
+            int inX = (int) Math.round(onRing.getX() + dx / length * step * PlotGrid.CELL_BLOCKS);
+            int inZ = (int) Math.round(onRing.getZ() + dz / length * step * PlotGrid.CELL_BLOCKS);
+            CellPos cell = settlement.grid().cellAt(new BlockPos(inX, onRing.getY(), inZ));
+            if (settlement.grid().stateAt(cell) == CellState.ROAD) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

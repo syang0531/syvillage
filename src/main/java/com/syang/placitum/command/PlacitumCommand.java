@@ -129,6 +129,11 @@ public final class PlacitumCommand {
                                                 IntegerArgumentType.getInteger(ctx, "count")))))));
 
         root.then(Commands.literal("debug")
+                .then(Commands.literal("rewall")
+                        .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(ctx -> debugRewall(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "id")))))
                 .then(Commands.literal("growth")
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(ctx -> debugGrowth(ctx.getSource(),
@@ -955,6 +960,30 @@ public final class PlacitumCommand {
         return "the need has not been noticed yet - it is checked once a simulation step,"
                 + " and a step is " + SimParams.fromConfig(source.getServer().overworld())
                         .stepTicks() + " ticks";
+    }
+
+    /**
+     * Forgets the wall so the settlement plans a new one.
+     *
+     * <p>Only the record, never the blocks - the logs stay where they were put. Planning happens
+     * once and then never again while a wall stands, which is right in play and useless for
+     * testing a change to how walls are planned. Demolition and salvage are M4.
+     */
+    private static int debugRewall(CommandSourceStack source, String rawId) {
+        SettlementManager manager = SettlementManager.get(source.getServer());
+        Settlement settlement = resolve(manager, rawId).orElse(null);
+        if (settlement == null) {
+            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            return 0;
+        }
+        int posts = settlement.defense().wall().ring().size();
+        manager.put(settlement
+                .withDefense(settlement.defense().withWall(com.syang.placitum.data.WallState.NONE))
+                .withBuildQueue(java.util.List.of()));
+        source.sendSuccess(() -> Component.literal("Forgot " + settlement.name()
+                + "'s wall (" + posts + " post(s)). The blocks are still standing; it will plan"
+                + " a new one."), true);
+        return posts;
     }
 
     private static Optional<Settlement> resolve(SettlementManager manager, String rawId) {
