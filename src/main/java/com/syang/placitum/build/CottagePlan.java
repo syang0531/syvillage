@@ -218,6 +218,17 @@ public final class CottagePlan {
         };
     }
 
+    /** Which column of the wall the door sits in. Y is the caller's business. */
+    public static BlockPos doorPosition(BlockPos northWest, Direction door) {
+        int middle = SIDE / 2;
+        return switch (door) {
+            case NORTH -> northWest.offset(middle, 0, 0);
+            case SOUTH -> northWest.offset(middle, 0, SIDE - 1);
+            case WEST -> northWest.offset(0, 0, middle);
+            default -> northWest.offset(SIDE - 1, 0, middle);
+        };
+    }
+
     /**
      * The door, both halves, facing out.
      *
@@ -226,13 +237,7 @@ public final class CottagePlan {
      * pathfinding reads it as a wall.
      */
     private static List<BuildOp> doorway(BlockPos northWest, int floor, Direction door) {
-        int middle = SIDE / 2;
-        BlockPos at = switch (door) {
-            case NORTH -> northWest.offset(middle, 0, 0);
-            case SOUTH -> northWest.offset(middle, 0, SIDE - 1);
-            case WEST -> northWest.offset(0, 0, middle);
-            default -> northWest.offset(SIDE - 1, 0, middle);
-        };
+        BlockPos at = doorPosition(northWest, door);
         // Shut, and both halves hinged the same way. The defaults happen to be right, but a
         // door built ajar is a hole in the wall all night and neither half may disagree with the
         // other about which side it swings from.

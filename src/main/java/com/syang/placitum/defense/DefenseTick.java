@@ -37,6 +37,7 @@ public final class DefenseTick {
 
         if (now % 20L == 0L) {
             Curfew.enforce(level, manager, out);
+            DoorWatch.closeUp(level, out);
         }
         return out;
     }
