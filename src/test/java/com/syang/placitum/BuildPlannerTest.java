@@ -9,8 +9,6 @@ import com.syang.placitum.build.CottagePlan;
 import com.syang.placitum.build.WallGeometry;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.WallState;
-import com.syang.placitum.sim.SimParams;
-import com.syang.placitum.sim.Simulation;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
 import java.util.ArrayList;
@@ -239,44 +237,16 @@ class BuildPlannerTest {
         // A palisade is oak logs and the ground scan walks down past logs as though they were
         // trees, so every check that reads blocks is blind to our own wall. A house was sited on
         // one and built straight through it; a road paved over a gate.
-        Settlement walled = SettlementFixture.standard().withDefense(
-                SettlementFixture.standard().defense().withWall(new WallState(
-                        com.syang.placitum.data.WallTier.PALISADE,
-                        List.of(new BlockPos(40, 70, -12)), List.of(), true)));
+        Settlement walled = SettlementFixture.standard();
 
-        assertTrue(walled.onWall(new BlockPos(40, 99, -12)),
+        assertTrue(walled.onWall(new BlockPos(100, 99, -300)),
                 "the height does not matter - the column is the wall");
-        assertFalse(walled.onWall(new BlockPos(41, 70, -12)),
+        assertFalse(walled.onWall(new BlockPos(102, 68, -300)),
                 "one block over is not the wall");
-        assertFalse(SettlementFixture.standard()
-                        .withDefense(SettlementFixture.standard().defense()
-                                .withWall(WallState.NONE))
-                        .onWall(new BlockPos(40, 70, -12)),
+        assertFalse(SettlementFixture.founded().onWall(new BlockPos(100, 68, -300)),
                 "a settlement with no wall is not standing on one");
     }
 
-    @Test
-    @DisplayName("a settlement with no roads lays some before anything else")
-    void aRoadlessSettlementBuildsItsOwnRoads() {
-        // Two beds, two residents, a bell in an empty field. Site selection only puts a house
-        // beside a road and nothing had laid one, so no house was ever sited, beds stayed at
-        // two, population stayed at two, and the pair grew old. The smallest legal settlement
-        // was a settlement with a death sentence.
-        Settlement founded = SettlementFixture.adopted(2, 2)
-                .withGrid(com.syang.placitum.data.PlotGrid.empty(new BlockPos(0, 64, 0), 21))
-                .withDefense(SettlementFixture.standard().defense().withWall(WallState.NONE))
-                .withBuildQueue(List.of());
-        assertEquals(0, founded.grid().countOf(com.syang.placitum.data.CellState.ROAD),
-                "premise: nobody has laid a path here");
-
-        Settlement after = Simulation.catchUp(SettlementFixture.SEED, founded,
-                SimParams.defaults(), SettlementFixture.START_TICK + 2000);
-
-        assertTrue(after.buildQueue().stream()
-                        .anyMatch(j -> j.recipe().template().equals(
-                                com.syang.placitum.build.RoadPlan.CROSS)),
-                "nothing was ordered, so there will never be anywhere to put a house");
-    }
 
     @Test
     @DisplayName("a crossroads is wide enough for the survey to see")
@@ -296,17 +266,6 @@ class BuildPlannerTest {
         assertTrue(acrossAtCentre >= 3, "the crossing is " + acrossAtCentre + " block(s) wide");
     }
 
-    @Test
-    @DisplayName("a wall builds at the same speed whether or not you are watching")
-    void bothPathsLayAtTheSameRate() {
-        SimParams params = SimParams.defaults();
-        // BuildTick lays one block per interval per builder; the virtual side lays
-        // opsPerBuilderStep in a whole step. Over the same span those have to match, or walking
-        // away changes how fast the settlement builds - which it did, by a factor of five.
-        int visiblePerStep = params.stepTicks() / 10;   // buildOpIntervalTicks default
-        assertEquals(visiblePerStep, params.opsPerBuilderStep(),
-                "the rate you can see and the rate you cannot have to be one number");
-    }
 
     @Test
     @DisplayName("consecutive blocks are neighbours, so a builder can walk the wall")
@@ -391,52 +350,7 @@ class BuildPlannerTest {
                         + " sends villagers at a gap in the ring as though it were a door");
     }
 
-    @Test
-    @DisplayName("a job finished with nobody watching survives to be replayed")
-    void completedWorkWaitsForBodies() {
-        // Built virtually, a job has laid no blocks anywhere. Dropping it on completion left
-        // the wall as a record with nothing under it: info reported seven gates and the ground
-        // had none, because promote replays by walking the build queue and the queue was empty.
-        com.syang.placitum.data.BuildJob done = SettlementFixture.standard().buildQueue().get(0)
-                .withStage(com.syang.placitum.data.BuildStage.COMPLETE);
 
-        Settlement virtualStill = Simulation.catchUp(SettlementFixture.SEED,
-                SettlementFixture.full(4, com.syang.placitum.data.ResidentState.VIRTUAL)
-                        .withBuildQueue(List.of(done)),
-                SimParams.defaults(), SettlementFixture.START_TICK + 2000);
-        assertTrue(virtualStill.buildQueue().stream()
-                        .anyMatch(j -> j.stage() == com.syang.placitum.data.BuildStage.COMPLETE),
-                "nobody has been there to put the blocks down, so the job has to wait");
-
-        Settlement embodied = Simulation.catchUp(SettlementFixture.SEED,
-                SettlementFixture.full(4, com.syang.placitum.data.ResidentState.MATERIALIZED)
-                        .withBuildQueue(List.of(done)),
-                SimParams.defaults(), SettlementFixture.START_TICK + 2000);
-        assertTrue(embodied.buildQueue().stream()
-                        .noneMatch(j -> j.stage() == com.syang.placitum.data.BuildStage.COMPLETE),
-                "with bodies present the blocks are down, and a finished job kept for ever is a"
-                        + " queue that never empties");
-    }
-
-    @Test
-    @DisplayName("a finished wall is one the settlement stops wanting")
-    void completionStopsTheReorderLoop() {
-        // In-game this cost 1761 logs a lap. The wall finished, the job left the queue, nothing
-        // wrote WallState, NeedsModule saw tier NONE and ordered another one - for ever.
-        Settlement before = SettlementFixture.adopted(11, 20)
-                .withDefense(SettlementFixture.standard().defense().withWall(WallState.NONE))
-                .withBuildQueue(List.of());
-        Settlement stocked = before.withGrid(before.grid());
-
-        Settlement after = stocked;
-        for (int i = 0; i < 40; i++) {
-            after = Simulation.catchUp(SettlementFixture.SEED, after, SimParams.defaults(),
-                    after.lastSimTick() + 200L * 50);
-        }
-
-        assertTrue(after.buildQueue().size() <= 1,
-                "a settlement may want one wall at a time, not " + after.buildQueue().size());
-    }
 
     @Test
     @DisplayName("the ring is one position a column, not one a block")

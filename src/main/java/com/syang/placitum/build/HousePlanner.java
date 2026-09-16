@@ -5,7 +5,6 @@ import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.CellState;
 import com.syang.placitum.data.PlotGrid;
-import com.syang.placitum.data.ScaleTier;
 import com.syang.placitum.data.Settlement;
 import java.util.Comparator;
 import com.syang.placitum.config.PlacitumConfig;
@@ -55,7 +54,7 @@ public final class HousePlanner {
         // cannot grow, so population cannot grow, so the tier cannot rise, so the radius cannot
         // widen. A settlement may always build just outside itself.
         int buildRadius = Math.min(mapRadius,
-                Math.max(settlement.scale().buildRadiusCells(), occupiedRadius(grid) + 1));
+                Math.max(PlacitumConfig.BUILD_RADIUS_CELLS.get(), occupiedRadius(grid) + 1));
 
         List<CellPos> sites = new ArrayList<>();
         for (int gz = -buildRadius; gz <= buildRadius; gz++) {

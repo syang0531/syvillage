@@ -1,6 +1,5 @@
 package com.syang.placitum.settlement;
 
-import com.syang.placitum.data.Lineage;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,21 +25,6 @@ public final class NameGenerator {
 
     private NameGenerator() {}
 
-    /** Picks a name that is not already in use, falling back to a numbered suffix. */
-    public static Lineage founder(RandomSource rng, Set<String> taken) {
-        for (int attempt = 0; attempt < 32; attempt++) {
-            String given = GIVEN.get(rng.nextInt(GIVEN.size()));
-            String family = FAMILY.get(rng.nextInt(FAMILY.size()));
-            String full = given + " " + family;
-            if (taken.add(full)) {
-                return Lineage.founder(given, family);
-            }
-        }
-        String given = GIVEN.get(rng.nextInt(GIVEN.size()));
-        String family = FAMILY.get(rng.nextInt(FAMILY.size())) + " " + (taken.size() + 1);
-        taken.add(given + " " + family);
-        return Lineage.founder(given, family);
-    }
 
     public static Set<String> usedNames() {
         return new HashSet<>();

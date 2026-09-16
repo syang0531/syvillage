@@ -4,82 +4,61 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 
 /**
- * The whole state of one settlement.
+ * A settlement: a bell, the ground around it, and what has been built on it.
  *
- * <p>Split into sub-records because {@code RecordCodecBuilder.group()} accepts at most 16
- * fields (DataFixerUpper 10.0.21 tops out at {@code Products$P16}). Flat, this record has 24
- * components and no codec could be written for it at all. The split follows document
- * boundaries: {@link DefenseState} belongs to docs/defense.md, {@link SimClock} to
- * docs/simulation.md.
+ * <p>No residents. Villagers are vanilla's - it decides their professions from workstations,
+ * breeds them from beds and food, and kills them when something gets in. Every one of those was
+ * simulated here once, and the simulation is what made the mod impossible to balance and
+ * invisible to play. See docs/why-the-reset.md.
  *
- * <p>There is one slot left before the limit. New state goes into a sub-record, not here.
+ * <p>What is left is the part a player can see: a village that builds itself roads, lamps,
+ * houses, fields and a wall, one block at a time, while they watch.
  */
 public record Settlement(
         SettlementId identity,
-        ScaleState scaleState,
-        List<Resident> residents,
-        Map<UUID, Plot> plots,
         PlotGrid grid,
-        Map<Item, Integer> stock,
+        Map<UUID, Plot> plots,
         List<BuildJob> buildQueue,
         List<BuildOp> pendingOps,
-        DefenseState defense,
-        AnchorSet anchors,
-        Chronicle chronicle,
-        SimClock clock,
-        Ruler ruler,
-        Optional<UUID> parentId,
-        boolean forceLoadCore) {
+        WallState wall,
+        Chronicle chronicle) {
 
     public static final Codec<Settlement> CODEC = RecordCodecBuilder.create(i -> i.group(
             SettlementId.CODEC.fieldOf("identity").forGetter(Settlement::identity),
-            ScaleState.CODEC.fieldOf("scale").forGetter(Settlement::scaleState),
-            Resident.CODEC.listOf().fieldOf("residents").forGetter(Settlement::residents),
-            Codec.unboundedMap(UUIDUtil.STRING_CODEC, Plot.CODEC).fieldOf("plots").forGetter(Settlement::plots),
             PlotGrid.CODEC.fieldOf("grid").forGetter(Settlement::grid),
-            PlacitumCodecs.ITEM_COUNTS.fieldOf("stock").forGetter(Settlement::stock),
+            Codec.unboundedMap(UUIDUtil.STRING_CODEC, Plot.CODEC).fieldOf("plots")
+                    .forGetter(Settlement::plots),
             BuildJob.CODEC.listOf().fieldOf("build_queue").forGetter(Settlement::buildQueue),
-            BuildOp.CODEC.listOf().fieldOf("pending_ops").forGetter(Settlement::pendingOps),
-            DefenseState.CODEC.fieldOf("defense").forGetter(Settlement::defense),
-            AnchorSet.CODEC.optionalFieldOf("anchors", AnchorSet.EMPTY).forGetter(Settlement::anchors),
-            Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle),
-            SimClock.CODEC.fieldOf("clock").forGetter(Settlement::clock),
-            Ruler.CODEC.fieldOf("ruler").forGetter(Settlement::ruler),
-            UUIDUtil.CODEC.optionalFieldOf("parent_id").forGetter(Settlement::parentId),
-            Codec.BOOL.fieldOf("force_load_core").forGetter(Settlement::forceLoadCore)
+            BuildOp.CODEC.listOf().optionalFieldOf("pending_ops", List.of())
+                    .forGetter(Settlement::pendingOps),
+            WallState.CODEC.optionalFieldOf("wall", WallState.NONE).forGetter(Settlement::wall),
+            Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle)
     ).apply(i, Settlement::new));
 
     /**
-     * Normalises iteration order. Residents sort by id and plots by id, so a step over either
-     * produces the same sequence on every machine and in every session. Without this the
-     * catch-up equivalence test fails intermittently and for reasons that look like magic.
+     * Normalises iteration order, so plots are walked the same way on every machine.
+     *
+     * <p>Determinism matters less than it did without a simulation to keep reproducible, but a
+     * build that picks a different site depending on HashMap ordering is still a build nobody
+     * can test.
      */
     public Settlement {
-        residents = sortedResidents(residents);
-        plots = sortedPlots(plots);
-        stock = PlacitumCodecs.sortItems(stock);
+        plots = sorted(plots);
+        buildQueue = List.copyOf(buildQueue);
+        pendingOps = List.copyOf(pendingOps);
     }
 
-    private static List<Resident> sortedResidents(List<Resident> in) {
-        List<Resident> out = new ArrayList<>(in);
-        out.sort(Comparator.comparing(Resident::id));
-        return Collections.unmodifiableList(out);
-    }
-
-    private static Map<UUID, Plot> sortedPlots(Map<UUID, Plot> in) {
+    private static Map<UUID, Plot> sorted(Map<UUID, Plot> in) {
         List<UUID> keys = new ArrayList<>(in.keySet());
         Collections.sort(keys);
         Map<UUID, Plot> out = new LinkedHashMap<>();
@@ -89,90 +68,10 @@ public record Settlement(
         return Collections.unmodifiableMap(out);
     }
 
-    public static Settlement founding(SettlementId identity, List<Resident> residents,
-            SimClock clock, int safetyWindowDays) {
-        UUID headman = residents.isEmpty() ? identity.id() : residents.getFirst().id();
-        return new Settlement(
-                identity,
-                ScaleState.OUTPOST,
-                residents,
-                Map.of(),
-                PlotGrid.empty(identity.center(),
-                        PlotGrid.sizeForClaim(identity.claimRadiusChunks())),
-                Map.of(),
-                List.of(),
-                List.of(),
-                DefenseState.initial(safetyWindowDays),
-                AnchorSet.EMPTY,
-                Chronicle.EMPTY,
-                clock,
-                new Ruler.Npc(headman),
-                Optional.empty(),
-                false);
-    }
-
-    // Copy helpers. Callers do not rebuild the record by hand: with fifteen components,
-    // every new field broke four call sites and each one had to remember the order.
-
-    public Settlement withResidents(List<Resident> newResidents) {
-        return new Settlement(identity, scaleState, newResidents, plots, grid, stock, buildQueue,
-                pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
-    }
-
-    public Settlement withClock(SimClock newClock) {
-        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
-                pendingOps, defense, anchors, chronicle, newClock, ruler, parentId, forceLoadCore);
-    }
-
-    public Settlement withPendingOps(List<BuildOp> newOps) {
-        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
-                newOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
-    }
-
-    public Settlement withBuildQueue(List<BuildJob> newQueue) {
-        return new Settlement(identity, scaleState, residents, plots, grid, stock, newQueue,
-                pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
-    }
-
-    public Settlement withPlots(Map<UUID, Plot> newPlots) {
-        return new Settlement(identity, scaleState, residents, newPlots, grid, stock,
-                buildQueue, pendingOps, defense, anchors, chronicle, clock, ruler,
-                parentId, forceLoadCore);
-    }
-
-    public Settlement withGrid(PlotGrid newGrid) {
-        return new Settlement(identity, scaleState, residents, plots, newGrid, stock, buildQueue,
-                pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
-    }
-
-    public Settlement withAnchors(AnchorSet newAnchors) {
-        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
-                pendingOps, defense, newAnchors, chronicle, clock, ruler, parentId, forceLoadCore);
-    }
-
-    public Settlement withChronicle(Chronicle newChronicle) {
-        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
-                pendingOps, defense, anchors, newChronicle, clock, ruler, parentId, forceLoadCore);
-    }
-
-    public Settlement withDefense(DefenseState newDefense) {
-        return new Settlement(identity, scaleState, residents, plots, grid, stock, buildQueue,
-                pendingOps, newDefense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
-    }
-
-    public Settlement withIdentity(SettlementId newIdentity) {
-        return new Settlement(newIdentity, scaleState, residents, plots, grid, stock, buildQueue,
-                pendingOps, defense, anchors, chronicle, clock, ruler, parentId, forceLoadCore);
-    }
-
-    // Delegating accessors. s.id() is read far more often than s.identity().id().
-
-    public ScaleTier scale() {
-        return scaleState.tier();
-    }
-
-    public int scaleHoldSteps() {
-        return scaleState.holdSteps();
+    public static Settlement founding(SettlementId identity) {
+        return new Settlement(identity,
+                PlotGrid.empty(identity.center(), PlotGrid.sizeForClaim(identity.claimRadiusChunks())),
+                Map.of(), List.of(), List.of(), WallState.NONE, Chronicle.EMPTY);
     }
 
     public UUID id() {
@@ -183,81 +82,24 @@ public record Settlement(
         return identity.name();
     }
 
-    public ResourceKey<Level> dimension() {
-        return identity.dimension();
-    }
-
     public BlockPos center() {
         return identity.center();
     }
 
-    public AlertState alert() {
-        return defense.alert();
+    public ResourceKey<Level> dimension() {
+        return identity.dimension();
     }
 
-    public long lastSimTick() {
-        return clock.lastSimTick();
-    }
-
-    public long simStep() {
-        return clock.simStep();
-    }
-
-    /** Zombified residents are still records but do not count towards population. */
-    public int population() {
-        int n = 0;
-        for (Resident r : residents) {
-            if (r.counts()) {
-                n++;
-            }
-        }
-        return n;
-    }
-
-    public int residentCount() {
-        return residents.size();
-    }
-
-    public int materializedCount() {
-        int n = 0;
-        for (Resident r : residents) {
-            if (r.materialized()) {
-                n++;
-            }
-        }
-        return n;
-    }
-
-    public Optional<Resident> resident(UUID residentId) {
-        for (Resident r : residents) {
-            if (r.id().equals(residentId)) {
-                return Optional.of(r);
-            }
-        }
-        return Optional.empty();
-    }
-
-    public int stockOf(Item item) {
-        return stock.getOrDefault(item, 0);
-    }
-
-    /**
-     * Beds available to sleep in.
-     *
-     * <p>Plots are authoritative once construction fills them; until then the anchors carry
-     * what the vanilla village already had. Without this fallback M2's carrying capacity would
-     * be zero in every settlement and no child would ever be born.
-     */
     /**
      * Whether a column is part of the wall.
      *
      * <p>Asked of the record rather than the world, because the world cannot answer it. A
      * palisade is oak logs, and the ground scan walks down past logs on the assumption they are
      * trees - so the settlement's own wall is invisible to every check that reads blocks. A
-     * house was sited on top of one and built straight through it.
+     * house was once sited on one and built straight through it.
      */
     public boolean onWall(BlockPos pos) {
-        for (BlockPos post : defense.wall().ring()) {
+        for (BlockPos post : wall.ring()) {
             if (post.getX() == pos.getX() && post.getZ() == pos.getZ()) {
                 return true;
             }
@@ -265,20 +107,43 @@ public record Settlement(
         return false;
     }
 
-    public int bedCount() {
-        int built = 0;
-        for (Plot p : plots.values()) {
-            built += p.bedCount();
+    public int houseCount() {
+        int n = 0;
+        for (Plot plot : plots.values()) {
+            if (plot.kind() == PlotKind.HOUSE) {
+                n++;
+            }
         }
-        // The larger of the two, never one instead of the other. Preferring plots meant the
-        // first cottage a village ever built erased the beds it was adopted with: five became
-        // two, capacity fell, and the settlement answered by building another house - a growth
-        // loop running backwards.
-        //
-        // Not the sum, either. The anchor scan reads beds from the world as POIs, so once a
-        // cottage has actually been placed its beds are in both counts. Taking the larger
-        // undercounts a house built virtually and not yet replayed, which is right: those beds
-        // are not in the world for anyone to sleep in yet.
-        return Math.max(built, anchors.bedCount());
+        return n;
+    }
+
+    // Copy helpers. Callers do not rebuild the record by hand.
+
+    public Settlement withGrid(PlotGrid newGrid) {
+        return new Settlement(identity, newGrid, plots, buildQueue, pendingOps, wall, chronicle);
+    }
+
+    public Settlement withPlots(Map<UUID, Plot> newPlots) {
+        return new Settlement(identity, grid, newPlots, buildQueue, pendingOps, wall, chronicle);
+    }
+
+    public Settlement withBuildQueue(List<BuildJob> newQueue) {
+        return new Settlement(identity, grid, plots, newQueue, pendingOps, wall, chronicle);
+    }
+
+    public Settlement withPendingOps(List<BuildOp> newOps) {
+        return new Settlement(identity, grid, plots, buildQueue, newOps, wall, chronicle);
+    }
+
+    public Settlement withWall(WallState newWall) {
+        return new Settlement(identity, grid, plots, buildQueue, pendingOps, newWall, chronicle);
+    }
+
+    public Settlement withChronicle(Chronicle newChronicle) {
+        return new Settlement(identity, grid, plots, buildQueue, pendingOps, wall, newChronicle);
+    }
+
+    public Settlement record(EntryType type, String subject, String detail, long gameTime) {
+        return withChronicle(chronicle.with(new ChronicleEntry(gameTime, type, subject, detail)));
     }
 }

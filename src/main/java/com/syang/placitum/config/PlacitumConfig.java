@@ -82,6 +82,10 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue PALISADE_HEIGHT;
     public static final ModConfigSpec.IntValue WALL_MIN_POPULATION;
     public static final ModConfigSpec.IntValue MAX_SITE_DROP;
+    public static final ModConfigSpec.IntValue BUILD_RADIUS_CELLS;
+    public static final ModConfigSpec.IntValue MIN_LIGHT_LEVEL;
+    public static final ModConfigSpec.IntValue LAMPS_PER_JOB;
+    public static final ModConfigSpec.IntValue SURVEY_INTERVAL_TICKS;
     public static final ModConfigSpec.IntValue VERIFY_SAMPLE_EVERY;
     public static final ModConfigSpec.IntValue MAX_REBUILD_ATTEMPTS;
     public static final ModConfigSpec.IntValue BUILD_OP_INTERVAL_TICKS;
@@ -259,6 +263,20 @@ public final class PlacitumConfig {
                         "house it built appeared eighteen blocks down a slope, out of sight.",
                         "A settlement that grows somewhere you cannot see it has not grown.")
                 .defineInRange("maxSiteDrop", 8, 1, 128);
+        BUILD_RADIUS_CELLS = b.comment("How far from the bell a settlement builds, in 8-block cells.",
+                        "Used to be tied to a population tier. There is no population model any",
+                        "more, so it is simply how big a village is allowed to get.")
+                .defineInRange("buildRadiusCells", 6, 1, 32);
+        MIN_LIGHT_LEVEL = b.comment("Block light a cell needs before the settlement stops",
+                        "lighting it. Hostile mobs spawn at block light 0, so anything above",
+                        "that suppresses them; a little headroom covers a lantern being broken.",
+                        "This is the whole point of the mod: mobs killing villagers at night.")
+                .defineInRange("minLightLevel", 8, 0, 15);
+        LAMPS_PER_JOB = b.comment("Dark cells lit per build job, so lighting a new village is",
+                        "something you watch rather than something that appears.")
+                .defineInRange("lampsPerJob", 8, 1, 256);
+        SURVEY_INTERVAL_TICKS = b.comment("How often the ground is re-read. 600 = thirty seconds.")
+                .defineInRange("surveyIntervalTicks", 600, 20, 72000);
         VERIFY_SAMPLE_EVERY = b.comment("Check one already-placed block every this many new ones.",
                         "Checking every block would double the cost of building to catch",
                         "something that usually is not happening.")

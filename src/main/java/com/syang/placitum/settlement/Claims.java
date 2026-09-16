@@ -1,6 +1,5 @@
 package com.syang.placitum.settlement;
 
-import com.syang.placitum.data.AnchorSet;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.store.SettlementManager;
 import net.minecraft.core.BlockPos;
@@ -31,19 +30,5 @@ public final class Claims {
             }
         }
         return null;
-    }
-
-    /**
-     * Marks a settlement's picture of the world out of date, so the next tick re-reads it.
-     *
-     * <p>The anchor scan and the plot survey are on a five-minute timer, which is right for a
-     * village nobody is touching and wrong the moment somebody is. A player who places a bed and
-     * watches nothing happen for five minutes has no way to tell a slow refresh from a broken
-     * one - and this project has already paid several times over for exactly that ambiguity.
-     */
-    public static Settlement stale(Settlement settlement) {
-        AnchorSet anchors = settlement.anchors();
-        return settlement.withAnchors(new AnchorSet(anchors.shelters(), anchors.watchPoints(),
-                anchors.muster(), anchors.bedCount(), 0L));
     }
 }

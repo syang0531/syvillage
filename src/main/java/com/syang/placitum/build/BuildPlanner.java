@@ -58,6 +58,9 @@ public final class BuildPlanner {
         if (recipe.template().equals(RoadPlan.CROSS)) {
             return RoadPlan.expand(recipe);
         }
+        if (recipe.template().equals(LampPlan.LAMPS)) {
+            return LampPlan.expand(recipe);
+        }
         return expandWall(recipe);
     }
 

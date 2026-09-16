@@ -74,7 +74,8 @@ public final class RoadPlan {
 
     /** How far each arm reaches, in blocks. */
     public static int armBlocks(Settlement settlement) {
-        return settlement.scale().buildRadiusCells() * PlotGrid.CELL_BLOCKS;
+        return com.syang.placitum.config.PlacitumConfig.BUILD_RADIUS_CELLS.get()
+                * PlotGrid.CELL_BLOCKS;
     }
 
     /**
