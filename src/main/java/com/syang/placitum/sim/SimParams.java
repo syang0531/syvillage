@@ -60,7 +60,8 @@ public record SimParams(
                 PlacitumConfig.CONSUMPTION_PER_HEAD.get(),
                 PlacitumConfig.YIELD_RATE.get(),
                 PlacitumConfig.TIMBER_RATE.get(),
-                PlacitumConfig.OPS_PER_BUILDER_STEP.get(),
+                opsPerBuilderStep(PlacitumConfig.STEP_TICKS.get(),
+                        PlacitumConfig.BUILD_OP_INTERVAL_TICKS.get()),
                 PlacitumConfig.WALL_MIN_POPULATION.get(),
                 level.getDifficulty() != Difficulty.PEACEFUL,
                 populationFromConfig());
@@ -86,7 +87,7 @@ public record SimParams(
 
     /** Defaults matching the shipped config, for tests and for headless tooling. */
     public static SimParams defaults() {
-        return new SimParams(200, 72000L, 1, 3, 3, 4, 4, true,
+        return new SimParams(200, 72000L, 1, 3, 3, 20, 4, true,
                 new PopulationParams(0.02, 90, 3, 20, 4, 4, 4, 3, 180, 18, 4, 0.01, 0.0008, true));
     }
 
@@ -151,6 +152,21 @@ public record SimParams(
 
 
     /** One game day in steps. Per-step probabilities have to be read against this. */
+    /**
+     * Blocks one builder lays in a step, while nobody is watching.
+     *
+     * <p>Derived from the visible rate rather than configured separately. It has to equal what
+     * BuildTick lays over the same span, or the wall builds at one speed while you watch and
+     * another while you do not - and it did: twenty blocks a step in front of you against four
+     * behind your back, so walking away made it five times slower. Two config keys that have to
+     * agree are two keys that will not.
+     *
+     * <p>Resolved here at the edge, like every other number the simulation uses.
+     */
+    private static int opsPerBuilderStep(int stepTicks, int intervalTicks) {
+        return Math.max(1, stepTicks / Math.max(1, intervalTicks));
+    }
+
     public int stepsPerDay() {
         return 24000 / stepTicks;
     }

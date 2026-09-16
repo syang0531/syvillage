@@ -73,6 +73,18 @@ class BuildPlannerTest {
     }
 
     @Test
+    @DisplayName("a wall builds at the same speed whether or not you are watching")
+    void bothPathsLayAtTheSameRate() {
+        SimParams params = SimParams.defaults();
+        // BuildTick lays one block per interval per builder; the virtual side lays
+        // opsPerBuilderStep in a whole step. Over the same span those have to match, or walking
+        // away changes how fast the settlement builds - which it did, by a factor of five.
+        int visiblePerStep = params.stepTicks() / 10;   // buildOpIntervalTicks default
+        assertEquals(visiblePerStep, params.opsPerBuilderStep(),
+                "the rate you can see and the rate you cannot have to be one number");
+    }
+
+    @Test
     @DisplayName("consecutive blocks are neighbours, so a builder can walk the wall")
     void opsFollowTheRing() {
         // Sorting by coordinate scatters the work: on one course, stepping x by one gives a
