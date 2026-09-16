@@ -1,11 +1,9 @@
 package com.syang.placitum.build;
 
 import com.syang.placitum.Placitum;
+import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
-import com.syang.placitum.data.CellPos;
-import com.syang.placitum.data.CellState;
-import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.Settlement;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,148 +17,96 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * The crossroads a settlement starts from.
+ * The streets, laid out as a grid rather than a single cross.
  *
- * <p>Site selection will only put a house beside a road, which is the one line in
- * docs/construction.md that decides what a village looks like - without it houses land wherever
- * the ground happens to be flat and the place stops reading as a village at all.
+ * <p>Roads are the skeleton the plan hangs on - a lot is defined as the ground between them - so
+ * they are less something the settlement decides to build than the shape it already has. What is
+ * left is putting the blocks down, a stretch at a time, nearest the bell first.
  *
- * <p>The catch is what happens when there are no roads. A vanilla village comes with paths
- * worldgen laid; a settlement somebody founded by placing two beds and a bell has none, so no
- * cell is ever beside a road, so no house is ever sited, so beds never rise above two, so
- * population never rises above two, and then everybody grows old. A minimum settlement was a
- * settlement with a death sentence.
- *
- * <p>So the settlement lays its own, which is what the design said all along: a cross through
- * the centre, and the rest of the pipeline treats it as any other build.
+ * <p>Laid on any ground at all. A village on a hillside still has streets, and refusing to lay
+ * one across a slope would leave the whole plan unanchored.
  */
 public final class RoadPlan {
 
-    public static final Identifier CROSS =
-            Identifier.fromNamespaceAndPath(Placitum.MODID, "road/cross");
-
-    /**
-     * Three blocks across.
-     *
-     * <p>Not for looks. The survey samples a cell every other block, so a single-block path can
-     * fall between samples and the cell it runs through never reads as a road at all - a road
-     * nothing can be built beside is not a road.
-     */
-    private static final int WIDTH = 3;
+    public static final Identifier STREET =
+            Identifier.fromNamespaceAndPath(Placitum.MODID, "road/street");
 
     private static final BlockState PATH = Blocks.DIRT_PATH.defaultBlockState();
 
     private RoadPlan() {}
 
-    /** Columns of the cross, in the order the ground profile stores them. */
-    public static List<BlockPos> columns(BlockPos centre, int armBlocks) {
-        List<BlockPos> out = new ArrayList<>();
-        int half = WIDTH / 2;
-        for (int along = -armBlocks; along <= armBlocks; along++) {
-            for (int across = -half; across <= half; across++) {
-                out.add(centre.offset(along, 0, across));   // east-west arm
-            }
-        }
-        for (int along = -armBlocks; along <= armBlocks; along++) {
-            for (int across = -half; across <= half; across++) {
-                if (Math.abs(along) <= half) {
-                    continue;   // the middle is already laid by the other arm
-                }
-                out.add(centre.offset(across, 0, along));   // north-south arm
-            }
-        }
-        return out;
-    }
-
-    /** How far each arm reaches, in blocks. */
-    public static int armBlocks(Settlement settlement) {
-        return com.syang.placitum.config.PlacitumConfig.BUILD_RADIUS_CELLS.get()
-                * PlotGrid.CELL_BLOCKS;
-    }
-
     /**
-     * Reads the ground along the cross and freezes it.
+     * The next stretch of street with no path on it yet, or nothing when they are all laid.
      *
-     * <p>Empty when there is nothing to lay - every column is water, or unloaded. A settlement
-     * that cannot put a road down is one that will say so rather than queue work forever.
+     * <p>Batched so the streets are watched going down rather than appearing, and it stops as
+     * soon as it has a batch - the search must not walk the whole claim every tick looking for
+     * work that was finished an hour ago.
      */
     public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement) {
-        BlockPos centre = settlement.center();
-        int arm = armBlocks(settlement);
-        List<Integer> profile = new ArrayList<>();
-        int placeable = 0;
+        BlockPos bell = settlement.center();
+        int reach = TownPlan.reachBlocks(settlement);
+        int batch = PlacitumConfig.ROAD_BLOCKS_PER_JOB.get();
 
-        for (BlockPos column : columns(centre, arm)) {
-            if (!level.hasChunkAt(column)) {
-                profile.add(Ground.SKIP);
-                continue;
-            }
-            // A path goes on the ground, and the ground is whatever is lowest there - a bed,
-            // the bell, a lamp post. All of those were paved over on the first run. Anything
-            // somebody put there stays, and the road simply has a gap in it.
-            if (GridSurvey.builtOn(level, column.getX(), column.getZ())) {
-                profile.add(Ground.SKIP);
-                continue;
-            }
-            int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
-            profile.add(ground);
-            if (ground != Ground.SKIP) {
-                placeable++;
+        List<BlockPos> todo = new ArrayList<>();
+        List<Integer> profile = new ArrayList<>();
+
+        // Outward in rings, so the streets by the bell are finished before the outskirts begin.
+        for (int ring = 0; ring <= reach && todo.size() < batch; ring++) {
+            for (int along = -ring; along <= ring && todo.size() < batch; along++) {
+                for (BlockPos pos : new BlockPos[] {
+                        bell.offset(along, 0, -ring), bell.offset(along, 0, ring),
+                        bell.offset(-ring, 0, along), bell.offset(ring, 0, along)}) {
+                    if (todo.size() >= batch || !TownPlan.onRoad(pos, bell)
+                            || !level.hasChunkAt(pos)) {
+                        continue;
+                    }
+                    int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
+                    if (ground == Ground.SKIP
+                            || GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
+                        continue;   // water, a building, the bell itself: the street goes round
+                    }
+                    if (level.getBlockState(new BlockPos(pos.getX(), ground, pos.getZ()))
+                            .is(Blocks.DIRT_PATH)) {
+                        continue;   // already a street
+                    }
+                    todo.add(new BlockPos(pos.getX(), 0, pos.getZ()));
+                    profile.add(ground);
+                }
             }
         }
-        if (placeable == 0) {
+        if (todo.isEmpty()) {
             return Optional.empty();
         }
-        Placitum.LOGGER.info("Planned a crossroads for '{}': arms of {} block(s), {} of {}"
-                        + " placeable", settlement.name(), arm, placeable, profile.size());
-        return Optional.of(new BuildRecipe(CROSS, centre, Rotation.NONE,
+        Placitum.LOGGER.debug("'{}' has {} block(s) of street to lay", settlement.name(),
+                todo.size());
+        return Optional.of(new BuildRecipe(STREET, todo.getFirst(), Rotation.NONE,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
-                List.copyOf(profile), new BlockPos(arm, 1, arm), List.of()));
+                List.copyOf(profile), new BlockPos(todo.size(), 1, 0), Positions.encode(todo)));
     }
 
     /**
      * One path block per column, on the ground that was frozen.
      *
-     * <p>Nothing is cleared above. A road that bulldozes whatever it meets would carve through
-     * the houses the village already has, and docs/construction.md is firm that cutting terrain
-     * is how a mod starts looking like griefing.
+     * <p>Nothing is cleared above. A road that bulldozed whatever it met would carve through the
+     * houses the village already has.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Integer> profile = recipe.groundProfile();
-        List<BlockPos> columns = columns(recipe.anchor(), recipe.width());
+        List<BlockPos> columns = Positions.decode(recipe.gates());
         if (columns.size() != profile.size()) {
             return List.of();
         }
         List<BuildOp> ops = new ArrayList<>();
-        for (int i = 0; i < columns.size(); i++) {
+        for (int i = 0; i < profile.size(); i++) {
             if (profile.get(i) == Ground.SKIP) {
                 continue;
             }
-            BlockPos column = columns.get(i);
-            ops.add(new BuildOp(new BlockPos(column.getX(), profile.get(i), column.getZ()), PATH));
+            ops.add(new BuildOp(new BlockPos(columns.get(i).getX(), profile.get(i),
+                    columns.get(i).getZ()), PATH));
         }
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));
         return List.copyOf(ops);
-    }
-
-    /** Which cells the finished cross runs through. */
-    public static PlotGrid markCells(PlotGrid grid, BuildRecipe recipe) {
-        PlotGrid out = grid;
-        List<Integer> profile = recipe.groundProfile();
-        List<BlockPos> columns = columns(recipe.anchor(), recipe.width());
-        for (int i = 0; i < columns.size() && i < profile.size(); i++) {
-            if (profile.get(i) == Ground.SKIP) {
-                continue;
-            }
-            CellPos cell = out.cellAt(columns.get(i));
-            // Never over something already standing. A road is allowed to reach a house; it is
-            // not allowed to declare the house a road and let the next one be built on it.
-            if (out.stateAt(cell) == CellState.FREE) {
-                out = out.with(cell, CellState.ROAD);
-            }
-        }
-        return out;
     }
 }

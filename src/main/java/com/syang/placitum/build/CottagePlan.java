@@ -41,7 +41,7 @@ public final class CottagePlan {
      * five-by-five room for two beds. Five costs half the timber too, which matters while this
      * is the only thing a settlement can spend timber on.
      */
-    public static final int SIDE = 5;
+    public static final int SIDE = TownPlan.BUILDING;
 
     /** Floor, three courses of wall, and a roof. */
     public static final int HEIGHT = 5;

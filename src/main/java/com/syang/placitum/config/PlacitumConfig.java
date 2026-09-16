@@ -85,10 +85,12 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue BUILD_RADIUS_CELLS;
     public static final ModConfigSpec.IntValue MIN_LIGHT_LEVEL;
     public static final ModConfigSpec.IntValue LAMPS_PER_JOB;
+    public static final ModConfigSpec.IntValue ROAD_BLOCKS_PER_JOB;
     public static final ModConfigSpec.IntValue SURVEY_INTERVAL_TICKS;
     public static final ModConfigSpec.IntValue VERIFY_SAMPLE_EVERY;
     public static final ModConfigSpec.IntValue MAX_REBUILD_ATTEMPTS;
     public static final ModConfigSpec.IntValue BUILD_OP_INTERVAL_TICKS;
+    public static final ModConfigSpec.IntValue BUILD_OPS_PER_TICK;
     public static final ModConfigSpec.DoubleValue BUILDER_REACH;
     public static final ModConfigSpec.DoubleValue BUILDER_WALK_SPEED;
     public static final ModConfigSpec.DoubleValue BUILDER_WORK_RADIUS;
@@ -275,6 +277,10 @@ public final class PlacitumConfig {
         LAMPS_PER_JOB = b.comment("Dark cells lit per build job, so lighting a new village is",
                         "something you watch rather than something that appears.")
                 .defineInRange("lampsPerJob", 8, 1, 256);
+        ROAD_BLOCKS_PER_JOB = b.comment("Street blocks laid per job. Bounded so the search for",
+                        "unlaid street stops as soon as it has a batch rather than walking the",
+                        "whole claim every tick looking for work that was finished an hour ago.")
+                .defineInRange("roadBlocksPerJob", 64, 1, 4096);
         SURVEY_INTERVAL_TICKS = b.comment("How often the ground is re-read. 600 = thirty seconds.")
                 .defineInRange("surveyIntervalTicks", 600, 20, 72000);
         VERIFY_SAMPLE_EVERY = b.comment("Check one already-placed block every this many new ones.",
@@ -286,9 +292,14 @@ public final class PlacitumConfig {
                         "has said what they want.")
                 .defineInRange("maxRebuildAttempts", 3, 1, 64);
         BUILD_OP_INTERVAL_TICKS = b.comment("Ticks between blocks while somebody is watching.",
-                        "10 is a block every half second: long enough to look like work and",
-                        "short enough that a wall does not take an evening.")
-                .defineInRange("buildOpIntervalTicks", 10, 1, 200);
+                        "1 is a block a tick. Slower reads better once the mod is finished;",
+                        "while it is being built, waiting is not the interesting part.")
+                .defineInRange("buildOpIntervalTicks", 1, 1, 200);
+        BUILD_OPS_PER_TICK = b.comment("Blocks laid each time the interval comes round.",
+                        "One tick is the floor, so this is the only way to go faster than a",
+                        "block a tick. 10 is a development speed: a cottage in a few seconds",
+                        "instead of half a minute. 1 is what a finished mod would ship.")
+                .defineInRange("buildOpsPerTick", 10, 1, 256);
         BUILDER_REACH = b.comment("How far a builder can place from where it stands.",
                         "Wider than a player arm on purpose - the alternative is scaffolding,",
                         "which has to be put up, taken down, and got wrong.")

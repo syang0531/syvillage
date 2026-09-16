@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -26,16 +25,18 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Rotation;
 
 /**
- * Everything a settlement does, once per tick, while somebody is there to see it.
+ * Everything a settlement does, while somebody is there to see it.
  *
  * <p>There is no simulation behind this and no second path for when nobody is watching. A
  * village that is never visited never grows, which is the deal: the fun is watching it happen,
- * and in exchange the whole L0/L2 boundary disappears - six of the seven bugs the wall pipeline
- * produced lived on that boundary.
+ * and in exchange the whole LOD boundary disappears.
  *
- * <p>The order is the design. Roads first because nothing can be sited without one, then
- * light because the original complaint was mobs killing villagers at night, then fields and
- * houses - beds and food, which is everything vanilla breeding asks for.
+ * <p>The order follows the plan. Streets and light go down on any ground, however broken,
+ * because they are what makes the place a place. Buildings need flat ground and wait for it -
+ * and if a player levels a lot later, it gets built on.
+ *
+ * <p>When nothing is missing, nothing happens. That sounds obvious and was not: the previous
+ * version finished its roads, lit the place, and then laid the roads again.
  */
 public final class SettlementTick {
 
@@ -43,9 +44,8 @@ public final class SettlementTick {
 
     public static Settlement run(ServerLevel level, Settlement settlement) {
         Settlement out = resurvey(level, settlement);
-        out = freeze(level, out);
-        out = lay(level, out);
-        return out;
+        out = start(level, out);
+        return lay(level, out);
     }
 
     /** Re-reads the ground now and then, so building notices what a player has changed. */
@@ -57,18 +57,24 @@ public final class SettlementTick {
     }
 
     /**
-     * Decides what is missing and freezes a recipe for it.
+     * Picks the next thing to build, if anything is missing.
      *
-     * <p>One job at a time. A settlement with four things on order reports four things waiting
-     * and starts none of them, which tells a player nothing about what is happening.
+     * <p>One job at a time. Four things on order reports four things waiting and starts none of
+     * them, which tells a player nothing about what is happening.
      */
-    private static Settlement freeze(ServerLevel level, Settlement settlement) {
+    private static Settlement start(ServerLevel level, Settlement settlement) {
         if (!settlement.buildQueue().isEmpty()) {
             return settlement;
         }
-        Optional<BuildRecipe> next = plan(level, settlement);
+        Optional<BuildRecipe> next = RoadPlan.plan(level, settlement);
         if (next.isEmpty()) {
-            return settlement;
+            next = LampPlan.plan(level, settlement);
+        }
+        if (next.isEmpty()) {
+            next = building(level, settlement);
+        }
+        if (next.isEmpty()) {
+            return settlement;   // nothing missing, so nothing happens
         }
         BuildRecipe recipe = next.get();
         int blocks = BuildPlanner.expand(recipe).size();
@@ -82,34 +88,36 @@ public final class SettlementTick {
     }
 
     /**
-     * What the settlement builds next.
+     * A house or a field on the nearest empty, level lot.
      *
-     * <p>Nothing here costs anything. Materials were a whole economy that existed to make
-     * building take time, and building already takes time - one block every
-     * buildOpIntervalTicks, in front of you.
+     * <p>Which of the two comes from the world: beds against villagers, both counted by vanilla.
+     * Empty means no lot is built on twice; level means the settlement waits rather than
+     * terracing a hillside, and picks the lot up again if somebody flattens it.
      */
-    private static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement) {
-        if (settlement.grid().countOf(CellState.ROAD) == 0) {
-            return RoadPlan.plan(level, settlement);
-        }
-        Optional<BuildRecipe> lamp = LampPlan.plan(level, settlement);
-        if (lamp.isPresent()) {
-            return lamp;   // light first: mobs spawning indoors is the original complaint
-        }
-        // One field per three cottages. Beds without a field is a village that will never
-        // have a second generation: vanilla breeding needs villagers carrying food, and food
-        // comes from a farmer harvesting a crop.
-        int farms = countOf(settlement, PlotKind.FARM);
-        if (farms == 0 || settlement.houseCount() >= farms * 3) {
-            Optional<BuildRecipe> field = FarmPlan.plan(level, settlement);
-            if (field.isPresent()) {
-                return field;
+    private static Optional<BuildRecipe> building(ServerLevel level, Settlement settlement) {
+        Need.Kind want = Need.next(level, settlement);
+        for (CellPos cell : TownPlan.cells(settlement)) {
+            if (!Lots.available(settlement, cell) || !Lots.buildable(level, settlement, cell)) {
+                continue;
             }
+            return want == Need.Kind.HOUSE
+                    ? HousePlanner.plan(level, settlement, cell)
+                    : FarmPlan.plan(level, settlement, cell);
         }
-        return HousePlanner.plan(level, settlement);
+        return Optional.empty();
     }
 
-    /** Lays the next block or two, on the interval, and finishes the job when it runs out. */
+    /**
+     * Lays the next few blocks, on the interval, and finishes the job when it runs out.
+     *
+     * <p>A tick is the floor of the interval, so laying several blocks per pass is the only way
+     * to build faster than a block a tick - and watching a road appear a block a tick is the
+     * whole reason this mod is fun to look at, which is why the rate is a config key rather than
+     * something the code decides.
+     *
+     * <p>One sound for the batch. Ten wood-place sounds in the same tick is a crack, not a
+     * building site.
+     */
     private static Settlement lay(ServerLevel level, Settlement settlement) {
         if (settlement.buildQueue().isEmpty()
                 || level.getGameTime() % PlacitumConfig.BUILD_OP_INTERVAL_TICKS.get() != 0) {
@@ -120,18 +128,26 @@ public final class SettlementTick {
         if (job.progress() >= ops.size()) {
             return complete(level, settlement, job, ops.size());
         }
-        BuildOp op = ops.get(job.progress());
-        if (!level.isLoaded(op.pos())) {
-            return settlement;   // that ground is not loaded; it comes round again
-        }
+        int laid = 0;
+        int at = job.progress();
+        for (int n = PlacitumConfig.BUILD_OPS_PER_TICK.get(); laid < n && at < ops.size(); at++) {
+            BuildOp op = ops.get(at);
+            if (!level.isLoaded(op.pos())) {
+                break;   // that ground is not loaded; it comes round again
+            }
 
-        // Clients are told; neighbours are not. A door and a bed are two blocks each and go down
-        // as separate writes, and vanilla's updateShape turns a half without its partner straight
-        // into air - which is what UPDATE_KNOWN_SHAPE prevents.
-        level.setBlock(op.pos(), op.state(),
-                Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
-        level.playSound(null, op.pos(), SoundEvents.WOOD_PLACE, SoundSource.BLOCKS, 0.7F, 1.0F);
-        return settlement.withBuildQueue(List.of(job.withProgress(job.progress() + 1)));
+            // Clients are told; neighbours are not. A door and a bed are two blocks each and go
+            // down as separate writes, and vanilla's updateShape turns a half without its partner
+            // straight into air - which is what UPDATE_KNOWN_SHAPE prevents.
+            level.setBlock(op.pos(), op.state(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+            laid++;
+        }
+        if (laid == 0) {
+            return settlement;
+        }
+        level.playSound(null, ops.get(job.progress()).pos(), SoundEvents.WOOD_PLACE,
+                SoundSource.BLOCKS, 0.7F, 1.0F);
+        return settlement.withBuildQueue(List.of(job.withProgress(job.progress() + laid)));
     }
 
     /** Writes the finished thing into the record, so the settlement stops wanting it. */
@@ -140,39 +156,22 @@ public final class SettlementTick {
         Identifier template = job.recipe().template();
         Settlement out = settlement.withBuildQueue(List.of());
 
-        if (template.equals(HousePlanner.COTTAGE)) {
-            CellPos cell = out.grid().cellAt(job.recipe().anchor());
+        if (template.equals(HousePlanner.COTTAGE) || template.equals(FarmPlan.FIELD)) {
+            boolean house = template.equals(HousePlanner.COTTAGE);
+            CellPos cell = TownPlan.cellAt(job.recipe().anchor(), out.center());
             UUID plotId = UUID.nameUUIDFromBytes(("plot:" + job.id()).getBytes(
                     java.nio.charset.StandardCharsets.UTF_8));
             Map<UUID, Plot> plots = new LinkedHashMap<>(out.plots());
-            plots.put(plotId, new Plot(plotId, cell, 1, 1, job.recipe().rotation(), template,
-                    PlotKind.HOUSE, CottagePlan.bedCount(), List.of()));
-            out = out.withPlots(plots).withGrid(out.grid().with(cell, CellState.BUILT));
-        } else if (template.equals(RoadPlan.CROSS)) {
-            out = out.withGrid(RoadPlan.markCells(out.grid(), job.recipe()));
-        } else if (template.equals(FarmPlan.FIELD)) {
-            CellPos cell = out.grid().cellAt(job.recipe().anchor());
-            UUID plotId = UUID.nameUUIDFromBytes(("plot:" + job.id()).getBytes(
-                    java.nio.charset.StandardCharsets.UTF_8));
-            Map<UUID, Plot> plots = new LinkedHashMap<>(out.plots());
-            plots.put(plotId, new Plot(plotId, cell, 1, 1, Rotation.NONE, template,
-                    PlotKind.FARM, 0, List.of()));
+            plots.put(plotId, new Plot(plotId, cell, 1, 1,
+                    house ? job.recipe().rotation() : Rotation.NONE, template,
+                    house ? PlotKind.HOUSE : PlotKind.FARM,
+                    house ? CottagePlan.bedCount() : 0, List.of()));
             out = out.withPlots(plots).withGrid(out.grid().with(cell, CellState.BUILT));
         }
 
         Placitum.LOGGER.info("'{}' finished a {} ({} blocks)", out.name(), template.getPath(),
                 blocks);
-        return out.record(EntryType.BUILD, out.name(),
-                "finished a " + template.getPath(), level.getGameTime());
-    }
-
-    private static int countOf(Settlement settlement, PlotKind kind) {
-        int n = 0;
-        for (Plot plot : settlement.plots().values()) {
-            if (plot.kind() == kind) {
-                n++;
-            }
-        }
-        return n;
+        return out.record(EntryType.BUILD, out.name(), "finished a " + template.getPath(),
+                level.getGameTime());
     }
 }

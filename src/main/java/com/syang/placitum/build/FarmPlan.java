@@ -16,25 +16,23 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
 
 /**
- * A field, which is what makes the rest of this mod's assumption true.
+ * A field, which is the half of this mod's assumption that was missing.
  *
  * <p>The bet is that a village given infrastructure grows on its own. That only holds if vanilla
  * breeding can happen, and vanilla breeding needs villagers carrying food - bread, carrots,
  * potatoes - which comes from a farmer villager harvesting a crop and sharing it. Beds without a
- * field is a village that will never have a second generation, however many houses it is given.
+ * field is a village that has a first generation and no second, however many houses it is given.
  *
- * <p>So this is not decoration. It is the half of the hypothesis that was missing.
- *
- * <p>Nothing tends it. A vanilla farmer villager claims the composter it already has, walks to
- * the nearest farmland, and does the rest - which is the whole point of not simulating any of it.
+ * <p>Nothing tends it. A vanilla farmer claims the composter it already has, walks to the nearest
+ * farmland, and does the rest - which is the whole point of not simulating any of it.
  */
 public final class FarmPlan {
 
     public static final Identifier FIELD =
             Identifier.fromNamespaceAndPath(Placitum.MODID, "farm/field");
 
-    /** Seven a side, like a cottage, so both fit one cell with a block to spare. */
-    public static final int SIDE = 7;
+    /** Same footprint as a cottage, so either fits the same lot. */
+    public static final int SIDE = TownPlan.BUILDING;
 
     private FarmPlan() {}
 
@@ -49,52 +47,32 @@ public final class FarmPlan {
         return out;
     }
 
-    /**
-     * Plans a field on the best free site, level with the village.
-     *
-     * <p>Shares site selection with houses, so a field lands beside a road like everything else -
-     * a farmer has to be able to walk to it, and a field behind three houses is a field nobody
-     * tends.
-     */
-    public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement) {
-        Optional<CellPos> site = HousePlanner.pickSite(level, settlement, FarmPlan::readable);
-        if (site.isEmpty()) {
-            return Optional.empty();
-        }
-        BlockPos northWest = settlement.grid().blockAt(site.get());
+    public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement,
+            CellPos cell) {
+        BlockPos corner = TownPlan.buildingCorner(cell, settlement.center());
         List<Integer> profile = new ArrayList<>();
-        for (BlockPos column : footprint(northWest)) {
+        for (BlockPos column : footprint(corner)) {
+            if (!level.hasChunkAt(column)) {
+                return Optional.empty();
+            }
             profile.add(GridSurvey.groundOrSkip(level, column.getX(), column.getZ()));
         }
         Placitum.LOGGER.debug("Planned a field for '{}' on cell {}", settlement.name(),
-                site.get().toKey());
-        return Optional.of(new BuildRecipe(FIELD, northWest, Rotation.NONE,
+                cell.toKey());
+        return Optional.of(new BuildRecipe(FIELD, corner, Rotation.NONE,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
                 List.copyOf(profile), new BlockPos(SIDE, 1, SIDE), List.of()));
     }
 
-    /** Every column has to be readable: a field half on unseen ground is a field full of holes. */
-    private static boolean readable(ServerLevel level, BlockPos northWest) {
-        for (BlockPos column : footprint(northWest)) {
-            if (!level.hasChunkAt(column)
-                    || GridSurvey.builtOn(level, column.getX(), column.getZ())
-                    || GridSurvey.groundOrSkip(level, column.getX(), column.getZ())
-                            == Ground.SKIP) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     /**
-     * Farmland, water down the middle, wheat on top.
+     * Farmland, a channel of water down the middle, wheat on top.
      *
      * <p>One level for the whole field, taken as the lowest ground under it. A field has to be
-     * flat to hold water, and cutting down to the low point means the water sits in the field
-     * rather than spilling out of it.
+     * flat to hold water, and cutting down to the low point keeps the water in the field rather
+     * than spilling out of it.
      *
-     * <p>The water is a single row through the centre. Farmland stays hydrated within four
-     * blocks, and three is the furthest any part of a seven-wide field gets from the middle.
+     * <p>Farmland stays hydrated within four blocks and two is the furthest any part of a
+     * five-wide field gets from the middle, so one row of water does the whole thing.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Integer> profile = recipe.groundProfile();
@@ -110,7 +88,7 @@ public final class FarmPlan {
 
         for (int i = 0; i < columns.size(); i++) {
             BlockPos column = columns.get(i);
-            boolean middle = i % SIDE == SIDE / 2;
+            boolean channel = i % SIDE == SIDE / 2;
 
             // Clear whatever stands above the field's level, so a knoll does not leave a lump of
             // dirt in the middle of the crop.
@@ -118,7 +96,7 @@ public final class FarmPlan {
                 ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()),
                         Blocks.AIR.defaultBlockState()));
             }
-            if (middle) {
+            if (channel) {
                 ops.add(new BuildOp(new BlockPos(column.getX(), floor, column.getZ()),
                         Blocks.WATER.defaultBlockState()));
                 continue;

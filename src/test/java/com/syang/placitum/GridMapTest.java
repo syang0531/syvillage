@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.placitum.build.GridMap;
 import com.syang.placitum.build.GridSurvey;
+import com.syang.placitum.build.Lots;
 import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.CellState;
 import com.syang.placitum.data.PlotGrid;
@@ -112,14 +113,10 @@ class GridMapTest {
         Settlement settlement = SettlementFixture.standard()
                 .withGrid(new PlotGrid(new BlockPos(0, 64, 0), 9, cells));
 
-        for (CellPos site : com.syang.placitum.build.HousePlanner.findSites(settlement)) {
-            assertTrue(settlement.grid().stateAt(site) == CellState.FREE,
-                    "offered " + site.toKey() + ", which is "
-                            + settlement.grid().stateAt(site));
-        }
-        assertTrue(com.syang.placitum.build.HousePlanner.findSites(settlement).stream()
-                        .noneMatch(c -> c.equals(new CellPos(1, 0))),
+        assertFalse(Lots.available(settlement, new CellPos(1, 0)),
                 "the forbidden cell was offered as a building site");
+        assertTrue(Lots.available(settlement, new CellPos(2, 0)),
+                "only the forbidden cell is out; the rest of the plan is still open");
     }
 
     @Test
@@ -134,10 +131,12 @@ class GridMapTest {
     @Test
     @DisplayName("the grid covers the claim, not the population tier")
     void gridCoversTheClaim() {
-        // Five chunks is 80 blocks of claim in each direction, so ten cells each way plus the
-        // centre. The tier has nothing to say about it: a village vanilla built is the size it
-        // is whether two people live in it or twenty.
-        assertEquals(21, PlotGrid.sizeForClaim(5));
+        // Five chunks is 80 blocks of claim in each direction, and enough cells to cover it
+        // plus the centre. The tier has nothing to say about it: a village vanilla built is the
+        // size it is whether two people live in it or twenty. The count is derived rather than
+        // written down, because the cell is the town plan's period and that has changed once.
+        int cellsEachWay = (5 * 16 + PlotGrid.CELL_BLOCKS - 1) / PlotGrid.CELL_BLOCKS;
+        assertEquals(cellsEachWay * 2 + 1, PlotGrid.sizeForClaim(5));
         assertEquals(5, PlotGrid.sizeForClaim(1), "one chunk is 16 blocks, so two cells each way");
 
         int side = PlotGrid.sizeForClaim(5) * PlotGrid.CELL_BLOCKS;

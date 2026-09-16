@@ -24,7 +24,7 @@ public final class BuildPlanner {
         if (recipe.template().equals(HousePlanner.COTTAGE)) {
             return CottagePlan.expand(recipe);
         }
-        if (recipe.template().equals(RoadPlan.CROSS)) {
+        if (recipe.template().equals(RoadPlan.STREET)) {
             return RoadPlan.expand(recipe);
         }
         if (recipe.template().equals(LampPlan.LAMPS)) {

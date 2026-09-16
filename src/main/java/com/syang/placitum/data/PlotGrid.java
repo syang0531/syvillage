@@ -20,7 +20,14 @@ import net.minecraft.core.BlockPos;
  */
 public record PlotGrid(BlockPos origin, int size, Map<CellPos, CellState> cells) {
 
-    public static final int CELL_BLOCKS = 8;
+    /**
+     * One cell of the town plan: a road, a margin, a lot, a margin.
+     *
+     * <p>Twelve rather than eight because the grid and the plan have to be the same square. When
+     * they were not, "which cell is this" and "where does a house go" were two different
+     * calculations that agreed most of the time.
+     */
+    public static final int CELL_BLOCKS = 12;
 
     public static final Codec<PlotGrid> CODEC = RecordCodecBuilder.create(i -> i.group(
             BlockPos.CODEC.fieldOf("origin").forGetter(PlotGrid::origin),

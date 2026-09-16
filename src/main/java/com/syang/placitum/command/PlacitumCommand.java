@@ -152,17 +152,9 @@ public final class PlacitumCommand {
             source.sendFailure(Component.literal("No such settlement: " + rawId));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal(settlement.name())
-                .withStyle(ChatFormatting.GOLD), false);
-        source.sendSuccess(() -> Component.literal("  centre "
-                + settlement.center().toShortString() + " in "
-                + settlement.dimension().identifier()), false);
-        source.sendSuccess(() -> Component.literal("  " + settlement.houseCount() + " house(s), "
-                + settlement.grid().countOf(CellState.ROAD) + " road cell(s)"), false);
-        source.sendSuccess(() -> Component.literal("  "
-                + settlement.plots().values().stream()
-                        .filter(p -> p.kind() == com.syang.placitum.data.PlotKind.FARM).count()
-                + " field(s)"), false);
+        for (Component line : SettlementReport.of(settlement)) {
+            source.sendSuccess(() -> line, false);
+        }
         return settlement.houseCount();
     }
 
@@ -209,18 +201,17 @@ public final class PlacitumCommand {
             source.sendFailure(Component.literal("That dimension is not loaded"));
             return 0;
         }
-        var dark = LampPlan.darkCells(level, settlement);
+        var dark = LampPlan.darkPosts(level, settlement);
         if (dark.isEmpty()) {
             source.sendSuccess(() -> Component.literal(settlement.name()
                             + " is lit: nothing can spawn on its ground")
                     .withStyle(ChatFormatting.GREEN), false);
             return 0;
         }
-        source.sendSuccess(() -> Component.literal(dark.size() + " dark cell(s) in "
-                + settlement.name() + " - mobs can spawn there").withStyle(ChatFormatting.RED),
-                false);
+        source.sendSuccess(() -> Component.literal(dark.size() + " unlit lamp post(s) in "
+                + settlement.name()).withStyle(ChatFormatting.RED), false);
         for (int i = 0; i < Math.min(8, dark.size()); i++) {
-            BlockPos where = settlement.grid().centreOf(dark.get(i));
+            BlockPos where = dark.get(i);
             source.sendSuccess(() -> Component.literal("  " + where.toShortString()), false);
         }
         return dark.size();

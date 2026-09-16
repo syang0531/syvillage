@@ -3,13 +3,23 @@ package com.syang.placitum.event;
 import com.syang.placitum.Placitum;
 import com.syang.placitum.build.SettlementTick;
 import com.syang.placitum.command.PlacitumCommand;
+import com.syang.placitum.command.SettlementReport;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
+import com.syang.placitum.settlement.Registration;
 import com.syang.placitum.store.SettlementManager;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.block.BellBlock;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -58,6 +68,58 @@ public final class PlacitumEvents {
                 manager.put(after);
             }
         }
+    }
+
+    /**
+     * Shift-right-click a bell to register the village around it, or to ask about it.
+     *
+     * <p>The one interaction this mod adds to the world. Plain right-click is left alone: it
+     * rings the bell, the way it always did, and nothing in this version has anything to say
+     * about a bell being rung.
+     *
+     * <p>Shift-clicking a bell that is already a settlement is not a failed second registration
+     * but the obvious other question - "what is this place doing" - and answering it there saves
+     * a player having to learn an id to run a command with.
+     */
+    @SubscribeEvent
+    public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getHand() != InteractionHand.MAIN_HAND
+                || !(event.getEntity() instanceof ServerPlayer player)
+                || !(event.getLevel() instanceof ServerLevel level)
+                || !player.isShiftKeyDown()) {
+            return;
+        }
+        BlockPos pos = event.getPos();
+        if (!(level.getBlockState(pos).getBlock() instanceof BellBlock)) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+
+        SettlementManager manager = SettlementManager.get(level.getServer());
+        for (Settlement existing : manager.all()) {
+            if (existing.dimension().equals(level.dimension()) && existing.center().equals(pos)) {
+                SettlementReport.of(existing).forEach(player::sendSystemMessage);
+                return;
+            }
+        }
+        player.sendSystemMessage(describe(Registration.register(level, manager, pos)));
+    }
+
+    private static Component describe(Registration.Result result) {
+        return switch (result) {
+            case Registration.Result.Success success -> Component
+                    .literal("Registered " + success.settlement().name()
+                            + " - shift-click the bell again to see what it is building")
+                    .withStyle(ChatFormatting.GREEN);
+            case Registration.Result.AlreadyRegistered already -> Component
+                    .literal("This bell already belongs to " + already.name())
+                    .withStyle(ChatFormatting.YELLOW);
+            case Registration.Result.Overlaps overlaps -> Component
+                    .literal("Too close to " + overlaps.otherName() + " - " + overlaps.distance()
+                            + " blocks away, " + overlaps.required() + " required")
+                    .withStyle(ChatFormatting.RED);
+        };
     }
 
     @SubscribeEvent
