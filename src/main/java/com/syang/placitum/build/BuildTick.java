@@ -75,6 +75,7 @@ public final class BuildTick {
 
         List<Villager> builders = buildersOf(level, manager, settlement);
         List<BuildJob> next = new ArrayList<>(settlement.buildQueue().size());
+        Settlement abandoned = null;
         boolean changed = false;
 
         for (BuildJob job : settlement.buildQueue()) {
@@ -85,7 +86,12 @@ public final class BuildTick {
             // Same rate rule as the virtual side: one builder's worth if nobody holds the
             // job. Two paths that built at different speeds would make walking away from a
             // half-built wall a way to finish it faster.
-            BuildJob advanced = job;
+            BuildJob advanced = verify(level, job);
+            if (advanced == null) {
+                abandoned = give(settlement, job, abandoned);
+                changed = true;
+                continue;   // the site is written off; the job leaves the queue
+            }
             int hands = Math.max(1, countBuilders(settlement));
             for (int i = 0; i < hands; i++) {
                 BuildJob stepped = lay(level, settlement, advanced, builders);
@@ -97,7 +103,71 @@ public final class BuildTick {
             changed |= advanced != job;
             next.add(advanced);
         }
-        return changed ? settlement.withBuildQueue(List.copyOf(next)) : settlement;
+        Settlement out = changed ? settlement.withBuildQueue(List.copyOf(next)) : settlement;
+        return abandoned == null ? out : abandoned.withBuildQueue(List.copyOf(next));
+    }
+
+    /**
+     * Checks one block that should already be there.
+     *
+     * <p>One in {@code verifySampleEvery}, not all of them: verifying every placement would
+     * double the cost of building to catch something that usually is not happening. The sample
+     * is spread across everything laid so far rather than taken from the end, because a player
+     * knocking a hole in the first course is exactly the case worth noticing.
+     *
+     * <p>Returns the job to carry on with, rewound to the damage if there is any, or null when
+     * the settlement has given up on the site.
+     */
+    private static BuildJob verify(ServerLevel level, BuildJob job) {
+        int every = PlacitumConfig.VERIFY_SAMPLE_EVERY.get();
+        if (job.progress() < every || job.progress() % every != 0) {
+            return job;
+        }
+        List<BuildOp> ops = BuildPlanner.expand(job.recipe());
+        if (ops.isEmpty()) {
+            return job;
+        }
+        int checks = job.progress() / every;
+        int sample = (int) Math.floorMod(checks * 2654435761L, Math.min(job.progress(), ops.size()));
+        BuildOp should = ops.get(sample);
+        if (!level.isLoaded(should.pos())
+                || level.getBlockState(should.pos()).equals(should.state())) {
+            return job;
+        }
+
+        if (job.attempts() + 1 > PlacitumConfig.MAX_REBUILD_ATTEMPTS.get()) {
+            return null;
+        }
+        Placitum.LOGGER.info("Something has cleared {} - starting again from block {} of {}"
+                        + " (attempt {})", should.pos().toShortString(), sample, ops.size(),
+                job.attempts() + 1);
+        return job.withProgress(sample).withAttempt();
+    }
+
+    /**
+     * Writes off a site the player keeps clearing.
+     *
+     * <p>docs/construction.md is explicit that this both prevents an infinite loop and respects
+     * what the player is telling us. A settlement that rebuilds a third time on ground somebody
+     * has cleared three times is not persistent, it is broken.
+     *
+     * <p>A house gives up its cell, which stops it being chosen again. A wall records itself as
+     * standing but not intact, which stops it being ordered again while leaving the defence
+     * rating honest about what is actually there.
+     */
+    private static Settlement give(Settlement settlement, BuildJob job, Settlement already) {
+        Settlement out = already == null ? settlement : already;
+        boolean house = job.recipe().template().equals(HousePlanner.COTTAGE);
+        Placitum.LOGGER.info("'{}' has given up on its {} - cleared too many times",
+                out.name(), job.recipe().template().getPath());
+
+        if (house) {
+            return out.withGrid(out.grid().with(out.grid().cellAt(job.recipe().anchor()),
+                    com.syang.placitum.data.CellState.FORBIDDEN));
+        }
+        return out.withDefense(out.defense().withWall(new com.syang.placitum.data.WallState(
+                com.syang.placitum.data.WallTier.PALISADE,
+                BuildPlanner.ringOf(job.recipe()), BuildPlanner.gatesOf(job.recipe()), false)));
     }
 
     /**

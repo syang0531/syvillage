@@ -19,7 +19,19 @@ public record BuildJob(
         BuildRecipe recipe,
         int progress,
         Map<Item, Integer> cost,
-        BuildStage stage) {
+        BuildStage stage,
+        int attempts) {
+
+    /**
+     * How many times this job has had to start a stretch over.
+     *
+     * <p>Counted so that a player who keeps clearing a site is eventually taken at their word.
+     * Without it, sample verification is an infinite loop with extra steps: the settlement
+     * rebuilds, the player breaks it, for ever.
+     */
+    public BuildJob withAttempt() {
+        return new BuildJob(id, plotId, recipe, progress, cost, stage, attempts + 1);
+    }
 
     public static final Codec<BuildJob> CODEC = RecordCodecBuilder.create(i -> i.group(
             UUIDUtil.CODEC.fieldOf("id").forGetter(BuildJob::id),
@@ -27,14 +39,15 @@ public record BuildJob(
             BuildRecipe.CODEC.fieldOf("recipe").forGetter(BuildJob::recipe),
             Codec.INT.fieldOf("progress").forGetter(BuildJob::progress),
             PlacitumCodecs.ITEM_COUNTS.fieldOf("cost").forGetter(BuildJob::cost),
-            BuildStage.CODEC.fieldOf("stage").forGetter(BuildJob::stage)
+            BuildStage.CODEC.fieldOf("stage").forGetter(BuildJob::stage),
+            Codec.INT.optionalFieldOf("attempts", 0).forGetter(BuildJob::attempts)
     ).apply(i, BuildJob::new));
 
     public BuildJob withProgress(int newProgress) {
-        return new BuildJob(id, plotId, recipe, newProgress, cost, stage);
+        return new BuildJob(id, plotId, recipe, newProgress, cost, stage, attempts);
     }
 
     public BuildJob withStage(BuildStage newStage) {
-        return new BuildJob(id, plotId, recipe, progress, cost, newStage);
+        return new BuildJob(id, plotId, recipe, progress, cost, newStage, attempts);
     }
 }

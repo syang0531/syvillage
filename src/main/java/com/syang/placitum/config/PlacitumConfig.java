@@ -80,6 +80,8 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue PALISADE_HEIGHT;
     public static final ModConfigSpec.IntValue WALL_MIN_POPULATION;
     public static final ModConfigSpec.IntValue MAX_SITE_DROP;
+    public static final ModConfigSpec.IntValue VERIFY_SAMPLE_EVERY;
+    public static final ModConfigSpec.IntValue MAX_REBUILD_ATTEMPTS;
     public static final ModConfigSpec.IntValue BUILD_OP_INTERVAL_TICKS;
     public static final ModConfigSpec.DoubleValue BUILDER_REACH;
     public static final ModConfigSpec.DoubleValue BUILDER_WALK_SPEED;
@@ -242,6 +244,14 @@ public final class PlacitumConfig {
                         "house it built appeared eighteen blocks down a slope, out of sight.",
                         "A settlement that grows somewhere you cannot see it has not grown.")
                 .defineInRange("maxSiteDrop", 8, 1, 128);
+        VERIFY_SAMPLE_EVERY = b.comment("Check one already-placed block every this many new ones.",
+                        "Checking every block would double the cost of building to catch",
+                        "something that usually is not happening.")
+                .defineInRange("verifySampleEvery", 16, 1, 1024);
+        MAX_REBUILD_ATTEMPTS = b.comment("How often a settlement will start a stretch over before",
+                        "giving up on the site. A player who clears the same ground three times",
+                        "has said what they want.")
+                .defineInRange("maxRebuildAttempts", 3, 1, 64);
         BUILD_OP_INTERVAL_TICKS = b.comment("Ticks between blocks while somebody is watching.",
                         "10 is a block every half second: long enough to look like work and",
                         "short enough that a wall does not take an evening.")

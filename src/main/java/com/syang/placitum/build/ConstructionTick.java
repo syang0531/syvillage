@@ -79,7 +79,7 @@ public final class ConstructionTick {
         Placitum.LOGGER.info("'{}' queued a {}: {} op(s), {} log(s)", settlement.name(),
                 recipe.template().getPath(), ops.size(), timber);
         return new BuildJob(job.id(), job.plotId(), recipe, 0, costOf(timber),
-                BuildStage.QUEUED);
+                BuildStage.QUEUED, job.attempts());
     }
 
     /**

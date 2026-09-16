@@ -135,7 +135,8 @@ public class NeedsModule implements SimModule {
                         List.of()),
                 0,
                 Map.of(),
-                BuildStage.PLANNED);
+                BuildStage.PLANNED,
+                0);
     }
 
     private void order(SettlementMut settlement, BuildJob job) {

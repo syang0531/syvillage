@@ -101,6 +101,36 @@ class GridMapTest {
     }
 
     @Test
+    @DisplayName("a site the settlement gave up on is never offered again")
+    void abandonedSitesAreNotReconsidered() {
+        // Giving up is only half of not looping. The other half is that the site stops being a
+        // candidate - otherwise the settlement picks the same ground next step and starts the
+        // whole argument with the player over again.
+        Map<CellPos, CellState> cells = new LinkedHashMap<>();
+        cells.put(new CellPos(0, 0), CellState.ROAD);
+        cells.put(new CellPos(1, 0), CellState.FORBIDDEN);
+        Settlement settlement = SettlementFixture.standard()
+                .withGrid(new PlotGrid(new BlockPos(0, 64, 0), 9, cells));
+
+        for (CellPos site : com.syang.placitum.build.HousePlanner.findSites(settlement)) {
+            assertTrue(settlement.grid().stateAt(site) == CellState.FREE,
+                    "offered " + site.toKey() + ", which is "
+                            + settlement.grid().stateAt(site));
+        }
+        assertTrue(com.syang.placitum.build.HousePlanner.findSites(settlement).stream()
+                        .noneMatch(c -> c.equals(new CellPos(1, 0))),
+                "the forbidden cell was offered as a building site");
+    }
+
+    @Test
+    @DisplayName("a survey leaves a written-off site written off")
+    void abandonmentOutlivesTheNextSurvey() {
+        assertTrue(GridSurvey.isFrozen(CellState.FORBIDDEN),
+                "a site given up on has to survive the next survey, or the settlement rediscovers"
+                        + " it and the loop starts again");
+    }
+
+    @Test
     @DisplayName("a settlement may build further out than its own market square")
     void buildRadiusIsARadius() {
         // These numbers were written as grid widths, back when the grid was sized from the

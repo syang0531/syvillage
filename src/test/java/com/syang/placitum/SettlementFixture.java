@@ -139,7 +139,7 @@ public final class SettlementFixture {
                         List.of(68, 69, 69, 70, 71),
                         new BlockPos(9, 3, 7),
                         List.of(2)),
-                42, Map.of(Items.OAK_LOG, 64), BuildStage.EXECUTING);
+                42, Map.of(Items.OAK_LOG, 64), BuildStage.EXECUTING, 0);
 
         WallState wall = new WallState(WallTier.PALISADE,
                 List.of(new BlockPos(100, 68, -300), new BlockPos(101, 68, -300)),
