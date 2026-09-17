@@ -3,6 +3,7 @@ package com.syang.placitum;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.placitum.data.Craft;
@@ -100,6 +101,29 @@ class CraftTest {
         assertTrue(Craft.MASONRY.betterThan(Craft.STONE));
         assertEquals(Blocks.OAK_PLANKS, Craft.TIMBER.roof().getBlock());
         assertEquals(Blocks.STONE_BRICK_SLAB, Craft.MASONRY.roof().getBlock());
+    }
+
+    @Test
+    @DisplayName("a town never takes up its own paving to lay something worse")
+    void pavingIsOnlyEverImproved() {
+        // A settlement unregistered and registered again starts back at timber with its stone
+        // brick streets still in the ground. Asking "is this our paving, and is it the wrong
+        // sort" would have had it take up a stone brick high street and put dirt back down.
+        for (Craft craft : Craft.values()) {
+            assertEquals(craft, Craft.pavedBy(craft.paving()),
+                    craft + " does not recognise its own paving");
+        }
+        assertNull(Craft.pavedBy(Blocks.GRASS_BLOCK.defaultBlockState()));
+        assertNull(Craft.pavedBy(Blocks.GRAVEL.defaultBlockState()),
+                "gravel is not ours, so a gravel path is somebody else's to keep");
+
+        // The rule the planner applies: take it up only to improve it.
+        assertTrue(Craft.MASONRY.betterThan(Craft.pavedBy(Craft.TIMBER.paving())),
+                "a dirt track in a stone brick town is work to do");
+        assertFalse(Craft.TIMBER.betterThan(Craft.pavedBy(Craft.MASONRY.paving())),
+                "stone brick in a timber town is left exactly where it is");
+        assertFalse(Craft.STONE.betterThan(Craft.pavedBy(Craft.STONE.paving())),
+                "and a street of the standard we build to now is already done");
     }
 
     @Test

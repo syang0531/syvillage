@@ -88,14 +88,17 @@ public final class RoadPlan {
                     // is the whole of the upgrade. Nothing here has to know it is an upgrade.
                     BlockState top = level.getBlockState(
                             new BlockPos(pos.getX(), ground, pos.getZ()));
-                    if (top.is(settlement.craft().paving().getBlock())) {
-                        continue;   // already a street, and made of the right thing
-                    }
-                    // Paving of a lower standard is ours to take up again - that is the whole
-                    // upgrade. Anything else somebody built, the street goes round.
-                    if (!Craft.isPaving(top)
-                            && GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
-                        continue;
+                    Craft laid = Craft.pavedBy(top);
+                    if (laid != null) {
+                        // Ours already. Take it up only to improve it, never to make it worse:
+                        // a settlement re-registered after an unregister starts back at timber,
+                        // and the old test would have had it replace its own cobblestone high
+                        // street with dirt.
+                        if (!settlement.craft().betterThan(laid)) {
+                            continue;
+                        }
+                    } else if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
+                        continue;   // somebody else's: the street goes round
                     }
                     // With the clearance: a street runs under a tree otherwise, because the
                     // ground reading walks down past the trunk on purpose.

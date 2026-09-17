@@ -5,6 +5,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * What the village knows how to build with.
@@ -110,12 +111,24 @@ public enum Craft implements StringRepresentable {
 
     /** Whether this block is paving from any standard - ours to replace when we improve. */
     public static boolean isPaving(BlockState state) {
+        return pavedBy(state) != null;
+    }
+
+    /**
+     * Which standard laid this paving, or null if we did not lay it.
+     *
+     * <p>Asked rather than a yes or no, because a street can be better than the one we would
+     * build today. A settlement that was unregistered and registered again starts back at
+     * timber, and "is this our paving, and is it the wrong sort" would have had it take up its
+     * own cobblestone high street and put dirt back down. A town does not make itself worse.
+     */
+    public static @Nullable Craft pavedBy(BlockState state) {
         for (Craft craft : values()) {
             if (state.is(craft.paving().getBlock())) {
-                return true;
+                return craft;
             }
         }
-        return false;
+        return null;
     }
 
     /**

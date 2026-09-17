@@ -5,6 +5,7 @@ import com.syang.placitum.build.SettlementTick;
 import com.syang.placitum.command.PlacitumCommand;
 import com.syang.placitum.command.SettlementReport;
 import com.syang.placitum.data.Settlement;
+import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.settlement.Registration;
 import com.syang.placitum.store.SettlementManager;
@@ -77,9 +78,14 @@ public final class PlacitumEvents {
      * rings the bell, the way it always did, and nothing in this version has anything to say
      * about a bell being rung.
      *
-     * <p>Shift-clicking a bell that is already a settlement is not a failed second registration
-     * but the obvious other question - "what is this place doing" - and answering it there saves
-     * a player having to learn an id to run a command with.
+     * <p>Shift-clicking a bell inside a town is not a failed second registration but the obvious
+     * other question - "what is this place doing" - and answering it there saves a player having
+     * to learn an id to run a command with. Any bell in the claim will do, so a bell hung for
+     * decoration is a noticeboard rather than a refusal.
+     *
+     * <p>The bell it was registered at is not special afterwards, and can be broken: the town
+     * plan is arithmetic on a position, not on a block. What cannot move is that position, since
+     * every road, lot, lamp and rampart is measured from it.
      */
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -97,11 +103,23 @@ public final class PlacitumEvents {
         event.setCancellationResult(InteractionResult.SUCCESS);
 
         SettlementManager manager = SettlementManager.get(level.getServer());
+
+        // Any bell inside a town's claim, not only the one it was registered at. Bells are
+        // decoration as much as anything, and a player who hangs one in their market square got
+        // "Too close to Achenstead - 40 blocks away, 96 required" - which is true, reads as a
+        // failure, and is not what they asked. What they asked is "what is this place".
+        Settlement here = null;
+        int claim = PlacitumConfig.CLAIM_RADIUS_CHUNKS.get() * 16;
         for (Settlement existing : manager.all()) {
-            if (existing.dimension().equals(level.dimension()) && existing.center().equals(pos)) {
-                SettlementReport.of(existing, level).forEach(player::sendSystemMessage);
-                return;
+            if (existing.dimension().equals(level.dimension())
+                    && existing.center().distSqr(pos) <= (long) claim * claim) {
+                here = existing;
+                break;
             }
+        }
+        if (here != null) {
+            SettlementReport.of(here, level).forEach(player::sendSystemMessage);
+            return;
         }
         player.sendSystemMessage(describe(Registration.register(level, manager, pos)));
     }

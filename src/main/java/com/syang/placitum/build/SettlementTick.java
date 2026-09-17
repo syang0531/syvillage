@@ -84,14 +84,6 @@ public final class SettlementTick {
         }
         settlement = out;
 
-        if (settlement.buildQueue().isEmpty()) {
-            Reach reach = Reach.from(level, settlement, TownPlan.outerPhase(settlement));
-            Placitum.LOGGER.info("'{}' is building nothing. {} column(s) of street reach the"
-                            + " bell, {} of ground reach a street. Lots out to phase {}: {}",
-                    settlement.name(), reach.streetSize(), reach.size(),
-                    TownPlan.maxPhase(settlement),
-                    Lots.describe(Lots.tally(level, settlement, reach)));
-        }
         return settlement.withGrid(GridSurvey.run(level, settlement).grid());
     }
 
@@ -171,6 +163,7 @@ public final class SettlementTick {
             next = WallPlan.plan(level, settlement, reach);
         }
         if (next.isEmpty()) {
+            reportIdle(level, settlement, reach);
             return settlement;   // nothing missing, so nothing happens
         }
         BuildRecipe recipe = next.get();
@@ -183,6 +176,25 @@ public final class SettlementTick {
                 recipe.anchor().toShortString(), phase - 1, blocks);
         return settlement.withBuildQueue(List.of(new BuildJob(UUID.randomUUID(),
                 settlement.id(), recipe, 0, Map.of(), BuildStage.EXECUTING, 0)));
+    }
+
+    /**
+     * Says why nothing is being built, now and then.
+     *
+     * <p>Reported from here rather than from the survey, because the survey runs before anything
+     * has been chosen: the queue is empty at that moment on every pass, so it announced that the
+     * settlement was building nothing while fourteen lots were waiting and one was about to go
+     * up. A message that is wrong twice a minute is worse than no message.
+     */
+    private static void reportIdle(ServerLevel level, Settlement settlement, Reach reach) {
+        if (level.getGameTime() % PlacitumConfig.SURVEY_INTERVAL_TICKS.get() != 0) {
+            return;
+        }
+        Placitum.LOGGER.info("'{}' is building nothing. {} column(s) of street reach the bell,"
+                        + " {} of ground reach a street. Lots out to phase {}: {}",
+                settlement.name(), reach.streetSize(), reach.size(),
+                TownPlan.maxPhase(settlement),
+                Lots.describe(Lots.tally(level, settlement, reach)));
     }
 
     /**
