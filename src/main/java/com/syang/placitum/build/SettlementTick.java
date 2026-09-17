@@ -228,6 +228,17 @@ public final class SettlementTick {
                 settlement.name(), reach.streetSize(), reach.size(),
                 TownPlan.maxPhase(settlement),
                 Lots.describe(Lots.tally(level, settlement, reach)));
+        if (!settlement.walled()) {
+            return;
+        }
+        for (Direction side : GatePlan.sides()) {
+            Placitum.LOGGER.info("  gate {}: {}", side, GatePlan.trouble(level,
+                    GatePlan.footprint(GatePlan.anchorOf(settlement, side), side), reach));
+        }
+        for (int[] corner : TowerPlan.corners()) {
+            Placitum.LOGGER.info("  tower {},{}: {}", corner[0], corner[1], GatePlan.trouble(
+                    level, TowerPlan.footprint(TowerPlan.anchorOf(settlement, corner)), reach));
+        }
     }
 
     /**

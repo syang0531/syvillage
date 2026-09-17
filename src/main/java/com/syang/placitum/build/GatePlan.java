@@ -236,6 +236,35 @@ public final class GatePlan {
         return List.copyOf(ops);
     }
 
+    /**
+     * Why a footprint cannot be built on, counted by reason.
+     *
+     * <p>A gatehouse is a hundred and thirty-six columns and a tower a hundred and forty-four,
+     * and one bad column stops the whole thing. "It did not build" is useless at that size - it
+     * has been guessed at three times now - so the settlement says which columns and what was
+     * wrong with them. Principle 11, applied to something bigger than a lot.
+     */
+    public static String trouble(ServerLevel level, List<BlockPos> columns, Reach reach) {
+        int unloaded = 0;
+        int unreachable = 0;
+        int wet = 0;
+        for (BlockPos column : columns) {
+            if (!level.hasChunkAt(column)) {
+                unloaded++;
+            } else if (GridSurvey.groundOrSkip(level, column.getX(), column.getZ())
+                    == Ground.SKIP) {
+                wet++;
+            } else if (!reach.has(column)) {
+                unreachable++;
+            }
+        }
+        if (unloaded + unreachable + wet == 0) {
+            return "nothing";
+        }
+        return unreachable + " unreachable, " + wet + " water, " + unloaded + " unloaded"
+                + " of " + columns.size();
+    }
+
     /** The positions a build has already spoken for. */
     static java.util.Set<BlockPos> written(List<BuildOp> ops) {
         java.util.Set<BlockPos> out = new java.util.HashSet<>(ops.size());

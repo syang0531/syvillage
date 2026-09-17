@@ -78,7 +78,7 @@ public final class WallPlan {
         for (int along = -outer; along <= outer && todo.size() < wanted; along++) {
             for (int side = 0; side < 4 && todo.size() < wanted; side++) {
                 List<Spans> slice = new ArrayList<>(TownPlan.WALL);
-                if (!level(level, settlement, bell, along, side)) {
+                if (!level(level, settlement, bell, along, side, craft.wall())) {
                     continue;   // not flat enough here; the player levels it or it stays open
                 }
                 for (int depth = 0; depth < TownPlan.WALL; depth++) {
@@ -144,7 +144,7 @@ public final class WallPlan {
      * to everything else.
      */
     private static boolean level(ServerLevel level, Settlement settlement, BlockPos bell,
-            int along, int side) {
+            int along, int side, BlockState stone) {
         int lowest = Integer.MAX_VALUE;
         int highest = Integer.MIN_VALUE;
         int outer = TownPlan.wallOuter(settlement);
@@ -155,10 +155,15 @@ public final class WallPlan {
                 if (!level.hasChunkAt(pos)) {
                     return false;
                 }
-                int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
-                if (ground == Ground.SKIP) {
-                    return false;
+                if (GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ()) == Ground.SKIP) {
+                    return false;   // water
                 }
+                // Read down through our own masonry to the ground it stands on. The cross-section
+                // before this one is usually already built, and a built cross-section reads three
+                // blocks higher than the ground - so this said "not level" beside every stretch
+                // of wall that existed, and the rampart came out as separate parallel strips
+                // with a gap between each one.
+                int ground = GridSurvey.footingAt(level, pos.getX(), pos.getZ(), stone);
                 lowest = Math.min(lowest, ground);
                 highest = Math.max(highest, ground);
             }
