@@ -68,7 +68,7 @@ Steinerstead is not building anything
 
 ## 설정
 
-`config/placitum-common.toml`. 키는 **14개뿐이고, 전부 실제로 읽힌다.**
+`config/placitum-common.toml`. 키는 **16개뿐이고, 전부 실제로 읽힌다.**
 
 예전에는 70개였고 그중 14개만 읽혔다. 나머지는 삭제된 시뮬레이션의 설정이 남은 것이었는데, 플레이어가 편집하는 파일에서 죽은 키는 **거짓말**이다 — `raidChancePerStep`을 보면 습격 빈도를 조절할 수 있다고 믿게 된다. 여기 있는 키는 전부 돌리면 게임이 바뀐다는 약속이다.
 
@@ -109,7 +109,16 @@ Steinerstead is not building anything
 | `buildBlocksPerTick` | 10 | 매 틱 놓는 블록 수. **속도 손잡이는 이거 하나뿐** |
 | `roadBlocksPerJob` | 64 | 도로 한 작업의 기둥 수 |
 | `lampsPerJob` | 8 | 한 작업에 세우는 가로등 수 |
+| `wallColumnsPerJob` | 32 | 한 작업에 올리는 성벽 기둥 수 |
 
 `buildBlocksPerTick`이 하나인 데는 이유가 있다. 예전에는 간격과 배치 크기 두 개였고, 예전 월드에서 남은 config가 간격을 10으로 되돌려서 **10틱마다 10블록 = 정확히 원래 속도**가 나왔다. 10배 가속이 상쇄된 채로 "고쳤다"고 보고됐다. 손잡이 하나는 자기 자신과 어긋날 수 없다.
 
 배포용으로는 `buildBlocksPerTick = 1`이 맞다. 10은 개발 속도다.
+
+### `[guardian]`
+
+| 키 | 기본값 | |
+|---|---|---|
+| `guardCheckTicks` | 200 | 수호상이 자기 골렘을 찾는 주기 (10초) |
+
+이 값이 정하는 것은 단 하나, **골렘이 죽고 나서 마을이 몇 초동안 비어 있는가**이다. 그 답은 골렘이 죽을 때만 바뀌므로 일부러 느리게 둔다.

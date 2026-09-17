@@ -3,5 +3,6 @@
   "block.placitum.village_head_table": "촌장 탁자",
   "entity.placitum.villager.village_head": "촌장",
   "block.placitum.lords_table": "영주 탁자",
-  "entity.placitum.villager.lord": "영주"
+  "entity.placitum.villager.lord": "영주",
+  "block.placitum.guardian_statue": "수호상"
 }

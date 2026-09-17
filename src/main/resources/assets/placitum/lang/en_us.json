@@ -3,5 +3,6 @@
   "block.placitum.village_head_table": "Village Head's Table",
   "entity.placitum.villager.village_head": "Village Head",
   "block.placitum.lords_table": "Lord's Table",
-  "entity.placitum.villager.lord": "Lord"
+  "entity.placitum.villager.lord": "Lord",
+  "block.placitum.guardian_statue": "Guardian Statue"
 }

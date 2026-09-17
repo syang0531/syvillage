@@ -143,6 +143,7 @@ LOD 없음. promote/demote 없음. replay 없음. 안 가본 마을은 자라지
 ```
 com.syang.placitum
 ├─ Placitum.java      @Mod 진입점
+├─ block/             블록과 블록 엔티티 (수호상)
 ├─ data/              record + Codec
 ├─ store/             SavedData, SettlementManager
 ├─ build/             측량, 걷기, 계획, 전개, 배치

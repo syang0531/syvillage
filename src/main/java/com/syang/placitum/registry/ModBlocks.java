@@ -1,6 +1,9 @@
 package com.syang.placitum.registry;
 
 import com.syang.placitum.Placitum;
+import com.syang.placitum.block.GuardianBlockEntity;
+import com.syang.placitum.block.GuardianStatue;
+import java.util.function.Function;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -8,10 +11,12 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -28,6 +33,8 @@ public final class ModBlocks {
             DeferredRegister.createBlocks(Placitum.MODID);
     public static final DeferredRegister.Items ITEMS =
             DeferredRegister.createItems(Placitum.MODID);
+    public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
+            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, Placitum.MODID);
 
     /**
      * The village head's table: the workstation that lets a settlement build in stone brick.
@@ -55,13 +62,42 @@ public final class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.STONE));
 
+    /**
+     * The guardian statue: an iron golem that comes back.
+     *
+     * <p>The one block here with no job attached to it, because what it does is not a job. See
+     * {@link GuardianStatue} for why a tidy town needs one at all.
+     */
+    public static final DeferredBlock<Block> GUARDIAN_STATUE = register("guardian_statue",
+            BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL)
+                    // Not a full cube, so the faces its neighbours would have culled have to be
+                    // drawn. Without this the statue is a silhouette with holes in it.
+                    .noOcclusion(),
+            GuardianStatue::new);
+
+    /** What remembers which golem belongs to which statue. */
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GuardianBlockEntity>>
+            GUARDIAN = BLOCK_ENTITIES.register("guardian",
+                    () -> new BlockEntityType<>(GuardianBlockEntity::new,
+                            GUARDIAN_STATUE.get()));
+
     private ModBlocks() {}
 
     private static DeferredBlock<Block> register(String name, BlockBehaviour.Properties props) {
+        return register(name, props, Block::new);
+    }
+
+    /** The same, for a block that is not a plain {@link Block}. */
+    private static DeferredBlock<Block> register(String name, BlockBehaviour.Properties props,
+            Function<BlockBehaviour.Properties, Block> constructor) {
         ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, name));
         DeferredBlock<Block> block = BLOCKS.register(name,
-                () -> new Block(props.setId(key)));
+                () -> constructor.apply(props.setId(key)));
         item(name, block);
         return block;
     }
@@ -76,5 +112,6 @@ public final class ModBlocks {
     public static void register(IEventBus modBus) {
         BLOCKS.register(modBus);
         ITEMS.register(modBus);
+        BLOCK_ENTITIES.register(modBus);
     }
 }

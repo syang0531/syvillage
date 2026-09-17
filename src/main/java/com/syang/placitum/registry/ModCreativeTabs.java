@@ -28,6 +28,7 @@ public final class ModCreativeTabs {
         if (event.getTabKey().equals(CreativeModeTabs.FUNCTIONAL_BLOCKS)) {
             event.accept(ModBlocks.VILLAGE_HEAD_TABLE.get());
             event.accept(ModBlocks.LORDS_TABLE.get());
+            event.accept(ModBlocks.GUARDIAN_STATUE.get());
         }
     }
 }

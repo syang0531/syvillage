@@ -45,6 +45,9 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue LAMPS_PER_JOB;
     public static final ModConfigSpec.IntValue WALL_COLUMNS_PER_JOB;
 
+    // [guardian] - the statue that keeps a golem
+    public static final ModConfigSpec.IntValue GUARD_CHECK_TICKS;
+
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
 
@@ -153,6 +156,14 @@ public final class PlacitumConfig {
                         "blocks or so, where a street block is one, so this is smaller than",
                         "roadBlocksPerJob for the same amount of watching.")
                 .defineInRange("wallColumnsPerJob", 32, 1, 1024);
+        b.pop();
+
+        b.comment("The guardian statue.").push("guardian");
+        GUARD_CHECK_TICKS = b.comment("How often a statue asks after its golem. 200 = ten",
+                        "seconds. The answer changes about as often as a golem dies, so this",
+                        "is deliberately slow: it decides how long a town stands unguarded",
+                        "after one falls, and nothing else.")
+                .defineInRange("guardCheckTicks", 200, 20, 24000);
         b.pop();
 
         SPEC = b.build();
