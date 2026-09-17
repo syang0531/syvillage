@@ -137,7 +137,7 @@ public final class Reach {
                 }
                 int climb = at.climb();
                 if (onRoadsOnly && TownPlan.runsAlongRoad(step[0], step[1], pos, bell)) {
-                    climb = uneven(terrain, at, step) ? climb + 1 : 0;
+                    climb = uneven(terrain, at, step, bell) ? climb + 1 : 0;
                     if (climb > allowed) {
                         continue;   // rolling ground: the street gives up rather than ride it
                     }
@@ -152,20 +152,28 @@ public final class Reach {
     /**
      * Whether the road's full width changes height over this step.
      *
-     * <p>All three lanes, not just the one being walked. A street running along the contour of a
-     * hill has one lane that is dead level and two that are not, and paving it on the strength of
-     * the level one gives a road with a step down its length - which is the thing that looks
-     * wrong from the ground.
+     * <p>All three lanes of it, not just the one being walked. A street running along the
+     * contour of a hill has one lane that is dead level and two that are not, and paving it on
+     * the strength of the level one gives a road with a step down its length - which is the
+     * thing that looks wrong from the ground.
      *
      * <p>Any change counts, up or down. Rolling ground is as unbuildable-looking as a slope, and
      * a rule that only counted climbing would let a street ripple across a field of hummocks.
      */
-    private static boolean uneven(Terrain terrain, Step from, int[] step) {
+    private static boolean uneven(Terrain terrain, Step from, int[] step, BlockPos bell) {
         int px = step[0] != 0 ? 0 : 1;
         int pz = step[0] != 0 ? 1 : 0;
         for (int lane = -1; lane <= 1; lane++) {
-            int before = terrain.at(from.x() + px * lane, from.z() + pz * lane);
-            int after = terrain.at(from.x() + step[0] + px * lane, from.z() + step[1] + pz * lane);
+            int x = from.x() + px * lane;
+            int z = from.z() + pz * lane;
+            // The road's own lanes and nothing else. One block further out is the margin, where
+            // the lamps stand, and a lamp reads three blocks higher than the ground it is on -
+            // so counting it made the town's own street lights break the street beside them.
+            if (!(px != 0 ? TownPlan.isRoad(x, bell.getX()) : TownPlan.isRoad(z, bell.getZ()))) {
+                continue;
+            }
+            int before = terrain.at(x, z);
+            int after = terrain.at(x + step[0], z + step[1]);
             if (before == Ground.SKIP || after == Ground.SKIP) {
                 continue;   // that lane is in the water; it has nothing to say about the slope
             }
