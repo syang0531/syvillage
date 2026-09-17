@@ -30,6 +30,7 @@ public record Settlement(
         Map<UUID, Plot> plots,
         List<BuildJob> buildQueue,
         Craft craft,
+        boolean walled,
         Chronicle chronicle) {
 
     public static final Codec<Settlement> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -41,6 +42,7 @@ public record Settlement(
             // Optional with a default, because a settlement saved before there were standards
             // to build to has to load as one that builds in timber rather than not at all.
             Craft.CODEC.optionalFieldOf("craft", Craft.TIMBER).forGetter(Settlement::craft),
+            Codec.BOOL.optionalFieldOf("walled", false).forGetter(Settlement::walled),
             Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle)
     ).apply(i, Settlement::new));
 
@@ -69,7 +71,7 @@ public record Settlement(
     public static Settlement founding(SettlementId identity) {
         return new Settlement(identity,
                 PlotGrid.empty(identity.center(), PlotGrid.sizeForClaim(identity.claimRadiusChunks())),
-                Map.of(), List.of(), Craft.TIMBER, Chronicle.EMPTY);
+                Map.of(), List.of(), Craft.TIMBER, false, Chronicle.EMPTY);
     }
 
     public UUID id() {
@@ -101,15 +103,15 @@ public record Settlement(
     // Copy helpers. Callers do not rebuild the record by hand.
 
     public Settlement withGrid(PlotGrid newGrid) {
-        return new Settlement(identity, newGrid, plots, buildQueue, craft, chronicle);
+        return new Settlement(identity, newGrid, plots, buildQueue, craft, walled, chronicle);
     }
 
     public Settlement withPlots(Map<UUID, Plot> newPlots) {
-        return new Settlement(identity, grid, newPlots, buildQueue, craft, chronicle);
+        return new Settlement(identity, grid, newPlots, buildQueue, craft, walled, chronicle);
     }
 
     public Settlement withBuildQueue(List<BuildJob> newQueue) {
-        return new Settlement(identity, grid, plots, newQueue, craft, chronicle);
+        return new Settlement(identity, grid, plots, newQueue, craft, walled, chronicle);
     }
 
     /**
@@ -119,11 +121,24 @@ public record Settlement(
      * creeper does not turn the high street back into mud.
      */
     public Settlement withCraft(Craft newCraft) {
-        return new Settlement(identity, grid, plots, buildQueue, craft.or(newCraft), chronicle);
+        return new Settlement(identity, grid, plots, buildQueue, craft.or(newCraft), walled,
+                chronicle);
+    }
+
+    /**
+     * The settlement having earned its wall.
+     *
+     * <p>A ratchet like the craft, and for the same reason: every entitlement is read off a
+     * living village, and a lord can be eaten. A town does not pull its own walls down because
+     * nobody is sitting at the table this afternoon.
+     */
+    public Settlement withWall(boolean earned) {
+        return new Settlement(identity, grid, plots, buildQueue, craft, walled || earned,
+                chronicle);
     }
 
     public Settlement withChronicle(Chronicle newChronicle) {
-        return new Settlement(identity, grid, plots, buildQueue, craft, newChronicle);
+        return new Settlement(identity, grid, plots, buildQueue, craft, walled, newChronicle);
     }
 
     public Settlement record(EntryType type, String subject, String detail, long gameTime) {

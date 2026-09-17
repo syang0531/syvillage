@@ -33,6 +33,9 @@ public final class BuildPlanner {
         if (recipe.template().equals(FarmPlan.FIELD)) {
             return FarmPlan.expand(recipe);
         }
+        if (recipe.template().equals(WallPlan.RAMPART)) {
+            return WallPlan.expand(recipe);
+        }
         return List.of();
     }
 }

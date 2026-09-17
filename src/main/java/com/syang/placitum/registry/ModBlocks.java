@@ -42,6 +42,19 @@ public final class ModBlocks {
                     .sound(SoundType.WOOD)
                     .ignitedByLava());
 
+    /**
+     * The lord's table: the workstation that lets a settlement wall itself.
+     *
+     * <p>Stone rather than wood, because what it unlocks is masonry on a different scale, and
+     * because a village that can afford one has a mason already.
+     */
+    public static final DeferredBlock<Block> LORDS_TABLE = register("lords_table",
+            BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.STONE)
+                    .strength(3.5F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.STONE));
+
     private ModBlocks() {}
 
     private static DeferredBlock<Block> register(String name, BlockBehaviour.Properties props) {

@@ -43,6 +43,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue BUILD_BLOCKS_PER_TICK;
     public static final ModConfigSpec.IntValue ROAD_BLOCKS_PER_JOB;
     public static final ModConfigSpec.IntValue LAMPS_PER_JOB;
+    public static final ModConfigSpec.IntValue WALL_COLUMNS_PER_JOB;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -148,6 +149,10 @@ public final class PlacitumConfig {
         LAMPS_PER_JOB = b.comment("Lamp posts raised per build job, so lighting a new village is",
                         "something you watch rather than something that appears.")
                 .defineInRange("lampsPerJob", 8, 1, 256);
+        WALL_COLUMNS_PER_JOB = b.comment("Columns of wall raised per job. A column is four",
+                        "blocks or so, where a street block is one, so this is smaller than",
+                        "roadBlocksPerJob for the same amount of watching.")
+                .defineInRange("wallColumnsPerJob", 32, 1, 1024);
         b.pop();
 
         SPEC = b.build();

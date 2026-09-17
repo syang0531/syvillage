@@ -1,0 +1,159 @@
+package com.syang.placitum;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.syang.placitum.build.TownPlan;
+import com.syang.placitum.data.Craft;
+import com.syang.placitum.data.PlotGrid;
+import com.syang.placitum.data.Settlement;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import net.minecraft.SharedConstants;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.Bootstrap;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Where the wall goes, and where its four gates land.
+ *
+ * <p>All of it is arithmetic on the bell, which is the whole reason the wall could come back: the
+ * ring that was deleted was computed from wherever the settlement had spread, and every bug it
+ * had came from that.
+ */
+class WallTest {
+
+    private static final BlockPos BELL = new BlockPos(112, 68, -304);
+
+    @BeforeAll
+    static void bootstrap() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
+    private static Settlement town() {
+        return SettlementFixture.founded().withGrid(PlotGrid.empty(BELL, 21)).withWall(true);
+    }
+
+    @Test
+    @DisplayName("the wall stands in the gap the outer phase leaves")
+    void theWallTakesTheOmittedRoad() {
+        // The last phase is left open so the streets run out of the town rather than round it,
+        // and the gap that leaves is a road wide. The wall was not planned to go there; the
+        // space was already the right shape.
+        Settlement town = town();
+        int outerPhase = TownPlan.outerPhase(town);
+        int lastRoad = TownPlan.reachOf(town, outerPhase);
+
+        assertEquals(lastRoad + 1, TownPlan.wallInner(town),
+                "the wall starts where the outer phase stopped");
+        assertEquals(TownPlan.phaseReach(outerPhase) - TownPlan.ROAD + 1,
+                TownPlan.wallInner(town),
+                "which is the first of the three columns that closing road would have used");
+        assertTrue(TownPlan.wallOuter(town) > TownPlan.phaseReach(outerPhase),
+                "and the wall is one wider than the road it replaced, so it reaches past it");
+        assertEquals(TownPlan.WALL, TownPlan.wallOuter(town) - TownPlan.wallInner(town) + 1,
+                "parapet, walkway, walkway, parapet");
+    }
+
+    @Test
+    @DisplayName("the wall is a closed ring with four corners")
+    void theWallCloses() {
+        Settlement town = town();
+        int inner = TownPlan.wallInner(town);
+        int outer = TownPlan.wallOuter(town);
+
+        assertTrue(TownPlan.onWall(BELL.offset(inner, 0, 0), town));
+        assertTrue(TownPlan.onWall(BELL.offset(outer, 0, 0), town));
+        assertTrue(TownPlan.onWall(BELL.offset(0, 0, -outer), town));
+        assertTrue(TownPlan.onWall(BELL.offset(outer, 0, outer), town), "the corner is wall too");
+        assertFalse(TownPlan.onWall(BELL.offset(inner - 1, 0, 0), town), "one block inside");
+        assertFalse(TownPlan.onWall(BELL.offset(outer + 1, 0, 0), town), "one block outside");
+    }
+
+    @Test
+    @DisplayName("the cross-section is parapet, walkway, walkway, parapet")
+    void theCrossSectionReadsFromOneNumber() {
+        Settlement town = town();
+        int outer = TownPlan.wallOuter(town);
+        for (int depth = 0; depth < TownPlan.WALL; depth++) {
+            BlockPos at = BELL.offset(outer - depth, 0, 0);
+            assertEquals(depth, TownPlan.wallDepth(at, town),
+                    "depth counts in from the outer face");
+        }
+        // Depth 0 and 3 carry the parapet; 1 and 2 are what you walk on.
+        assertEquals(0, TownPlan.wallDepth(BELL.offset(outer, 0, 0), town));
+        assertEquals(TownPlan.WALL - 1, TownPlan.wallDepth(
+                BELL.offset(TownPlan.wallInner(town), 0, 0), town));
+    }
+
+    @Test
+    @DisplayName("four gates, one per side, each dead centre without anybody centring it")
+    void gatesLandOnTheBellsOwnRoads() {
+        // The bell sits in the middle of a crossroads and those two roads run to the wall. That
+        // is the whole calculation: because the roads are centred on the bell, the gates are
+        // centred on their sides for free.
+        Settlement town = town();
+        int outer = TownPlan.wallOuter(town);
+        Set<String> sides = new LinkedHashSet<>();
+
+        for (BlockPos gate : new BlockPos[] {
+                BELL.offset(outer, 0, 0), BELL.offset(-outer, 0, 0),
+                BELL.offset(0, 0, outer), BELL.offset(0, 0, -outer)}) {
+            assertTrue(TownPlan.onWall(gate, town));
+            assertTrue(TownPlan.inArch(gate, BELL), gate + " is not an archway");
+            assertTrue(TownPlan.inGateway(gate, town), gate + " is not in a gatehouse");
+            sides.add(gate.getX() + "," + gate.getZ());
+        }
+        assertEquals(4, sides.size(), "four gates, not the same one four times");
+    }
+
+    @Test
+    @DisplayName("the arch is three wide and a corner is never a gate")
+    void theArchIsTheRoadAndNothingElse() {
+        // onRoad would say yes to the entire wall - it stands exactly where a road would have
+        // been, and there is a road line every twenty blocks besides. That test would have cut a
+        // gate every twenty blocks instead of four in total.
+        Settlement town = town();
+        int outer = TownPlan.wallOuter(town);
+
+        for (int across = -1; across <= 1; across++) {
+            assertTrue(TownPlan.inArch(BELL.offset(outer, 0, across), BELL),
+                    "the road is three wide and all of it passes through");
+        }
+        assertFalse(TownPlan.inArch(BELL.offset(outer, 0, 2), BELL), "and no wider");
+        assertFalse(TownPlan.inArch(BELL.offset(outer, 0, 20), BELL),
+                "a road line twenty blocks along is not this town's gate");
+        assertFalse(TownPlan.inArch(BELL.offset(outer, 0, outer), BELL), "nor is a corner");
+        assertFalse(TownPlan.inGateway(BELL.offset(outer, 0, outer), town));
+    }
+
+    @Test
+    @DisplayName("a settlement keeps its wall when it loses its lord")
+    void theWallIsARatchet() {
+        Settlement walled = SettlementFixture.founded().withWall(true);
+        assertTrue(walled.craft() == Craft.TIMBER, "a wall is not a material");
+        assertTrue(walled.withWall(false).walled(),
+                "a town does not pull its own walls down because the lord was eaten");
+    }
+
+    @Test
+    @DisplayName("a settlement saved before there were walls loads without one")
+    void oldSavesLoadUnwalled() {
+        var encoded = Settlement.CODEC.encodeStart(
+                com.mojang.serialization.JsonOps.INSTANCE, SettlementFixture.standard())
+                .getOrThrow().getAsJsonObject();
+        encoded.remove("walled");
+
+        Settlement loaded = Settlement.CODEC.parse(
+                com.mojang.serialization.JsonOps.INSTANCE, encoded).getOrThrow();
+
+        assertFalse(loaded.walled());
+        assertEquals(Map.of().size() + SettlementFixture.standard().plots().size(),
+                loaded.plots().size(), "and loses nothing else on the way through");
+    }
+}

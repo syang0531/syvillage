@@ -69,12 +69,18 @@ public final class SettlementTick {
         if (level.getGameTime() % PlacitumConfig.SURVEY_INTERVAL_TICKS.get() != 0) {
             return settlement;
         }
-        Settlement out = forgetCleared(level, settlement).withCraft(Trades.earned(level, settlement));
+        Settlement out = forgetCleared(level, settlement)
+                .withCraft(Trades.earned(level, settlement))
+                .withWall(Trades.hasLord(level, settlement));
         if (out.craft() != settlement.craft()) {
             Placitum.LOGGER.info("'{}' now builds in {}", out.name(),
                     out.craft().getSerializedName());
             out = out.record(EntryType.BUILD, out.name(),
                     "now builds in " + out.craft().getSerializedName(), level.getGameTime());
+        }
+        if (out.walled() && !settlement.walled()) {
+            Placitum.LOGGER.info("'{}' has a lord, and may wall itself", out.name());
+            out = out.record(EntryType.BUILD, out.name(), "began its wall", level.getGameTime());
         }
         settlement = out;
 
@@ -158,6 +164,11 @@ public final class SettlementTick {
             if (next.isEmpty() && TownPlan.housing(settlement, phase)) {
                 next = building(level, settlement, phase, reach);
             }
+        }
+        if (next.isEmpty()) {
+            // Last, and outside every phase. A wall round a town that has not finished building
+            // itself is a wall round a building site.
+            next = WallPlan.plan(level, settlement, reach);
         }
         if (next.isEmpty()) {
             return settlement;   // nothing missing, so nothing happens

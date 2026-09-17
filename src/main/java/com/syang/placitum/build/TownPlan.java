@@ -156,6 +156,99 @@ public final class TownPlan {
         return out;
     }
 
+    /** Blocks across the wall: parapet, two of walkway, parapet. */
+    public static final int WALL = 4;
+
+    /** How high the wall stands above its footing. Body of three, parapet on top. */
+    public static final int WALL_HEIGHT = 4;
+
+    /** A tower, and a gatehouse, are this on a side and this tall. */
+    public static final int TOWER = 8;
+
+    /** A gate is this wide across the road it lets through. */
+    public static final int GATE_WIDTH = 9;
+
+    /**
+     * The inner face of the wall, in blocks from the bell.
+     *
+     * <p>Exactly where the outer phase's closing road would have been. That phase is left open
+     * so that the streets run out of the town rather than round it, and the gap it leaves is the
+     * width of a road - which is, near enough, the width of a wall. The wall was not planned to
+     * go there; the space was already the right shape.
+     */
+    public static int wallInner(Settlement settlement) {
+        return (outerPhase(settlement) + 1) * PERIOD - 1;
+    }
+
+    /** The outer face. Four blocks further out, and the edge of everything we build. */
+    public static int wallOuter(Settlement settlement) {
+        return wallInner(settlement) + WALL - 1;
+    }
+
+    /**
+     * Whether this column is part of the wall ring.
+     *
+     * <p>A square annulus: out as far as the outer face in one axis or the other, and no further
+     * in than the inner face. The corners fall out of it rather than being a case.
+     */
+    public static boolean onWall(BlockPos pos, Settlement settlement) {
+        int reach = Math.max(Math.abs(pos.getX() - settlement.center().getX()),
+                Math.abs(pos.getZ() - settlement.center().getZ()));
+        return reach >= wallInner(settlement) && reach <= wallOuter(settlement);
+    }
+
+    /**
+     * How far into the wall's thickness a column is: 0 at the outer face, 3 at the inner.
+     *
+     * <p>The parapets are the two faces and the walkway is what is left, so this is the whole
+     * cross-section in one number. At a corner the two axes disagree and the outer one wins,
+     * which is what makes a corner read as a corner rather than as two walls crossing.
+     */
+    public static int wallDepth(BlockPos pos, Settlement settlement) {
+        int reach = Math.max(Math.abs(pos.getX() - settlement.center().getX()),
+                Math.abs(pos.getZ() - settlement.center().getZ()));
+        return wallOuter(settlement) - reach;
+    }
+
+    /**
+     * Whether a gate passes through here: the four points where the bell's own roads meet the
+     * wall.
+     *
+     * <p>Nothing has to search for them. The bell sits in the middle of a crossroads and those
+     * two roads run out to the wall, so a gate is simply where the wall is and the bell's road
+     * still is - and because the roads are centred on the bell, each gate lands dead centre of
+     * its side without anybody working out where the middle was.
+     */
+    public static boolean inGateway(BlockPos pos, Settlement settlement) {
+        return onWall(pos, settlement) && acrossFromBellRoad(pos, settlement.center())
+                <= GATE_WIDTH / 2;
+    }
+
+    /**
+     * The arch itself: the three columns of road that pass through the gate.
+     *
+     * <p>Measured from the bell's own road rather than asked of {@link #onRoad}, which would say
+     * yes to the entire wall. The wall stands exactly where a road would have been, so every
+     * column of it is on a road line - and there is a road line every twenty blocks besides, so
+     * that test would have opened a gate every twenty blocks instead of four in total.
+     */
+    public static boolean inArch(BlockPos pos, BlockPos bell) {
+        return acrossFromBellRoad(pos, bell) <= ROAD / 2;
+    }
+
+    /**
+     * How far a column is from the bell's own road, measured across the wall's run.
+     *
+     * <p>Which axis to measure is decided by which one the column is further out along: on the
+     * east wall the run is north-south, so the distance that matters is the northerly one. At a
+     * corner the two agree and the answer is large, which is what keeps a gate out of a corner.
+     */
+    public static int acrossFromBellRoad(BlockPos pos, BlockPos bell) {
+        int dx = Math.abs(pos.getX() - bell.getX());
+        int dz = Math.abs(pos.getZ() - bell.getZ());
+        return dx > dz ? dz : dx;
+    }
+
     /**
      * Whether a step goes along a road rather than across its width.
      *

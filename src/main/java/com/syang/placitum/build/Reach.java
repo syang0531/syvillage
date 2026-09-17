@@ -86,8 +86,12 @@ public final class Reach {
                 seed.add(key(bell.getX() + dx, bell.getZ() + dz));
             }
         }
+        // The streets stop at the last road; the ground has to carry on to the wall line, which
+        // stands outside all of them. One number each, rather than one number that has to be
+        // right for both.
         Set<Long> streets = walk(terrain, bell, limit, seed, true);
-        return new Reach(streets, walk(terrain, bell, limit, streets, false));
+        int toTheWall = Math.max(limit, TownPlan.wallOuter(settlement));
+        return new Reach(streets, walk(terrain, bell, toTheWall, streets, false));
     }
 
     /** A settlement that reaches nowhere, for the places that have no world to ask. */

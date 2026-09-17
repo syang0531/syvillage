@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "placitum:village_head"
+    "placitum:village_head",
+    "placitum:lord"
   ]
 }

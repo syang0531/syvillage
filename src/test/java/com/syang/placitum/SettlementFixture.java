@@ -62,7 +62,7 @@ public final class SettlementFixture {
 
         return new Settlement(identity(),
                 new PlotGrid(new BlockPos(112, 68, -304), 9, cells),
-                plots, List.of(), Craft.STONE, chronicle);
+                plots, List.of(), Craft.STONE, true, chronicle);
     }
 
     /** A settlement that has only just been registered: a bell and unread ground. */

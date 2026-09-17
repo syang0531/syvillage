@@ -41,6 +41,14 @@ public final class ModVillagers {
             Registries.VILLAGER_PROFESSION,
             Identifier.fromNamespaceAndPath(Placitum.MODID, "village_head"));
 
+    public static final ResourceKey<PoiType> LORD_POI = ResourceKey.create(
+            Registries.POINT_OF_INTEREST_TYPE,
+            Identifier.fromNamespaceAndPath(Placitum.MODID, "lord"));
+
+    public static final ResourceKey<VillagerProfession> LORD = ResourceKey.create(
+            Registries.VILLAGER_PROFESSION,
+            Identifier.fromNamespaceAndPath(Placitum.MODID, "lord"));
+
     /**
      * One ticket, because the table seats one.
      *
@@ -75,6 +83,25 @@ public final class ModVillagers {
                         Int2ObjectMap.entry(3, TradeSets.MASON_LEVEL_3),
                         Int2ObjectMap.entry(4, TradeSets.MASON_LEVEL_4),
                         Int2ObjectMap.entry(5, TradeSets.MASON_LEVEL_5))));
+
+        POI_TYPES.register("lord", () -> new PoiType(
+                ImmutableSet.copyOf(ModBlocks.LORDS_TABLE.get()
+                        .getStateDefinition().getPossibleStates()),
+                SEATS, WALKING_DISTANCE));
+        PROFESSIONS.register("lord", () -> new VillagerProfession(
+                Component.translatable("entity.placitum.villager.lord"),
+                held -> held.is(LORD_POI),
+                acquirable -> acquirable.is(LORD_POI),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                SoundEvents.VILLAGER_WORK_MASON,
+                // Borrowed, like the village head's, and marked as debt in docs/roadmap.md.
+                Int2ObjectMap.ofEntries(
+                        Int2ObjectMap.entry(1, TradeSets.MASON_LEVEL_1),
+                        Int2ObjectMap.entry(2, TradeSets.MASON_LEVEL_2),
+                        Int2ObjectMap.entry(3, TradeSets.MASON_LEVEL_3),
+                        Int2ObjectMap.entry(4, TradeSets.MASON_LEVEL_4),
+                        Int2ObjectMap.entry(5, TradeSets.MASON_LEVEL_5))));
     }
 
     private ModVillagers() {}
@@ -82,6 +109,10 @@ public final class ModVillagers {
     /** Whether this is the job we added. Asked of a villager, not of a block. */
     public static boolean isVillageHead(Holder<VillagerProfession> profession) {
         return profession.is(VILLAGE_HEAD);
+    }
+
+    public static boolean isLord(Holder<VillagerProfession> profession) {
+        return profession.is(LORD);
     }
 
     public static void register(IEventBus modBus) {

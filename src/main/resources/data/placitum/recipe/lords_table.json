@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "#": "minecraft:stone_bricks",
+    "T": "placitum:village_head_table",
+    "G": "minecraft:gold_ingot"
+  },
+  "pattern": [
+    "GTG",
+    "###",
+    "###"
+  ],
+  "result": {
+    "id": "placitum:lords_table"
+  }
+}

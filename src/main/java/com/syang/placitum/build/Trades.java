@@ -45,6 +45,25 @@ public final class Trades {
         return best;
     }
 
+    /**
+     * Whether somebody holds the lord's table.
+     *
+     * <p>Kept apart from {@link #earned} because it is a different kind of entitlement. The
+     * craft ladder says what the town is <em>made of</em>; a lord says it may build something it
+     * could not build at all. Folding the second into the first would have made the wall a
+     * material.
+     */
+    public static boolean hasLord(ServerLevel level, Settlement settlement) {
+        int reach = PlacitumConfig.CLAIM_RADIUS_CHUNKS.get() * 16;
+        AABB box = new AABB(settlement.center()).inflate(reach, 32, reach);
+        for (Villager villager : level.getEntitiesOfClass(Villager.class, box)) {
+            if (ModVillagers.isLord(villager.getVillagerData().profession())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** What one villager's trade is worth to the town. */
     private static Craft of(Holder<VillagerProfession> profession) {
         if (ModVillagers.isVillageHead(profession)) {
