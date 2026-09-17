@@ -86,11 +86,12 @@ public final class Reach {
                 seed.add(key(bell.getX() + dx, bell.getZ() + dz));
             }
         }
-        // The streets stop at the last road; the ground has to carry on to the wall line, which
-        // stands outside all of them. One number each, rather than one number that has to be
-        // right for both.
+        // The streets stop at the last road; the ground has to carry on past the wall, because
+        // a gatehouse and a tower both stand two blocks proud of it. Stopping at the wall's own
+        // outer face made every gate and every tower unbuildable - their outermost columns were
+        // simply not in the set - and the town came out with four gaps and no corners.
         Set<Long> streets = walk(terrain, bell, limit, seed, true);
-        int toTheWall = Math.max(limit, TownPlan.wallOuter(settlement));
+        int toTheWall = Math.max(limit, TownPlan.gateOuter(settlement));
         return new Reach(streets, walk(terrain, bell, toTheWall, streets, false));
     }
 

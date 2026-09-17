@@ -40,20 +40,29 @@ class WallAccessTest {
         Bootstrap.bootStrap();
     }
 
-    /** A south-east tower on flat ground, so u and v run the same way as the plan writes them. */
+    /**
+     * A south-east tower on flat ground with a wood standing on it.
+     *
+     * <p>Something to fell, on purpose: clearing the site and building on it are two passes over
+     * the same columns, and the first version of this cleared what it had just built.
+     */
     private static Map<BlockPos, BuildOp> tower() {
         List<Integer> profile = new ArrayList<>();
-        for (int i = 0; i < TowerPlan.SIDE * TowerPlan.SIDE; i++) {
+        List<Spans> wood = new ArrayList<>();
+        for (BlockPos column : TowerPlan.footprint(ANCHOR)) {
             profile.add(FLOOR);
+            wood.add(new Spans(column.getX(), column.getZ(), FLOOR, FLOOR + TowerPlan.SIDE + 2));
         }
         List<BuildOp> ops = TowerPlan.expand(new BuildRecipe(TowerPlan.TOWER, ANCHOR,
                 Rotation.CLOCKWISE_180, Craft.STONE.paletteId(), profile,
                 new BlockPos(TowerPlan.SIDE, TowerPlan.SIDE, TowerPlan.SIDE),
-                Spans.encode(List.of())));
+                Spans.encode(wood)));
 
         Map<BlockPos, BuildOp> world = new HashMap<>();
         for (BuildOp op : ops) {
-            assertFalse(world.containsKey(op.pos()), "two blocks fight over " + op.pos());
+            assertFalse(world.containsKey(op.pos()), "two blocks fight over " + op.pos()
+                    + " - and when the later one is air, the tower clears itself and the"
+                    + " settlement asks for it again for ever");
             world.put(op.pos(), op);
         }
         return world;
@@ -69,11 +78,18 @@ class WallAccessTest {
     private static int topOf(Map<BlockPos, BuildOp> world, int u, int v) {
         int top = 0;
         for (int h = 1; h < TowerPlan.SIDE; h++) {
-            if (world.containsKey(new BlockPos(ANCHOR.getX() + u, FLOOR + h, ANCHOR.getZ() + v))) {
+            if (solid(world, u, h, v)) {
                 top = h;
             }
         }
         return top;
+    }
+
+    /** Whether the tower puts masonry here. Air is what felling a wood leaves behind. */
+    private static boolean solid(Map<BlockPos, BuildOp> world, int u, int h, int v) {
+        BuildOp op = world.get(
+                new BlockPos(ANCHOR.getX() + u, FLOOR + h, ANCHOR.getZ() + v));
+        return op != null && !op.state().isAir();
     }
 
     @Test
@@ -124,15 +140,14 @@ class WallAccessTest {
         Map<BlockPos, BuildOp> world = tower();
         int parapet = FLOOR + TowerPlan.SIDE;
         for (int lane : new int[] {3, 4}) {
-            assertFalse(world.containsKey(
-                            new BlockPos(ANCHOR.getX() + lane, parapet, ANCHOR.getZ())),
+            assertFalse(solid(world, lane, TowerPlan.SIDE, 0),
                     "a merlon blocks the ramp mouth at u=" + lane);
-            assertFalse(world.containsKey(
-                            new BlockPos(ANCHOR.getX(), parapet, ANCHOR.getZ() + lane)),
+            assertFalse(solid(world, 0, TowerPlan.SIDE, lane),
                     "a merlon blocks the ramp mouth at v=" + lane);
         }
-        assertTrue(world.containsKey(new BlockPos(ANCHOR.getX(), parapet, ANCHOR.getZ())),
+        assertTrue(solid(world, 0, TowerPlan.SIDE, 0),
                 "but the corner of the parapet is still a corner");
+        assertEquals(FLOOR + TowerPlan.SIDE, parapet);
     }
 
     @Test
@@ -140,8 +155,11 @@ class WallAccessTest {
     void itIsTheSizeItSaysItIs() {
         Map<BlockPos, BuildOp> world = tower();
         int highest = FLOOR;
-        for (BlockPos pos : world.keySet()) {
-            highest = Math.max(highest, pos.getY());
+        for (Map.Entry<BlockPos, BuildOp> entry : world.entrySet()) {
+            BlockPos pos = entry.getKey();
+            if (!entry.getValue().state().isAir()) {
+                highest = Math.max(highest, pos.getY());
+            }
             assertTrue(pos.getX() >= ANCHOR.getX() && pos.getX() < ANCHOR.getX() + TowerPlan.SIDE,
                     "the tower reaches outside its own footprint at " + pos);
         }

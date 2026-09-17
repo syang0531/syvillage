@@ -40,21 +40,31 @@ class GateTest {
         Bootstrap.bootStrap();
     }
 
-    /** A gatehouse on dead flat ground, facing north. */
+    /**
+     * A gatehouse on dead flat ground with a wood standing on it, facing north.
+     *
+     * <p>The wood matters. Felling what grows on a site and putting the site up are two passes
+     * over the same columns, and the first version cleared the gatehouse it had just built - so
+     * the settlement asked for it again a second later, and again, for ever. An expansion with
+     * nothing to fell would never have shown it.
+     */
     private static Map<BlockPos, BuildOp> built() {
         List<Integer> profile = new ArrayList<>();
-        for (int i = 0; i < GatePlan.WIDE * GatePlan.DEEP; i++) {
+        List<Spans> wood = new ArrayList<>();
+        for (BlockPos column : GatePlan.footprint(ANCHOR, Direction.NORTH)) {
             profile.add(FLOOR);
+            wood.add(new Spans(column.getX(), column.getZ(), FLOOR, FLOOR + GatePlan.TALL + 2));
         }
         List<BuildOp> ops = GatePlan.expand(new BuildRecipe(GatePlan.GATEHOUSE, ANCHOR,
                 GatePlan.rotationOf(Direction.NORTH), Craft.STONE.paletteId(), profile,
-                new BlockPos(GatePlan.WIDE, GatePlan.TALL, GatePlan.DEEP), Spans.encode(List.of())));
+                new BlockPos(GatePlan.WIDE, GatePlan.TALL, GatePlan.DEEP), Spans.encode(wood)));
 
         Map<BlockPos, BuildOp> world = new HashMap<>();
         for (BuildOp op : ops) {
             assertFalse(world.containsKey(op.pos()),
                     "two blocks fight over " + op.pos() + "; whichever sorts last wins, which is"
-                            + " a shape decided by insertion order");
+                            + " a shape decided by insertion order - and when the later one is"
+                            + " air, the build rubs itself out and is asked for again for ever");
             world.put(op.pos(), op);
         }
         return world;
@@ -184,10 +194,14 @@ class GateTest {
     @Test
     @DisplayName("the gatehouse is nine by eight by eight and no more")
     void itIsTheSizeItSaysItIs() {
+        // Masonry only. Felling the wood over the site writes air a good deal higher than the
+        // gatehouse stands, and that is not the gatehouse being too tall.
         Map<BlockPos, BuildOp> world = built();
         int highest = FLOOR;
-        for (BlockPos pos : world.keySet()) {
-            highest = Math.max(highest, pos.getY());
+        for (Map.Entry<BlockPos, BuildOp> entry : world.entrySet()) {
+            if (!entry.getValue().state().isAir()) {
+                highest = Math.max(highest, entry.getKey().getY());
+            }
         }
         assertEquals(FLOOR + GatePlan.TALL, highest, "the parapet is the top of it");
         assertEquals(9, GatePlan.WIDE);

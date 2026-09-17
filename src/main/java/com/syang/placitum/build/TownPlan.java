@@ -224,9 +224,15 @@ public final class TownPlan {
                 <= GATE_WIDTH / 2;
     }
 
-    /** How far a gatehouse reaches along the road, measured from the bell. */
+    /**
+     * How far anything on the wall reaches: the wall itself, plus what stands proud of it.
+     *
+     * <p>A gatehouse is eight deep against the wall's four and a corner tower eight to a side,
+     * so both overhang by two. Everything that decides what can be built out here has to know
+     * that, and the walk that decides what is reachable is the one that forgot.
+     */
     public static int gateOuter(Settlement settlement) {
-        return wallOuter(settlement) + 2;
+        return wallOuter(settlement) + (TOWER - WALL) / 2;
     }
 
     /**

@@ -192,11 +192,23 @@ public final class GatePlan {
                 }
             }
         }
-        ops.addAll(Clearance.ops(Spans.decode(recipe.gates()), java.util.Set.of()));
+        // Everything this gatehouse writes, so that felling what grows on the site does not
+        // rub out the gatehouse. An empty set here built the structure and cleared it in the
+        // same job, and the settlement asked for it again a second later, for ever.
+        ops.addAll(Clearance.ops(Spans.decode(recipe.gates()), written(ops)));
         ops.sort(java.util.Comparator.comparingInt((BuildOp op) -> op.pos().getY())
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));
         return List.copyOf(ops);
+    }
+
+    /** The positions a build has already spoken for. */
+    static java.util.Set<BlockPos> written(List<BuildOp> ops) {
+        java.util.Set<BlockPos> out = new java.util.HashSet<>(ops.size());
+        for (BuildOp op : ops) {
+            out.add(op.pos());
+        }
+        return out;
     }
 
     /**

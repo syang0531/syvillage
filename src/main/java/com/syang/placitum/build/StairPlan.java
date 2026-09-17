@@ -137,7 +137,7 @@ public final class StairPlan {
                 }
             }
         }
-        ops.addAll(Clearance.ops(Spans.decode(recipe.gates()), Set.of()));
+        ops.addAll(Clearance.ops(Spans.decode(recipe.gates()), GatePlan.written(ops)));
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));
