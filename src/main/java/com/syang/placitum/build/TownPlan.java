@@ -245,10 +245,40 @@ public final class TownPlan {
     }
 
     /**
+     * Whether a column belongs to a gatehouse, ramps included.
+     *
+     * <p>The rampart has to leave these alone, and so does anything built earlier that would
+     * otherwise be standing on the site when the gatehouse comes to be built.
+     */
+    public static boolean inGatehouse(BlockPos pos, Settlement settlement) {
+        BlockPos bell = settlement.center();
+        int dx = Math.abs(pos.getX() - bell.getX());
+        int dz = Math.abs(pos.getZ() - bell.getZ());
+        int along = Math.max(dx, dz);
+        return along >= wallInner(settlement) - (TOWER - WALL) / 2
+                && along <= gateOuter(settlement)
+                && Math.min(dx, dz) <= GATE_WIDTH / 2 + RAMP;
+    }
+
+    /**
+     * Whether anything of ours is going to want this column.
+     *
+     * <p>Asked by the things that are built first. A lamp post inside a tower's footprint, or a
+     * flight of steps inside a gatehouse's, is a three-block obstacle standing in the middle of
+     * a site - and the walk that decides what is reachable cannot climb it, so the tower and the
+     * gatehouse are never built at all. On flat ground it came to exactly one bad column per
+     * tower and exactly two per gate, in all eight, which is what said it was geometry and not
+     * terrain.
+     */
+    public static boolean reservedForWall(BlockPos pos, Settlement settlement) {
+        return inTower(pos, settlement) || inGatehouse(pos, settlement);
+    }
+
+    /**
      * Whether a column belongs to a corner tower, ramps included.
      *
-     * <p>The rampart has to leave these alone: the tower owns its own approach, because the wall
-     * has to arrive at the tower's height rather than four blocks below it.
+     * <p>The rampart leaves these alone: the tower owns its own approach, because the wall has
+     * to arrive at the tower's height rather than four blocks below it.
      */
     public static boolean inTower(BlockPos pos, Settlement settlement) {
         int near = wallInner(settlement) - (TOWER - WALL) / 2 - RAMP;

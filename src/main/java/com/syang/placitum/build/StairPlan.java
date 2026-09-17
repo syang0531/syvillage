@@ -37,8 +37,15 @@ public final class StairPlan {
     /** Two blocks wide, so two villagers can pass and a player does not walk off the side. */
     public static final int WIDE = 2;
 
-    /** Clear of the gatehouse, which reaches four either side of the road. */
-    private static final int ACROSS = TownPlan.GATE_WIDTH / 2 + 1;
+    /**
+     * Clear of the gatehouse <em>and its ramps</em>.
+     *
+     * <p>It used to be clear of the gatehouse alone, which put the flight two blocks inside the
+     * footprint once the gatehouse grew ramps - and a three-block staircase standing on a site
+     * is a site the walk cannot reach, so no gate was ever built. Two columns out of a hundred
+     * and thirty-six, every time.
+     */
+    private static final int ACROSS = TownPlan.GATE_WIDTH / 2 + TownPlan.RAMP + 1;
 
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
 

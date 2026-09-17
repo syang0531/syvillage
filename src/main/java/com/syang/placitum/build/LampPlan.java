@@ -70,6 +70,9 @@ public final class LampPlan {
                 if (!streetNear(reach, pos, bell)) {
                     continue;   // no street anywhere near means no town here, plan or no plan
                 }
+                if (TownPlan.reservedForWall(pos, settlement)) {
+                    continue;   // a gatehouse or a tower is coming here; do not stand in it
+                }
                 todo.add(new BlockPos(pos.getX(), ground + 1, pos.getZ()));
             }
         }
