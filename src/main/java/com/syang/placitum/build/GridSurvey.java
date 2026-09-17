@@ -237,14 +237,17 @@ public final class GridSurvey {
     /**
      * Ground height for a wall column, or {@link Ground#SKIP} where it stands in water.
      *
-     * <p>Shares {@link #groundAt} with the survey on purpose. A wall that decided where the
-     * ground was by different rules than the survey that judged the site buildable would put
-     * its footings at a height the site never agreed to.
+     * <p>Shares {@link #groundAt} with the survey on purpose. A planner that decided where the
+     * ground was by different rules than the survey that judged the site buildable would put its
+     * footings at a height the site never agreed to.
+     *
+     * <p>Whether the column is wet is {@link Ground#underwater}, which looks above the ground as
+     * well as at it. See there for why that matters, and for how long it did not.
      */
     public static int groundOrSkip(ServerLevel level, int x, int z) {
         int y = groundAt(level, x, z);
-        BlockState top = level.getBlockState(new BlockPos(x, y, z));
-        return top.getFluidState().isEmpty() ? y : Ground.SKIP;
+        return Ground.underwater(level.getBlockState(new BlockPos(x, y, z)),
+                level.getBlockState(new BlockPos(x, y + 1, z))) ? Ground.SKIP : y;
     }
 
     /**

@@ -63,11 +63,11 @@ public final class RoadPlan {
                             || !level.hasChunkAt(pos)) {
                         continue;
                     }
-                    if (!reach.has(pos)) {
+                    if (!reach.street(pos)) {
                         // The far shore of a lake, or a shelf too high to climb. The street
-                        // stops where a person would, which is why a road never crosses water
-                        // and never appears on an island: not a rule about water, a rule about
-                        // being able to get there.
+                        // stops where a person walking down it would - reachable along the
+                        // street, not reachable by some detour across a field, or the road
+                        // reappears on the far side of a cliff with the cliff still in it.
                         continue;
                     }
                     int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());

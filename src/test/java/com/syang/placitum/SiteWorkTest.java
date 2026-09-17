@@ -1,6 +1,7 @@
 package com.syang.placitum;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.placitum.build.Clearance;
@@ -17,6 +18,7 @@ import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.Bootstrap;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -113,6 +115,26 @@ class SiteWorkTest {
         assertEquals(4, ops.size());
         assertTrue(ops.stream().noneMatch(op -> op.pos().equals(wall)),
                 "the clearance wrote air over a block the house was going to place");
+    }
+
+    @Test
+    @DisplayName("water sits on the ground, not in it")
+    void waterIsFoundAboveTheGround() {
+        // The rule had been written the other way round since it was added and had therefore
+        // never once fired: water is replaceable, so the walk down to the ground goes straight
+        // through a lake and stops on the sand at the bottom, and sand is not wet. Streets were
+        // laid along sea beds for as long as there have been streets.
+        assertTrue(Ground.underwater(Blocks.SAND.defaultBlockState(),
+                        Blocks.WATER.defaultBlockState()),
+                "a block of sand with water on top of it is the sea bed");
+        assertTrue(Ground.underwater(Blocks.WATER.defaultBlockState(),
+                Blocks.WATER.defaultBlockState()));
+        assertFalse(Ground.underwater(Blocks.GRASS_BLOCK.defaultBlockState(),
+                        Blocks.AIR.defaultBlockState()),
+                "dry land has to stay buildable, or the village never gets a street at all");
+        assertFalse(Ground.underwater(Blocks.GRASS_BLOCK.defaultBlockState(),
+                        Blocks.SHORT_GRASS.defaultBlockState()),
+                "grass on grass is not a lake");
     }
 
     @Test

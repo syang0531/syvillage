@@ -62,9 +62,10 @@ public final class SettlementTick {
         }
         if (settlement.buildQueue().isEmpty()) {
             Reach reach = Reach.from(level, settlement, TownPlan.maxPhase(settlement));
-            Placitum.LOGGER.info("'{}' is building nothing. {} column(s) within walking distance"
-                            + " of the bell. Lots out to phase {}: {}",
-                    settlement.name(), reach.size(), TownPlan.maxPhase(settlement),
+            Placitum.LOGGER.info("'{}' is building nothing. {} column(s) of street reach the"
+                            + " bell, {} of ground reach a street. Lots out to phase {}: {}",
+                    settlement.name(), reach.streetSize(), reach.size(),
+                    TownPlan.maxPhase(settlement),
                     Lots.describe(Lots.tally(level, settlement, reach)));
         }
         return settlement.withGrid(GridSurvey.run(level, settlement).grid());
