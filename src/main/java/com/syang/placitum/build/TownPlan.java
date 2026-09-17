@@ -224,6 +224,11 @@ public final class TownPlan {
                 <= GATE_WIDTH / 2;
     }
 
+    /** How far a gatehouse reaches along the road, measured from the bell. */
+    public static int gateOuter(Settlement settlement) {
+        return wallOuter(settlement) + 2;
+    }
+
     /**
      * The arch itself: the three columns of road that pass through the gate.
      *

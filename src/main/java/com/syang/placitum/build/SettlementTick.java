@@ -160,6 +160,18 @@ public final class SettlementTick {
         if (next.isEmpty()) {
             // Last, and outside every phase. A wall round a town that has not finished building
             // itself is a wall round a building site.
+            //
+            // Gates before the rampart: the wall leaves their ground alone, so a gatehouse can
+            // go up whenever its own footprint is ready, and a town that gets one gate and three
+            // gaps is further along than a town with a ring and no way through it.
+            for (net.minecraft.core.Direction side : GatePlan.sides()) {
+                next = GatePlan.plan(level, settlement, side, reach);
+                if (next.isPresent()) {
+                    break;
+                }
+            }
+        }
+        if (next.isEmpty()) {
             next = WallPlan.plan(level, settlement, reach);
         }
         if (next.isEmpty()) {

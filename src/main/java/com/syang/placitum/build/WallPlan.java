@@ -86,7 +86,7 @@ public final class WallPlan {
                         case 2 -> bell.offset(-out, 0, along);
                         default -> bell.offset(out, 0, along);
                     };
-                    if (!TownPlan.onWall(pos, settlement) || TownPlan.inArch(pos, bell)
+                    if (!TownPlan.onWall(pos, settlement) || TownPlan.inGateway(pos, settlement)
                             || !level.hasChunkAt(pos) || !reach.has(pos)) {
                         // The gateway is skipped here rather than when the blocks are laid.
                         // Skipping it there queued the same columns every second for ever: the
