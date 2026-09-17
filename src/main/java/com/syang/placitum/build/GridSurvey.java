@@ -235,7 +235,7 @@ public final class GridSurvey {
     }
 
     /**
-     * Ground height for a wall column, or {@link Ground#SKIP} where it stands in water.
+     * Ground height for a column, or {@link Ground#SKIP} where it stands in water.
      *
      * <p>Shares {@link #groundAt} with the survey on purpose. A planner that decided where the
      * ground was by different rules than the survey that judged the site buildable would put its

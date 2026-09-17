@@ -21,7 +21,7 @@ import net.minecraft.core.BlockPos;
  * judgement call.
  *
  * <p>One period, twenty blocks, holds <b>two</b> lots - so a city block bounded by roads has four
- * lots on it and nine lamps around them:
+ * lots on it and five lamps - its corners and its middle:
  *
  * <pre>
  *   local:  0  1  2 | 3 | 4 . . . . . 10 | 11 | 12 . . . . . 18 | 19 | 0 ...
@@ -130,6 +130,68 @@ public final class TownPlan {
     /** How many lamps a city block carries: its corners, and its middle. */
     public static int lampsPerBlock() {
         return 5;
+    }
+
+    /**
+     * The roads that bound this column's city block - all three lanes of each of the four.
+     *
+     * <p>What a lamp asks before it is built. A lamp post is not on a road, and the one in the
+     * middle of a block is not even beside one, so "is there a street here" is the wrong
+     * question; "does this block have a street round it" is the right one. Without it the town
+     * grew lamps in fields, because a post you can walk to from some street a hundred blocks
+     * away is a post you can walk to.
+     */
+    public static List<BlockPos> boundingRoads(BlockPos pos, BlockPos bell) {
+        int px = period(pos.getX(), bell.getX());
+        int pz = period(pos.getZ(), bell.getZ());
+        List<BlockPos> out = new ArrayList<>(4 * ROAD);
+        for (int lane = -(ROAD / 2); lane <= ROAD / 2; lane++) {
+            for (int side = 0; side <= 1; side++) {
+                out.add(new BlockPos(bell.getX() + (px + side) * PERIOD + lane, pos.getY(),
+                        pos.getZ()));
+                out.add(new BlockPos(pos.getX(), pos.getY(),
+                        bell.getZ() + (pz + side) * PERIOD + lane));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * The last phase of all: street and light, and no buildings.
+     *
+     * <p>A town whose outermost houses sit on its outermost road looks finished in a way no
+     * settlement should. One more ring of street and lamps past the last house gives it an edge
+     * that is going somewhere - and it is lit, which is where the mobs would otherwise be
+     * standing when they walk in.
+     */
+    public static int outerPhase(Settlement settlement) {
+        return maxPhase(settlement) + 1;
+    }
+
+    /** Whether a phase puts buildings up, or only street and light. */
+    public static boolean housing(Settlement settlement, int phase) {
+        return phase <= maxPhase(settlement);
+    }
+
+    /**
+     * How far a phase reaches, in blocks from the bell.
+     *
+     * <p>The outer one stops one road short of closing: its blocks get the road on the inside
+     * and the roads running out to it, but not the road that would join their far ends. Closed,
+     * the town reads as a compound with a ring road round it. Open, the streets run out of it,
+     * which is what a town on a map does.
+     *
+     * <pre>
+     *   closed          open
+     *   +---+---+       +---+---+
+     *   |   |   |       |   |   |
+     *   +---+---+       +---+---+
+     *   |   |   |       |   |   |
+     *   +---+---+       +   +   +
+     * </pre>
+     */
+    public static int reachOf(Settlement settlement, int phase) {
+        return phase > maxPhase(settlement) ? phaseReach(phase) - ROAD : phaseReach(phase);
     }
 
     /** Which lot a world position belongs to, along one axis. */

@@ -31,11 +31,19 @@ import net.minecraft.world.level.block.Rotation;
  * village that is never visited never grows, which is the deal: the fun is watching it happen,
  * and in exchange the whole LOD boundary disappears.
  *
- * <p>The order follows the plan. Streets and light go down on any ground, however broken,
- * because they are what makes the place a place. Buildings need flat ground and wait for it -
- * and if a player levels a lot later, it gets built on.
+ * <p>A phase at a time, and within a phase: street, then light, then buildings. Phase 0 is the
+ * four city blocks that meet at the bell - sixteen lots - and it is finished before phase 1 is
+ * looked at at all. Phase 1 is the twelve blocks around those, phase 2 the twenty around those.
+ * The last phase of all is street and lamps with no buildings, left open at its outer edge, so
+ * the town has a road going somewhere rather than a ring road round a compound.
  *
- * <p>When nothing is missing, nothing happens. That sounds obvious and was not: the previous
+ * <p>The phases are re-checked from 0 every pass, so a lot the player levels near the bell while
+ * the town is out at phase 3 gets built on next. Nothing is ever written off.
+ *
+ * <p>Nothing is built where nobody can walk: see {@link Reach}. Buildings additionally need flat
+ * ground and wait for it rather than cutting the hill down to size.
+ *
+ * <p>When nothing is missing, nothing happens. That sounds obvious and was not: an earlier
  * version finished its roads, lit the place, and then laid the roads again.
  */
 public final class SettlementTick {
@@ -61,7 +69,7 @@ public final class SettlementTick {
             return settlement;
         }
         if (settlement.buildQueue().isEmpty()) {
-            Reach reach = Reach.from(level, settlement, TownPlan.maxPhase(settlement));
+            Reach reach = Reach.from(level, settlement, TownPlan.outerPhase(settlement));
             Placitum.LOGGER.info("'{}' is building nothing. {} column(s) of street reach the"
                             + " bell, {} of ground reach a street. Lots out to phase {}: {}",
                     settlement.name(), reach.streetSize(), reach.size(),
@@ -88,16 +96,16 @@ public final class SettlementTick {
         // Walked once and shared. Every planner asks the same question of the same ground, and
         // three separate walks of it would be three chances for them to disagree about where the
         // town ends.
-        Reach reach = Reach.from(level, settlement, TownPlan.maxPhase(settlement));
+        Reach reach = Reach.from(level, settlement, TownPlan.outerPhase(settlement));
 
         Optional<BuildRecipe> next = Optional.empty();
         int phase = 0;
-        for (; phase <= TownPlan.maxPhase(settlement) && next.isEmpty(); phase++) {
+        for (; phase <= TownPlan.outerPhase(settlement) && next.isEmpty(); phase++) {
             next = RoadPlan.plan(level, settlement, phase, reach);
             if (next.isEmpty()) {
                 next = LampPlan.plan(level, settlement, phase, reach);
             }
-            if (next.isEmpty()) {
+            if (next.isEmpty() && TownPlan.housing(settlement, phase)) {
                 next = building(level, settlement, phase, reach);
             }
         }

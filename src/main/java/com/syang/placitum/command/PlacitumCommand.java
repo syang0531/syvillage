@@ -177,7 +177,7 @@ public final class PlacitumCommand {
                         + com.syang.placitum.build.Lots.describe(
                                 com.syang.placitum.build.Lots.tally(where, settlement,
                                         com.syang.placitum.build.Reach.from(where, settlement,
-                                                com.syang.placitum.build.TownPlan.maxPhase(
+                                                com.syang.placitum.build.TownPlan.outerPhase(
                                                         settlement))))), false);
             }
             return 0;

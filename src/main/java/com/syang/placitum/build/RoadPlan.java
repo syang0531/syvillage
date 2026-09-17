@@ -25,7 +25,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * they are less something the settlement decides to build than the shape it already has. What is
  * left is putting the blocks down, a stretch at a time, nearest the bell first.
  *
- * <p>Laid on any ground at all. A village on a hillside still has streets, and refusing to lay
+ * <p>Laid on any ground the street itself reaches. A village on a hillside still has streets,
+ * and refusing to lay
  * one across a slope would leave the whole plan unanchored.
  */
 public final class RoadPlan {
@@ -47,7 +48,7 @@ public final class RoadPlan {
     public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement,
             int phase, Reach reach) {
         BlockPos bell = settlement.center();
-        int limit = TownPlan.phaseReach(phase);
+        int limit = TownPlan.reachOf(settlement, phase);
         int batch = PlacitumConfig.ROAD_BLOCKS_PER_JOB.get();
 
         List<Spans> todo = new ArrayList<>();

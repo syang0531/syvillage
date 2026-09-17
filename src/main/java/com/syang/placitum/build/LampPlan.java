@@ -50,7 +50,7 @@ public final class LampPlan {
     public static List<BlockPos> unlitPosts(ServerLevel level, Settlement settlement, int phase,
             Reach reach) {
         BlockPos bell = settlement.center();
-        int limit = TownPlan.phaseReach(phase);
+        int limit = TownPlan.reachOf(settlement, phase);
         List<BlockPos> todo = new ArrayList<>();
 
         for (int dz = -limit; dz <= limit; dz++) {
@@ -67,10 +67,30 @@ public final class LampPlan {
                     // last one is also what makes this converge.
                     continue;
                 }
+                if (!streetRound(reach, pos, bell)) {
+                    continue;   // no road here means no town here, whatever the plan says
+                }
                 todo.add(new BlockPos(pos.getX(), ground + 1, pos.getZ()));
             }
         }
         return List.copyOf(todo);
+    }
+
+    /**
+     * Whether the block this post belongs to has a street round it.
+     *
+     * <p>Walking distance from a street is not enough on its own: the ground walk spreads from
+     * every paved column in the town, so a post in a meadow half a mile from the nearest house
+     * is reachable and was getting a lamp. A lamp belongs to a block, and a block with no street
+     * on any side of it is not part of the town yet.
+     */
+    private static boolean streetRound(Reach reach, BlockPos post, BlockPos bell) {
+        for (BlockPos road : TownPlan.boundingRoads(post, bell)) {
+            if (reach.street(road)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -84,7 +104,7 @@ public final class LampPlan {
      */
     public static List<BlockPos> darkPosts(ServerLevel level, Settlement settlement) {
         BlockPos bell = settlement.center();
-        int limit = TownPlan.phaseReach(TownPlan.maxPhase(settlement));
+        int limit = TownPlan.reachOf(settlement, TownPlan.outerPhase(settlement));
         int wanted = PlacitumConfig.MIN_LIGHT_LEVEL.get();
         List<BlockPos> dark = new ArrayList<>();
 

@@ -13,10 +13,10 @@ import net.minecraft.server.level.ServerLevel;
 /**
  * Whether a lot can be built on, and if not, which of the reasons it is.
  *
- * <p>Roads and lamps go down on any ground at all - a village on a hillside still needs streets,
- * and light is what keeps the mobs out. A building is different: it needs flat ground, and if
- * the ground is not flat the settlement waits rather than terracing the hill. Cutting terrain is
- * how a mod starts looking like griefing.
+ * <p>Roads and lamps go down on any ground a person can walk to - a village on a hillside still
+ * needs streets, and light is what keeps the mobs out. A building is different: it needs flat
+ * ground, and if the ground is not flat the settlement waits rather than terracing the hill.
+ * Cutting terrain is how a mod starts looking like griefing.
  *
  * <p>Waiting is not giving up. A lot rejected today is checked again, so a player who levels a
  * slope gets a house on it - which is a much better way to direct a village than any command.

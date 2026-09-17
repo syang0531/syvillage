@@ -14,7 +14,7 @@ import net.minecraft.network.chat.MutableComponent;
  * Draws the plot grid as text.
  *
  * <p>docs/open-questions.md leaves one thing to be decided by looking rather than reasoning:
- * whether an 8-block grid laid over a village vanilla already built leaves enough free cells to
+ * whether a grid of lots laid over a village vanilla already built leaves enough free ones to
  * be worth having. A vanilla house is five to nine blocks across and aligned to nothing, so it
  * can straddle four cells and cost all four.
  *

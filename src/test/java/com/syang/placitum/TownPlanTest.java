@@ -286,6 +286,56 @@ class TownPlanTest {
     }
 
     @Test
+    @DisplayName("the last phase is street and light, and its outer road is left off")
+    void theOuterPhaseIsOpen() {
+        // Closed, a town reads as a compound with a ring road round it. Open, the streets run
+        // out of it, which is what a town on a map does - and the last ring being lit is where
+        // the mobs would otherwise be standing when they walk in.
+        Settlement settlement = withPlotsAt();
+        int last = TownPlan.maxPhase(settlement);
+        int outer = TownPlan.outerPhase(settlement);
+
+        assertEquals(last + 1, outer);
+        assertTrue(TownPlan.housing(settlement, last), "phase " + last + " still builds houses");
+        assertFalse(TownPlan.housing(settlement, outer), "the last phase is street and light");
+
+        assertEquals(TownPlan.phaseReach(outer) - TownPlan.ROAD,
+                TownPlan.reachOf(settlement, outer),
+                "the outer phase stops one road short of closing itself");
+        assertFalse(TownPlan.isRoad(BELL.getX() + TownPlan.reachOf(settlement, outer),
+                        BELL.getX()),
+                "an open edge ends on a margin, not on the road that would close it");
+        assertTrue(TownPlan.reachOf(settlement, outer) > TownPlan.reachOf(settlement, last),
+                "the town still reaches further than its last house");
+
+        for (int phase = 0; phase <= last; phase++) {
+            assertEquals(TownPlan.phaseReach(phase), TownPlan.reachOf(settlement, phase),
+                    "phase " + phase + " is a closed block and keeps the road that closes it");
+        }
+    }
+
+    @Test
+    @DisplayName("a lamp asks its own block for a street, not the whole town")
+    void lampsAskTheirOwnBlock() {
+        // Walking distance from any street is not enough: the ground walk spreads from every
+        // paved column in the town, so a post in a meadow a long way from the nearest house was
+        // reachable and got a lamp.
+        BlockPos post = BELL.offset(10, 0, 10);   // the middle of the bell's own block
+        assertTrue(TownPlan.isLampPost(post, BELL));
+
+        List<BlockPos> roads = TownPlan.boundingRoads(post, BELL);
+        assertEquals(4 * TownPlan.ROAD, roads.size(), "three lanes of each of four roads");
+        for (BlockPos road : roads) {
+            assertTrue(TownPlan.onRoad(road, BELL),
+                    road + " is not on a road, so asking it about the street means nothing");
+        }
+        assertTrue(roads.stream().anyMatch(r -> r.getX() < post.getX()));
+        assertTrue(roads.stream().anyMatch(r -> r.getX() > post.getX()));
+        assertTrue(roads.stream().anyMatch(r -> r.getZ() < post.getZ()));
+        assertTrue(roads.stream().anyMatch(r -> r.getZ() > post.getZ()));
+    }
+
+    @Test
     @DisplayName("the claim decides how far the town goes")
     void theClaimBoundsTheTown() {
         // Five chunks of claim is eighty blocks, and phase 3 reaches eighty-one. The town stops

@@ -72,7 +72,7 @@ public final class Reach {
 
     public static Reach from(ServerLevel level, Settlement settlement, int phase) {
         BlockPos bell = settlement.center();
-        int limit = TownPlan.phaseReach(phase);
+        int limit = TownPlan.reachOf(settlement, phase);
 
         // The bell's own crossroads, seeded whole. The bell block sits on the ground and reads a
         // block higher than the ground beside it, so starting from that one column alone would
