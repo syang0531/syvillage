@@ -43,6 +43,14 @@ public class GuardianBlockEntity extends BlockEntity {
 
     private @Nullable UUID golem;
 
+    /**
+     * Whether we have already said that we cannot raise one.
+     *
+     * <p>Not saved, and deliberately so: it exists to keep one line per outage out of a line
+     * every ten seconds, and the first tick after a reload may as well say it again.
+     */
+    private boolean complained;
+
     public GuardianBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlocks.GUARDIAN.get(), pos, state);
     }
@@ -78,7 +86,15 @@ public class GuardianBlockEntity extends BlockEntity {
                 EntitySpawnReason.MOB_SUMMONED, server, pos, ATTEMPTS, RANGE_XZ, RANGE_Y,
                 SpawnUtil.Strategy.LEGACY_IRON_GOLEM, false);
         if (raised.isEmpty()) {
-            return;   // nowhere to stand one up; it comes round again
+            // Once per outage. A statue that has been walled in or paved over is a thing the
+            // player has to be told about, because from the outside it looks exactly like a
+            // statue that does not work - which is the whole of this project's hard-won lesson.
+            if (!statue.complained) {
+                statue.complained = true;
+                Placitum.LOGGER.info("A guardian statue at {} has no golem and nowhere to put"
+                        + " one: it needs open ground within {} blocks", pos, RANGE_XZ);
+            }
+            return;   // it comes round again
         }
         IronGolem guard = raised.get();
         // Persistent on purpose. A guard that despawns when the player walks away is a guard for
@@ -89,8 +105,11 @@ public class GuardianBlockEntity extends BlockEntity {
         // over a villager caught by a stray arrow.
         guard.setPlayerCreated(true);
         statue.golem = guard.getUUID();
+        statue.complained = false;
         statue.setChanged();
-        Placitum.LOGGER.debug("A guardian statue at {} raised a golem", pos);
+        // Info, not debug. This happens once per golem death, so it is not chatter - and a test
+        // of this block that produces no log line at all cannot be read.
+        Placitum.LOGGER.info("A guardian statue at {} raised a golem", pos);
     }
 
     /** Whether the golem it remembers is still alive, still a golem, and still in this world. */
