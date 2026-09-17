@@ -336,6 +336,28 @@ class TownPlanTest {
     }
 
     @Test
+    @DisplayName("a step across a road is not a step along it")
+    void sidewaysIsNotProgress() {
+        // A road is three wide, so a third of the steps anything walking it takes are sideways.
+        // If those counted as progress, a street could cross any hillside at all by hopping to
+        // whichever of the three lanes happens to be level at that point - the climb counter
+        // would reset every other step and never reach its limit.
+        BlockPos northSouth = BELL.offset(0, 0, 8);   // in the bell's north-south road band
+        assertTrue(TownPlan.isRoad(northSouth.getX(), BELL.getX()));
+        assertFalse(TownPlan.isRoad(northSouth.getZ(), BELL.getZ()));
+        assertTrue(TownPlan.runsAlongRoad(0, 1, northSouth, BELL), "north-south is the run");
+        assertFalse(TownPlan.runsAlongRoad(1, 0, northSouth, BELL), "east-west is across it");
+
+        BlockPos eastWest = BELL.offset(8, 0, 0);
+        assertTrue(TownPlan.runsAlongRoad(1, 0, eastWest, BELL));
+        assertFalse(TownPlan.runsAlongRoad(0, 1, eastWest, BELL));
+
+        // At a crossroads both axes are a run, which is right: you can leave in any direction.
+        assertTrue(TownPlan.runsAlongRoad(1, 0, BELL, BELL));
+        assertTrue(TownPlan.runsAlongRoad(0, 1, BELL, BELL));
+    }
+
+    @Test
     @DisplayName("the claim decides how far the town goes")
     void theClaimBoundsTheTown() {
         // Five chunks of claim is eighty blocks, and phase 3 reaches eighty-one. The town stops

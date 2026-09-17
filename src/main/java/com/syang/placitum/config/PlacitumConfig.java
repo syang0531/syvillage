@@ -83,6 +83,8 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue WALL_MIN_POPULATION;
     public static final ModConfigSpec.IntValue MAX_SITE_DROP;
     public static final ModConfigSpec.IntValue BUILD_MAX_PHASES;
+    public static final ModConfigSpec.IntValue MAX_ROAD_CLIMB;
+    public static final ModConfigSpec.IntValue LAMP_BLOCKS_BEYOND_STREET;
     public static final ModConfigSpec.IntValue MIN_LIGHT_LEVEL;
     public static final ModConfigSpec.IntValue LAMPS_PER_JOB;
     public static final ModConfigSpec.IntValue ROAD_BLOCKS_PER_JOB;
@@ -272,6 +274,27 @@ public final class PlacitumConfig {
                         "begins. What normally decides the limit is the claim; this is a lower",
                         "ceiling for anyone who wants a village rather than a city.")
                 .defineInRange("buildMaxPhases", 8, 0, 32);
+        MAX_ROAD_CLIMB = b.comment("Steps in a row a street may change height before it gives up.",
+                        "Not about whether you could walk there - you plainly could - but about",
+                        "what a street laid over rolling ground looks like, which is a paved",
+                        "ribbon draped over a hillside that nobody would ever build. Measured",
+                        "across the road's whole width, so a street following a contour with one",
+                        "level lane and two that are not counts as uneven.",
+                        "",
+                        "Any change counts, up or down: a field of hummocks is as unbuildable",
+                        "looking as a slope. 3 means the street climbs three and stops on the",
+                        "fourth. Raise it for a town that sprawls over hills; 0 keeps the streets",
+                        "dead flat.")
+                .defineInRange("maxRoadClimb", 3, 0, 64);
+        LAMP_BLOCKS_BEYOND_STREET = b.comment("How many city blocks past the last street the lamps go.",
+                        "Light is not a road. Where the street gives up on a hillside the mobs",
+                        "do not, and they walk down it into the town, so the lit ground has to",
+                        "reach further than the paved ground.",
+                        "",
+                        "It cannot be unlimited or the town grows lamps in meadows a long way",
+                        "from any house, which is what it did when lamps only asked whether",
+                        "somebody could walk to them.")
+                .defineInRange("lampBlocksBeyondStreet", 1, 0, 8);
         MIN_LIGHT_LEVEL = b.comment("Block light a cell needs before the settlement stops",
                         "lighting it. Hostile mobs spawn at block light 0, so anything above",
                         "that suppresses them; a little headroom covers a lantern being broken.",

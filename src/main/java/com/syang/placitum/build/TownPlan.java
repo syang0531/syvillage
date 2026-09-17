@@ -157,6 +157,18 @@ public final class TownPlan {
     }
 
     /**
+     * Whether a step goes along a road rather than across its width.
+     *
+     * <p>A road is three wide, so a third of the steps anything walking it takes are sideways
+     * within the band. Those are not progress along the street and must not count as such -
+     * hopping to whichever of the three lanes happens to be flat here would let a street cross
+     * any hillside at all, one lane at a time.
+     */
+    public static boolean runsAlongRoad(int dx, int dz, BlockPos pos, BlockPos bell) {
+        return dx != 0 ? isRoad(pos.getZ(), bell.getZ()) : isRoad(pos.getX(), bell.getX());
+    }
+
+    /**
      * The last phase of all: street and light, and no buildings.
      *
      * <p>A town whose outermost houses sit on its outermost road looks finished in a way no

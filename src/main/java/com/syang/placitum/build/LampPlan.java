@@ -67,8 +67,8 @@ public final class LampPlan {
                     // last one is also what makes this converge.
                     continue;
                 }
-                if (!streetRound(reach, pos, bell)) {
-                    continue;   // no road here means no town here, whatever the plan says
+                if (!streetNear(reach, pos, bell)) {
+                    continue;   // no street anywhere near means no town here, plan or no plan
                 }
                 todo.add(new BlockPos(pos.getX(), ground + 1, pos.getZ()));
             }
@@ -77,17 +77,29 @@ public final class LampPlan {
     }
 
     /**
-     * Whether the block this post belongs to has a street round it.
+     * Whether there is a street within reach of the block this post belongs to.
+     *
+     * <p>Two things pull against each other here and the config key is where they meet.
      *
      * <p>Walking distance from a street is not enough on its own: the ground walk spreads from
-     * every paved column in the town, so a post in a meadow half a mile from the nearest house
-     * is reachable and was getting a lamp. A lamp belongs to a block, and a block with no street
-     * on any side of it is not part of the town yet.
+     * every paved column in the town, so a post in a meadow a long way from the nearest house is
+     * reachable, and the town grew lamps in fields.
+     *
+     * <p>But light is not a road. Where the street gives up on a hillside the mobs do not - they
+     * spawn on the dark slope and walk down it into the town - so the lit ground has to reach
+     * past the paved ground rather than stopping with it. Hence a ring of blocks beyond the last
+     * street, rather than the street's own blocks alone.
      */
-    private static boolean streetRound(Reach reach, BlockPos post, BlockPos bell) {
-        for (BlockPos road : TownPlan.boundingRoads(post, bell)) {
-            if (reach.street(road)) {
-                return true;
+    private static boolean streetNear(Reach reach, BlockPos post, BlockPos bell) {
+        int blocks = PlacitumConfig.LAMP_BLOCKS_BEYOND_STREET.get();
+        for (int bz = -blocks; bz <= blocks; bz++) {
+            for (int bx = -blocks; bx <= blocks; bx++) {
+                BlockPos within = post.offset(bx * TownPlan.PERIOD, 0, bz * TownPlan.PERIOD);
+                for (BlockPos road : TownPlan.boundingRoads(within, bell)) {
+                    if (reach.street(road)) {
+                        return true;
+                    }
+                }
             }
         }
         return false;
