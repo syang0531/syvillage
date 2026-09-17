@@ -61,9 +61,11 @@ public final class SettlementTick {
             return settlement;
         }
         if (settlement.buildQueue().isEmpty()) {
-            Placitum.LOGGER.info("'{}' is building nothing. Lots out to phase {}: {}",
-                    settlement.name(), TownPlan.maxPhase(settlement),
-                    Lots.describe(Lots.tally(level, settlement)));
+            Reach reach = Reach.from(level, settlement, TownPlan.maxPhase(settlement));
+            Placitum.LOGGER.info("'{}' is building nothing. {} column(s) within walking distance"
+                            + " of the bell. Lots out to phase {}: {}",
+                    settlement.name(), reach.size(), TownPlan.maxPhase(settlement),
+                    Lots.describe(Lots.tally(level, settlement, reach)));
         }
         return settlement.withGrid(GridSurvey.run(level, settlement).grid());
     }
@@ -82,15 +84,20 @@ public final class SettlementTick {
                 || level.getGameTime() % PlacitumConfig.PLAN_INTERVAL_TICKS.get() != 0) {
             return settlement;
         }
+        // Walked once and shared. Every planner asks the same question of the same ground, and
+        // three separate walks of it would be three chances for them to disagree about where the
+        // town ends.
+        Reach reach = Reach.from(level, settlement, TownPlan.maxPhase(settlement));
+
         Optional<BuildRecipe> next = Optional.empty();
         int phase = 0;
         for (; phase <= TownPlan.maxPhase(settlement) && next.isEmpty(); phase++) {
-            next = RoadPlan.plan(level, settlement, phase);
+            next = RoadPlan.plan(level, settlement, phase, reach);
             if (next.isEmpty()) {
-                next = LampPlan.plan(level, settlement, phase);
+                next = LampPlan.plan(level, settlement, phase, reach);
             }
             if (next.isEmpty()) {
-                next = building(level, settlement, phase);
+                next = building(level, settlement, phase, reach);
             }
         }
         if (next.isEmpty()) {
@@ -116,9 +123,9 @@ public final class SettlementTick {
      * terracing a hillside, and picks the lot up again if somebody flattens it.
      */
     private static Optional<BuildRecipe> building(ServerLevel level, Settlement settlement,
-            int phase) {
+            int phase, Reach reach) {
         for (CellPos cell : TownPlan.lotsInPhase(phase)) {
-            if (!Lots.buildable(level, settlement, cell)) {
+            if (!Lots.buildable(level, settlement, cell, reach)) {
                 continue;
             }
             // Asked only once there is somewhere to put the answer. It counts villagers with an

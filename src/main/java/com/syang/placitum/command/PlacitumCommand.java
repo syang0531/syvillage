@@ -175,7 +175,10 @@ public final class PlacitumCommand {
                 source.sendSuccess(() -> Component.literal("  lots out to phase "
                         + com.syang.placitum.build.TownPlan.maxPhase(settlement) + ": "
                         + com.syang.placitum.build.Lots.describe(
-                                com.syang.placitum.build.Lots.tally(where, settlement))), false);
+                                com.syang.placitum.build.Lots.tally(where, settlement,
+                                        com.syang.placitum.build.Reach.from(where, settlement,
+                                                com.syang.placitum.build.TownPlan.maxPhase(
+                                                        settlement))))), false);
             }
             return 0;
         }

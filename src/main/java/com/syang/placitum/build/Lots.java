@@ -42,7 +42,12 @@ public final class Lots {
         /** Water. A house in a pond is not a house. */
         WATER,
         /** Too steep. Level it and the settlement picks it up. */
-        STEEP
+        STEEP,
+        /**
+         * Flat, dry, empty - and there is no way to walk to it from the bell. An island, or a
+         * shelf above a cliff. Bridge it or ramp it and the settlement builds there.
+         */
+        UNREACHABLE
     }
 
     private Lots() {}
@@ -72,13 +77,15 @@ public final class Lots {
         return Verdict.OK;
     }
 
-    /** Every column of the lot is loaded, clear, out of the water and level with its neighbours. */
-    public static boolean buildable(ServerLevel level, Settlement settlement, CellPos cell) {
-        return verdict(level, settlement, cell) == Verdict.OK;
+    /** Every column of the lot is loaded, clear, dry, level, and somewhere you can walk to. */
+    public static boolean buildable(ServerLevel level, Settlement settlement, CellPos cell,
+            Reach reach) {
+        return verdict(level, settlement, cell, reach) == Verdict.OK;
     }
 
-    /** The whole answer: the record first, then the ground. */
-    public static Verdict verdict(ServerLevel level, Settlement settlement, CellPos cell) {
+    /** The whole answer: the record first, then the ground, then whether you can get there. */
+    public static Verdict verdict(ServerLevel level, Settlement settlement, CellPos cell,
+            Reach reach) {
         Verdict onPaper = record(settlement, cell);
         if (onPaper != Verdict.OK) {
             return onPaper;
@@ -91,6 +98,7 @@ public final class Lots {
         int lowest = Integer.MAX_VALUE;
         int highest = Integer.MIN_VALUE;
 
+        boolean anyReachable = false;
         for (BlockPos column : TownPlan.lotColumns(cell, settlement.center())) {
             if (GridSurvey.builtOn(level, column.getX(), column.getZ())) {
                 return Verdict.BUILT_ON;
@@ -101,9 +109,15 @@ public final class Lots {
             }
             lowest = Math.min(lowest, ground);
             highest = Math.max(highest, ground);
+            anyReachable |= reach.has(column);
         }
-        return highest - lowest <= PlacitumConfig.MAX_CELL_SLOPE.get()
-                ? Verdict.OK : Verdict.STEEP;
+        if (highest - lowest > PlacitumConfig.MAX_CELL_SLOPE.get()) {
+            return Verdict.STEEP;
+        }
+        // One column is enough: the lot is flat, so every column of it is at the same height and
+        // they are all connected to each other. What is being asked is whether the lot as a
+        // whole joins the rest of the town, not whether each square metre does separately.
+        return anyReachable ? Verdict.OK : Verdict.UNREACHABLE;
     }
 
     /**
@@ -112,10 +126,11 @@ public final class Lots {
      * <p>This is what a settlement says when it has stopped building. "Nothing is happening" is
      * not an answer; "forty are taken, eleven are too steep, and ninety are not loaded" is.
      */
-    public static Map<Verdict, Integer> tally(ServerLevel level, Settlement settlement) {
+    public static Map<Verdict, Integer> tally(ServerLevel level, Settlement settlement,
+            Reach reach) {
         Map<Verdict, Integer> counts = new EnumMap<>(Verdict.class);
         for (CellPos cell : TownPlan.allLots(settlement)) {
-            counts.merge(verdict(level, settlement, cell), 1, Integer::sum);
+            counts.merge(verdict(level, settlement, cell, reach), 1, Integer::sum);
         }
         return counts;
     }

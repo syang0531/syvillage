@@ -78,7 +78,7 @@ class TownPlanTest {
     }
 
     @Test
-    @DisplayName("a city block holds four lots and nine lamps")
+    @DisplayName("a city block holds four lots and five lamps")
     void aBlockHoldsFourLots() {
         // What the screenshot showed and the first version of the plan got wrong: the period is
         // not one lot wide. A road every twelve blocks is a car park with houses in it.
@@ -96,7 +96,26 @@ class TownPlanTest {
             }
         }
         assertEquals(4, lots.size(), "four lots to a block: " + lots);
-        assertEquals(9, lamps, "nine lamps round them: " + lamps);
+        assertEquals(TownPlan.lampsPerBlock(), lamps,
+                "its four corners and its middle, and nothing halfway along an edge: " + lamps);
+        assertEquals(5, lamps);
+    }
+
+    @Test
+    @DisplayName("the lamps of a block are its corners and its middle")
+    void lampsMarkTheBlockItself() {
+        // Nine - every margin crossing - read as a lamp yard. The four that went are the ones
+        // halfway along each edge, so what is left is the outline of the block plus its centre.
+        Set<String> posts = new LinkedHashSet<>();
+        for (int dz = 0; dz < TownPlan.PERIOD; dz++) {
+            for (int dx = 0; dx < TownPlan.PERIOD; dx++) {
+                if (TownPlan.isLampPost(BELL.offset(dx, 0, dz), BELL)) {
+                    posts.add(dx + "," + dz);
+                }
+            }
+        }
+        assertEquals(Set.of("2,2", "2,18", "18,2", "18,18", "10,10"), posts,
+                "the margins are at 2, 10 and 18 from the bell; the edge midpoints are out");
     }
 
     @Test
@@ -146,8 +165,8 @@ class TownPlanTest {
                 assertFalse(insideSomeLot(pos), "lamp on a building lot at " + pos);
             }
         }
-        assertEquals(9, posts, "nine to a city block, at the corners of its four lots: "
-                + posts);
+        assertEquals(TownPlan.lampsPerBlock(), posts,
+                "five to a city block - its corners and its middle: " + posts);
     }
 
     @Test

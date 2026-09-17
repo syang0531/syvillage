@@ -45,22 +45,29 @@ public final class RoadPlan {
      * work that was finished an hour ago.
      */
     public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement,
-            int phase) {
+            int phase, Reach reach) {
         BlockPos bell = settlement.center();
-        int reach = TownPlan.phaseReach(phase);
+        int limit = TownPlan.phaseReach(phase);
         int batch = PlacitumConfig.ROAD_BLOCKS_PER_JOB.get();
 
         List<Spans> todo = new ArrayList<>();
         List<Integer> profile = new ArrayList<>();
 
         // Outward in rings, so the streets by the bell are finished before the outskirts begin.
-        for (int ring = 0; ring <= reach && todo.size() < batch; ring++) {
+        for (int ring = 0; ring <= limit && todo.size() < batch; ring++) {
             for (int along = -ring; along <= ring && todo.size() < batch; along++) {
                 for (BlockPos pos : new BlockPos[] {
                         bell.offset(along, 0, -ring), bell.offset(along, 0, ring),
                         bell.offset(-ring, 0, along), bell.offset(ring, 0, along)}) {
                     if (todo.size() >= batch || !TownPlan.onRoad(pos, bell)
                             || !level.hasChunkAt(pos)) {
+                        continue;
+                    }
+                    if (!reach.has(pos)) {
+                        // The far shore of a lake, or a shelf too high to climb. The street
+                        // stops where a person would, which is why a road never crosses water
+                        // and never appears on an island: not a rule about water, a rule about
+                        // being able to get there.
                         continue;
                     }
                     int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());

@@ -2,6 +2,7 @@ package com.syang.placitum.command;
 
 import com.syang.placitum.build.BuildPlanner;
 import com.syang.placitum.build.Lots;
+import com.syang.placitum.build.Reach;
 import com.syang.placitum.build.TownPlan;
 import com.syang.placitum.data.BuildJob;
 import com.syang.placitum.data.CellState;
@@ -51,7 +52,9 @@ public final class SettlementReport {
                 lines.add(Component.literal("  lots out to phase "
                         + TownPlan.maxPhase(settlement) + " ("
                         + TownPlan.phaseReach(TownPlan.maxPhase(settlement)) + " blocks): "
-                        + Lots.describe(Lots.tally(level, settlement)))
+                        + Lots.describe(Lots.tally(level, settlement,
+                                Reach.from(level, settlement,
+                                        TownPlan.maxPhase(settlement)))))
                         .withStyle(ChatFormatting.GRAY));
             }
         }

@@ -87,8 +87,21 @@ public final class TownPlan {
 
     /** The one-block gaps: after the road, and between every pair of lots. */
     public static boolean isMargin(int v, int origin) {
+        return marginIndex(v, origin) >= 0;
+    }
+
+    /**
+     * Which margin of its block this column is, counting from the low side, or -1 for none.
+     *
+     * <p>Three of them per period with two lots to a block: the one against each road, and the
+     * one between the lots.
+     */
+    private static int marginIndex(int v, int origin) {
         int u = local(v, origin);
-        return u >= ROAD && (u - ROAD) % (LOT + MARGIN) == 0;
+        if (u < ROAD || (u - ROAD) % (LOT + MARGIN) != 0) {
+            return -1;
+        }
+        return (u - ROAD) / (LOT + MARGIN);
     }
 
     /** Whether this column is part of the road network - either axis will do. */
@@ -96,9 +109,27 @@ public final class TownPlan {
         return isRoad(pos.getX(), bell.getX()) || isRoad(pos.getZ(), bell.getZ());
     }
 
-    /** A lamp stands where the margins cross: nine to a city block. */
+    /**
+     * A lamp stands at the four corners of a city block and in the middle of it: five.
+     *
+     * <p>Every margin crossing would be nine, which was too many - dense enough that the town
+     * read as a lamp yard. The four that go are the ones halfway along each edge, so what is
+     * left is the shape of the block itself.
+     */
     public static boolean isLampPost(BlockPos pos, BlockPos bell) {
-        return isMargin(pos.getX(), bell.getX()) && isMargin(pos.getZ(), bell.getZ());
+        int mx = marginIndex(pos.getX(), bell.getX());
+        int mz = marginIndex(pos.getZ(), bell.getZ());
+        if (mx < 0 || mz < 0) {
+            return false;
+        }
+        boolean xOnTheEdge = mx == 0 || mx == LOTS_PER_BLOCK;
+        boolean zOnTheEdge = mz == 0 || mz == LOTS_PER_BLOCK;
+        return xOnTheEdge == zOnTheEdge;   // both edges: a corner. Neither: the middle.
+    }
+
+    /** How many lamps a city block carries: its corners, and its middle. */
+    public static int lampsPerBlock() {
+        return 5;
     }
 
     /** Which lot a world position belongs to, along one axis. */

@@ -47,22 +47,24 @@ public final class LampPlan {
      * <p>Whether the village is actually dark is a different question, and
      * {@link #darkPosts} answers that one for {@code /placitum light}.
      */
-    public static List<BlockPos> unlitPosts(ServerLevel level, Settlement settlement, int phase) {
+    public static List<BlockPos> unlitPosts(ServerLevel level, Settlement settlement, int phase,
+            Reach reach) {
         BlockPos bell = settlement.center();
-        int reach = TownPlan.phaseReach(phase);
+        int limit = TownPlan.phaseReach(phase);
         List<BlockPos> todo = new ArrayList<>();
 
-        for (int dz = -reach; dz <= reach; dz++) {
-            for (int dx = -reach; dx <= reach; dx++) {
+        for (int dz = -limit; dz <= limit; dz++) {
+            for (int dx = -limit; dx <= limit; dx++) {
                 BlockPos pos = bell.offset(dx, 0, dz);
                 if (!TownPlan.isLampPost(pos, bell) || !level.hasChunkAt(pos)) {
                     continue;
                 }
                 int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
-                if (ground == Ground.SKIP
+                if (ground == Ground.SKIP || !reach.has(pos)
                         || GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
-                    // No lamps in water, and none on top of somebody's build - which includes
-                    // the lamp we put here last time, so this is also what makes it converge.
+                    // No lamps in water, none where nobody can walk, and none on top of
+                    // somebody's build - which includes the lamp we put here last time, so that
+                    // last one is also what makes this converge.
                     continue;
                 }
                 todo.add(new BlockPos(pos.getX(), ground + 1, pos.getZ()));
@@ -82,12 +84,12 @@ public final class LampPlan {
      */
     public static List<BlockPos> darkPosts(ServerLevel level, Settlement settlement) {
         BlockPos bell = settlement.center();
-        int reach = TownPlan.phaseReach(TownPlan.maxPhase(settlement));
+        int limit = TownPlan.phaseReach(TownPlan.maxPhase(settlement));
         int wanted = PlacitumConfig.MIN_LIGHT_LEVEL.get();
         List<BlockPos> dark = new ArrayList<>();
 
-        for (int dz = -reach; dz <= reach; dz++) {
-            for (int dx = -reach; dx <= reach; dx++) {
+        for (int dz = -limit; dz <= limit; dz++) {
+            for (int dx = -limit; dx <= limit; dx++) {
                 BlockPos pos = bell.offset(dx, 0, dz);
                 if (!TownPlan.isLampPost(pos, bell) || !level.hasChunkAt(pos)) {
                     continue;
@@ -112,8 +114,8 @@ public final class LampPlan {
      * safe to ask on every pass.
      */
     public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement,
-            int phase) {
-        List<BlockPos> dark = unlitPosts(level, settlement, phase);
+            int phase, Reach reach) {
+        List<BlockPos> dark = unlitPosts(level, settlement, phase, reach);
         if (dark.isEmpty()) {
             return Optional.empty();
         }
