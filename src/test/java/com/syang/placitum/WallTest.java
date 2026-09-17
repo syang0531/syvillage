@@ -4,16 +4,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.syang.placitum.build.Spans;
 import com.syang.placitum.build.TownPlan;
+import com.syang.placitum.build.WallPlan;
+import com.syang.placitum.data.BuildOp;
+import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.Settlement;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.Bootstrap;
+import net.minecraft.world.level.block.Rotation;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -130,6 +137,40 @@ class WallTest {
                 "a road line twenty blocks along is not this town's gate");
         assertFalse(TownPlan.inArch(BELL.offset(outer, 0, outer), BELL), "nor is a corner");
         assertFalse(TownPlan.inGateway(BELL.offset(outer, 0, outer), town));
+    }
+
+    @Test
+    @DisplayName("every column the plan queues turns into blocks")
+    void nothingQueuedIsSilentlyDropped() {
+        // The shape of the loop this cost an evening to: the plan wanted the gateway columns,
+        // the laying refused them, and nothing ever happened to make the plan stop wanting them.
+        // The settlement re-queued the same thirty-two columns once a second for ever.
+        //
+        // Whatever the rule is, it belongs to one of the two. A column that reaches expand and
+        // produces nothing is a settlement that will ask for it again.
+        Settlement town = town();
+        int outer = TownPlan.wallOuter(town);
+        List<Spans> columns = new ArrayList<>();
+        for (int depth = 0; depth < TownPlan.WALL; depth++) {
+            columns.add(new Spans(BELL.getX() + outer - depth, BELL.getZ() + 30, 64, 64));
+        }
+
+        List<BuildOp> ops = WallPlan.expand(new BuildRecipe(WallPlan.RAMPART, BELL,
+                Rotation.NONE, Craft.STONE.paletteId(), List.of(64, 64, 64, 64),
+                new BlockPos(TownPlan.wallInner(town), TownPlan.WALL_HEIGHT, outer),
+                Spans.encode(columns)));
+
+        for (Spans column : columns) {
+            assertTrue(ops.stream().anyMatch(op -> op.pos().getX() == column.x()
+                            && op.pos().getZ() == column.z()),
+                    "column " + column.x() + "," + column.z() + " was queued and never laid");
+        }
+        long parapets = columns.stream()
+                .filter(c -> ops.stream().anyMatch(op -> op.pos().getX() == c.x()
+                        && op.pos().getZ() == c.z()
+                        && op.pos().getY() == 64 + TownPlan.WALL_HEIGHT))
+                .count();
+        assertTrue(parapets <= 2, "only the two faces carry a parapet, not the walkway");
     }
 
     @Test

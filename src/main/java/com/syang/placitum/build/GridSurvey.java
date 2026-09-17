@@ -323,6 +323,12 @@ public final class GridSurvey {
                 || state.is(BlockTags.TRAPDOORS)
                 || state.is(BlockTags.CAMPFIRES)
                 || state.is(Blocks.FARMLAND)
+                // Our own masonry. None of these three generate on the surface, so finding one
+                // means somebody built it - and without them a stone wall could not tell it was
+                // already standing. See WallPlan.
+                || state.is(Blocks.COBBLESTONE)
+                || state.is(Blocks.STONE_BRICKS)
+                || state.is(Blocks.STONE_BRICK_SLAB)
                 || state.is(Blocks.GLASS)
                 || state.is(Blocks.GLASS_PANE)
                 || state.is(Blocks.TORCH)

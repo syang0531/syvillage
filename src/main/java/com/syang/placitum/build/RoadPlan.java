@@ -86,12 +86,16 @@ public final class RoadPlan {
                     // Paved to the standard the settlement has now: a street laid in dirt by a
                     // village that has since gained a mason comes back as work to do, and that
                     // is the whole of the upgrade. Nothing here has to know it is an upgrade.
-                    if (level.getBlockState(new BlockPos(pos.getX(), ground, pos.getZ()))
-                            .is(settlement.craft().paving().getBlock())) {
+                    BlockState top = level.getBlockState(
+                            new BlockPos(pos.getX(), ground, pos.getZ()));
+                    if (top.is(settlement.craft().paving().getBlock())) {
                         continue;   // already a street, and made of the right thing
                     }
-                    if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
-                        continue;   // a building, or the bell itself: the street goes round
+                    // Paving of a lower standard is ours to take up again - that is the whole
+                    // upgrade. Anything else somebody built, the street goes round.
+                    if (!Craft.isPaving(top)
+                            && GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
+                        continue;
                     }
                     // With the clearance: a street runs under a tree otherwise, because the
                     // ground reading walks down past the trunk on purpose.

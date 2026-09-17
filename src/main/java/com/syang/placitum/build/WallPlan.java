@@ -75,20 +75,26 @@ public final class WallPlan {
                         bell.offset(along, 0, -ring), bell.offset(along, 0, ring),
                         bell.offset(-ring, 0, along), bell.offset(ring, 0, along)}) {
                     if (todo.size() >= batch || !TownPlan.onWall(pos, settlement)
+                            || TownPlan.inArch(pos, bell)
                             || !seen.add(Reach.key(pos.getX(), pos.getZ()))
                             || !level.hasChunkAt(pos) || !reach.has(pos)) {
+                        // The gateway is skipped here rather than when the blocks are laid.
+                        // Skipping it there queued the same columns every second for ever: the
+                        // plan wanted them, the laying refused them, and nothing ever changed
+                        // to make the plan stop wanting them.
                         continue;
                     }
                     int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
                     if (ground == Ground.SKIP) {
                         continue;   // the wall stops at the water, like everything else
                     }
-                    if (level.getBlockState(new BlockPos(pos.getX(), ground + 1, pos.getZ()))
-                            .is(craft.wall().getBlock())) {
-                        continue;   // this stretch is standing, and to the right standard
-                    }
+                    // Standing already, or somebody else's - one question, because a wall is a
+                    // structure and structures upgrade by being knocked down, exactly as houses
+                    // do. Asking whether the wall was of the current standard could not work
+                    // anyway: a wall raises the ground reading of its own column by its own
+                    // height, so "is there wall just above the ground" looks at the sky.
                     if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
-                        continue;   // somebody is there; the wall is not worth a house
+                        continue;
                     }
                     todo.add(new Spans(pos.getX(), pos.getZ(), ground,
                             Clearance.topOf(level, pos.getX(), pos.getZ(), ground)));
@@ -122,7 +128,9 @@ public final class WallPlan {
      * way it does on a real rampart. They are cut from the sum of the coordinates, which is the
      * same on both faces of a straight run and turns the corner without a seam.
      *
-     * <p>The four gateways are left open. See the comment on the skip.
+     * <p>The gateways never reach here: {@link #plan} leaves them out, so that the plan and the
+     * laying cannot disagree about them. They are left as holes for now because an arch wants
+     * headroom a four-high wall has not got - that belongs to the gatehouse, which stands eight.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Spans> columns = Spans.decode(recipe.gates());
@@ -135,11 +143,7 @@ public final class WallPlan {
         List<BuildOp> ops = new ArrayList<>();
 
         for (Spans column : columns) {
-            if (column.base() == Ground.SKIP || TownPlan.inArch(column.at(0), bell)) {
-                // The gateway is left as a hole in the wall. An arch wants headroom the wall
-                // does not have - it is four high and the body of it is three - so the arch
-                // belongs to the gatehouse, which stands eight. Until that exists the roads run
-                // out through a gap, which is at least honest about there being a way through.
+            if (column.base() == Ground.SKIP) {
                 continue;
             }
             int base = column.base();
