@@ -68,21 +68,34 @@ public final class WallPlan {
         // twice is a clearance op laid twice with it.
         Set<Long> seen = new HashSet<>();
 
-        for (int ring = TownPlan.wallInner(settlement); ring <= outer && todo.size() < batch;
-                ring++) {
-            for (int along = -outer; along <= outer && todo.size() < batch; along++) {
-                for (BlockPos pos : new BlockPos[] {
-                        bell.offset(along, 0, -ring), bell.offset(along, 0, ring),
-                        bell.offset(-ring, 0, along), bell.offset(ring, 0, along)}) {
-                    if (todo.size() >= batch || !TownPlan.onWall(pos, settlement)
-                            || TownPlan.inArch(pos, bell)
-                            || !seen.add(Reach.key(pos.getX(), pos.getZ()))
+        // Swept by position along each side, and every position contributes its whole
+        // cross-section at once. Sweeping by depth instead built the inner face all the way
+        // round first - and a built inner face is a three-block step, so the walk that decides
+        // what is reachable could no longer get past it to the other three. The wall walled
+        // itself in: one column wide in most places, and then nothing left it could reach.
+        int wanted = Math.max(TownPlan.WALL, batch);
+
+        for (int along = -outer; along <= outer && todo.size() < wanted; along++) {
+            for (int side = 0; side < 4 && todo.size() < wanted; side++) {
+                List<Spans> slice = new ArrayList<>(TownPlan.WALL);
+                for (int depth = 0; depth < TownPlan.WALL; depth++) {
+                    int out = outer - depth;
+                    BlockPos pos = switch (side) {
+                        case 0 -> bell.offset(along, 0, -out);
+                        case 1 -> bell.offset(along, 0, out);
+                        case 2 -> bell.offset(-out, 0, along);
+                        default -> bell.offset(out, 0, along);
+                    };
+                    if (!TownPlan.onWall(pos, settlement) || TownPlan.inArch(pos, bell)
                             || !level.hasChunkAt(pos) || !reach.has(pos)) {
                         // The gateway is skipped here rather than when the blocks are laid.
                         // Skipping it there queued the same columns every second for ever: the
                         // plan wanted them, the laying refused them, and nothing ever changed
                         // to make the plan stop wanting them.
                         continue;
+                    }
+                    if (!seen.add(Reach.key(pos.getX(), pos.getZ()))) {
+                        continue;   // the corners belong to two sides
                     }
                     int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
                     if (ground == Ground.SKIP) {
@@ -96,9 +109,12 @@ public final class WallPlan {
                     if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
                         continue;
                     }
-                    todo.add(new Spans(pos.getX(), pos.getZ(), ground,
+                    slice.add(new Spans(pos.getX(), pos.getZ(), ground,
                             Clearance.topOf(level, pos.getX(), pos.getZ(), ground)));
-                    profile.add(ground);
+                }
+                for (Spans column : slice) {
+                    todo.add(column);
+                    profile.add(column.base());
                 }
             }
         }

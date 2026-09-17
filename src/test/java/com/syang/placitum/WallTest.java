@@ -174,6 +174,35 @@ class WallTest {
     }
 
     @Test
+    @DisplayName("a built wall is a cliff, so its own cross-section has to go up together")
+    void theWallMustNotWallItselfIn() {
+        // What reaches the wall is a walk from the town that steps a block at a time, and a
+        // three-high inner face is not a step. Raising the inner face all the way round before
+        // starting the next one left the other three unreachable for ever: the wall came out one
+        // column wide, and then the settlement decided there was nothing left it could build.
+        //
+        // The fix is an order, so this is a test about order: the four depths of one position
+        // have to be planned before any of them is laid.
+        Settlement town = town();
+        int outer = TownPlan.wallOuter(town);
+        int inner = TownPlan.wallInner(town);
+
+        assertEquals(TownPlan.WALL, outer - inner + 1);
+        assertTrue(inner - 1 < inner, "the walk approaches from the town side");
+
+        // Every depth of one position is a separate column, and all four are wall.
+        Set<String> slice = new LinkedHashSet<>();
+        for (int depth = 0; depth < TownPlan.WALL; depth++) {
+            BlockPos at = BELL.offset(outer - depth, 0, 30);
+            assertTrue(TownPlan.onWall(at, town), at + " should be part of the wall");
+            assertEquals(depth, TownPlan.wallDepth(at, town));
+            slice.add(at.getX() + "," + at.getZ());
+        }
+        assertEquals(TownPlan.WALL, slice.size(),
+                "a position is four distinct columns; planning one and laying it strands three");
+    }
+
+    @Test
     @DisplayName("a settlement keeps its wall when it loses its lord")
     void theWallIsARatchet() {
         Settlement walled = SettlementFixture.founded().withWall(true);
