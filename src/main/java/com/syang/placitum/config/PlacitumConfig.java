@@ -89,6 +89,7 @@ public final class PlacitumConfig {
     public static final ModConfigSpec.IntValue SURVEY_INTERVAL_TICKS;
     public static final ModConfigSpec.IntValue VERIFY_SAMPLE_EVERY;
     public static final ModConfigSpec.IntValue MAX_REBUILD_ATTEMPTS;
+    public static final ModConfigSpec.IntValue CLEAR_HEIGHT;
     public static final ModConfigSpec.IntValue BUILD_BLOCKS_PER_TICK;
     public static final ModConfigSpec.IntValue PLAN_INTERVAL_TICKS;
     public static final ModConfigSpec.DoubleValue BUILDER_REACH;
@@ -293,6 +294,12 @@ public final class PlacitumConfig {
                         "giving up on the site. A player who clears the same ground three times",
                         "has said what they want.")
                 .defineInRange("maxRebuildAttempts", 3, 1, 64);
+        CLEAR_HEIGHT = b.comment("How far above the ground a site is cleared of growth.",
+                        "Only where something is actually being built: a road column, a lamp",
+                        "post, a house footprint. Tall enough for an oak, because the ground",
+                        "reading walks down past trunks and a tree that cannot block a site has",
+                        "to be felled before the site is used.")
+                .defineInRange("clearHeight", 16, 0, 64);
         BUILD_BLOCKS_PER_TICK = b.comment("Blocks laid per tick while somebody is watching.",
                         "There used to be two keys here - an interval and a batch size - and a",
                         "config file left over from an earlier world set one of them back, so",

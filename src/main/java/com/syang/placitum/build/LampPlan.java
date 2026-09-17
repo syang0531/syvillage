@@ -7,8 +7,10 @@ import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.Settlement;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -121,12 +123,14 @@ public final class LampPlan {
         for (BlockPos post : posts) {
             profile.add(post.getY() - 1);   // reported at standing height; freeze the ground
         }
+        // With the clearance, so a post standing in a thicket cuts its way out.
+        List<Spans> columns = Clearance.spans(level, posts, profile);
         Placitum.LOGGER.debug("'{}' has {} bare post(s) in phase {}; lighting {}",
                 settlement.name(), dark.size(), phase, batch);
 
         return Optional.of(new BuildRecipe(LAMPS, posts.getFirst(), Rotation.NONE,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
-                List.copyOf(profile), new BlockPos(batch, 0, 0), Positions.encode(posts)));
+                List.copyOf(profile), new BlockPos(batch, 0, 0), Spans.encode(columns)));
     }
 
     /**
@@ -137,26 +141,24 @@ public final class LampPlan {
      * which is what keeps the ground beside it from spawning.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
-        List<Integer> profile = recipe.groundProfile();
-        List<BlockPos> posts = Positions.decode(recipe.gates());
-        if (posts.size() != profile.size()) {
-            return List.of();
-        }
+        List<Spans> posts = Spans.decode(recipe.gates());
         List<BuildOp> ops = new ArrayList<>();
-        for (int i = 0; i < posts.size(); i++) {
-            if (profile.get(i) == Ground.SKIP) {
+        Set<BlockPos> claimed = new HashSet<>();
+        for (Spans post : posts) {
+            if (post.base() == Ground.SKIP) {
                 continue;
             }
-            int x = posts.get(i).getX();
-            int z = posts.get(i).getZ();
-            int ground = profile.get(i);
-            ops.add(new BuildOp(new BlockPos(x, ground + 1, z),
+            for (int dy = 1; dy <= 3; dy++) {
+                claimed.add(post.at(post.base() + dy));
+            }
+            ops.add(new BuildOp(post.at(post.base() + 1),
                     Blocks.OAK_FENCE.defaultBlockState()));
-            ops.add(new BuildOp(new BlockPos(x, ground + 2, z),
+            ops.add(new BuildOp(post.at(post.base() + 2),
                     Blocks.OAK_FENCE.defaultBlockState()));
-            ops.add(new BuildOp(new BlockPos(x, ground + 3, z),
+            ops.add(new BuildOp(post.at(post.base() + 3),
                     Blocks.LANTERN.defaultBlockState()));
         }
+        ops.addAll(Clearance.ops(posts, claimed));
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));

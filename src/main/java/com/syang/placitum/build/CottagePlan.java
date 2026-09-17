@@ -154,6 +154,16 @@ public final class CottagePlan {
 
         ops.addAll(step(columns.getLast(), profile.getLast(), floor));
 
+        // Fell whatever is growing on the lot, last, so every position the house itself writes
+        // is already spoken for. The ground reading walks down past a trunk on purpose - that is
+        // what stops one tree making a site unbuildable - and the price of that is a house built
+        // straight through the tree unless it comes out here.
+        Set<BlockPos> written = new HashSet<>();
+        for (BuildOp op : ops) {
+            written.add(op.pos());
+        }
+        ops.addAll(Clearance.ops(Spans.decode(recipe.gates()), written));
+
         // Y-ascending, so a builder stands on what it has laid; then a fixed order within a
         // course so the list is the same every time it is expanded.
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())

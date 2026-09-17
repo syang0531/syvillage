@@ -269,6 +269,17 @@ public final class GridSurvey {
         return false;
     }
 
+    /**
+     * Growth that is actually in the way: a plant, and not simply air.
+     *
+     * <p>{@link #isGrowth} counts air, because for walking down to the ground air is exactly as
+     * ignorable as a leaf. For felling it is not - a column of air is nothing to cut, and
+     * treating it as growth would have every site clear sixteen blocks of sky.
+     */
+    public static boolean isCuttable(BlockState state) {
+        return !state.isAir() && isGrowth(state);
+    }
+
     /** Things that stand on the ground without being it. */
     private static boolean isGrowth(BlockState state) {
         return state.is(BlockTags.LOGS)

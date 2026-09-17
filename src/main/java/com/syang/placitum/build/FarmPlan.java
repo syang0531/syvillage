@@ -7,8 +7,10 @@ import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.Settlement;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -56,18 +58,20 @@ public final class FarmPlan {
     public static Optional<BuildRecipe> plan(ServerLevel level, Settlement settlement,
             CellPos cell) {
         BlockPos corner = TownPlan.lotCorner(cell, settlement.center());
+        List<BlockPos> columns = footprint(corner);
         List<Integer> profile = new ArrayList<>();
-        for (BlockPos column : footprint(corner)) {
+        for (BlockPos column : columns) {
             if (!level.hasChunkAt(column)) {
                 return Optional.empty();
             }
             profile.add(GridSurvey.groundOrSkip(level, column.getX(), column.getZ()));
         }
+        List<Spans> spans = Clearance.spans(level, columns, profile);
         Placitum.LOGGER.debug("Planned a field for '{}' on cell {}", settlement.name(),
                 cell.toKey());
         return Optional.of(new BuildRecipe(FIELD, corner, Rotation.NONE,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
-                List.copyOf(profile), new BlockPos(SIDE, 1, SIDE), List.of()));
+                List.copyOf(profile), new BlockPos(SIDE, 1, SIDE), Spans.encode(spans)));
     }
 
     /**
@@ -91,17 +95,22 @@ public final class FarmPlan {
             return List.of();
         }
         List<BuildOp> ops = new ArrayList<>();
+        Set<BlockPos> claimed = new HashSet<>();
 
         for (int i = 0; i < columns.size(); i++) {
             BlockPos column = columns.get(i);
             boolean channel = i % SIDE == SIDE / 2;
 
             // Clear whatever stands above the field's level, so a knoll does not leave a lump of
-            // dirt in the middle of the crop.
+            // dirt in the middle of the crop. Anything growing higher than that - a tree on a
+            // lot flat enough to farm - comes out with the clearance pass below.
             for (int y = floor + 1; y <= profile.get(i) + 2; y++) {
-                ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()),
-                        Blocks.AIR.defaultBlockState()));
+                BlockPos at = new BlockPos(column.getX(), y, column.getZ());
+                claimed.add(at);
+                ops.add(new BuildOp(at, Blocks.AIR.defaultBlockState()));
             }
+            claimed.add(new BlockPos(column.getX(), floor, column.getZ()));
+            claimed.add(new BlockPos(column.getX(), floor + 1, column.getZ()));
             if (channel) {
                 ops.add(new BuildOp(new BlockPos(column.getX(), floor, column.getZ()),
                         Blocks.WATER.defaultBlockState()));
@@ -112,6 +121,8 @@ public final class FarmPlan {
             ops.add(new BuildOp(new BlockPos(column.getX(), floor + 1, column.getZ()),
                     Blocks.WHEAT.defaultBlockState()));
         }
+
+        ops.addAll(Clearance.ops(Spans.decode(recipe.gates()), claimed));
 
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())
                 .thenComparingInt(op -> op.pos().getX())

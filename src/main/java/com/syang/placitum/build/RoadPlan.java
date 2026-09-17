@@ -7,8 +7,10 @@ import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.Settlement;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -48,7 +50,7 @@ public final class RoadPlan {
         int reach = TownPlan.phaseReach(phase);
         int batch = PlacitumConfig.ROAD_BLOCKS_PER_JOB.get();
 
-        List<BlockPos> todo = new ArrayList<>();
+        List<Spans> todo = new ArrayList<>();
         List<Integer> profile = new ArrayList<>();
 
         // Outward in rings, so the streets by the bell are finished before the outskirts begin.
@@ -75,7 +77,10 @@ public final class RoadPlan {
                     if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
                         continue;   // a building, or the bell itself: the street goes round
                     }
-                    todo.add(new BlockPos(pos.getX(), 0, pos.getZ()));
+                    // With the clearance: a street runs under a tree otherwise, because the
+                    // ground reading walks down past the trunk on purpose.
+                    todo.add(new Spans(pos.getX(), pos.getZ(), ground,
+                            Clearance.topOf(level, pos.getX(), pos.getZ(), ground)));
                     profile.add(ground);
                 }
             }
@@ -85,31 +90,33 @@ public final class RoadPlan {
         }
         Placitum.LOGGER.debug("'{}' has {} block(s) of street to lay in phase {}",
                 settlement.name(), todo.size(), phase);
-        return Optional.of(new BuildRecipe(STREET, todo.getFirst(), Rotation.NONE,
+        return Optional.of(new BuildRecipe(STREET,
+                new BlockPos(todo.getFirst().x(), todo.getFirst().base(), todo.getFirst().z()),
+                Rotation.NONE,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
-                List.copyOf(profile), new BlockPos(todo.size(), 1, 0), Positions.encode(todo)));
+                List.copyOf(profile), new BlockPos(todo.size(), 1, 0), Spans.encode(todo)));
     }
 
     /**
-     * One path block per column, on the ground that was frozen.
+     * One path block per column, on the ground that was frozen, and whatever grew on it cut.
      *
-     * <p>Nothing is cleared above. A road that bulldozed whatever it met would carve through the
-     * houses the village already has.
+     * <p>Only growth. A road that bulldozed whatever it met would carve through the houses the
+     * village already has, which is why the columns something is built on were dropped at plan
+     * time rather than cleared here.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
-        List<Integer> profile = recipe.groundProfile();
-        List<BlockPos> columns = Positions.decode(recipe.gates());
-        if (columns.size() != profile.size()) {
-            return List.of();
-        }
+        List<Spans> columns = Spans.decode(recipe.gates());
         List<BuildOp> ops = new ArrayList<>();
-        for (int i = 0; i < profile.size(); i++) {
-            if (profile.get(i) == Ground.SKIP) {
+        Set<BlockPos> claimed = new HashSet<>();
+        for (Spans column : columns) {
+            if (column.base() == Ground.SKIP) {
                 continue;
             }
-            ops.add(new BuildOp(new BlockPos(columns.get(i).getX(), profile.get(i),
-                    columns.get(i).getZ()), PATH));
+            BlockPos at = column.at(column.base());
+            claimed.add(at);
+            ops.add(new BuildOp(at, PATH));
         }
+        ops.addAll(Clearance.ops(columns, claimed));
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));

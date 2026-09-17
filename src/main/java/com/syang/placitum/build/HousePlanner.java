@@ -47,17 +47,32 @@ public final class HousePlanner {
             }
             profile.add(GridSurvey.groundOrSkip(level, column.getX(), column.getZ()));
         }
-        Placitum.LOGGER.debug("Planned a cottage for '{}' on cell {}, door {}",
+        // The clearance covers the whole lot, not just the house: a trunk a block from the wall
+        // is still a tree the settlement decided was not there when it called the site flat.
+        List<Spans> clearance = Clearance.spans(level,
+                TownPlan.lotColumns(cell, settlement.center()));
+        Placitum.LOGGER.debug("Planned a cottage for '{}' on lot {}, door {}",
                 settlement.name(), cell.toKey(), CottagePlan.doorFacing(facing));
 
         return Optional.of(new BuildRecipe(COTTAGE, corner, facing,
                 Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
                 List.copyOf(profile),
-                new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE), List.of()));
+                new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
+                Spans.encode(clearance)));
     }
 
-    /** North of the bell, face north; south of it, face south. Onto the near street either way. */
-    private static Rotation doorFacing(CellPos cell) {
-        return cell.gz() <= 0 ? Rotation.NONE : Rotation.CLOCKWISE_180;
+    /**
+     * Which wall the door is in: the one with the street behind it.
+     *
+     * <p>A city block holds two lots per axis, so a lot does not have a road on all four sides.
+     * The northern of the pair has its street to the north and the southern has its street to
+     * the south - it is a fact about which half of the block the lot is in, not a judgement, and
+     * the previous rule (north of the bell face north) had houses in the middle of a block
+     * opening onto their neighbour's back wall.
+     */
+    public static Rotation doorFacing(CellPos cell) {
+        return Math.floorMod(cell.gz(), TownPlan.LOTS_PER_BLOCK) == 0
+                ? Rotation.NONE            // the near street is to the north
+                : Rotation.CLOCKWISE_180;  // ... and for the southern lot, to the south
     }
 }
