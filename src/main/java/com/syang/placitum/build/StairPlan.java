@@ -1,6 +1,7 @@
 package com.syang.placitum.build;
 
 import com.syang.placitum.Placitum;
+import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.Craft;
@@ -98,6 +99,16 @@ public final class StairPlan {
         // Levelled against the wall's own footing, which is the last column of the footprint. A
         // flight that climbed from its own ground would arrive at the wrong height on a slope.
         int floor = profile.get(profile.size() - 1);
+
+        // And the ground it climbs has to be level with that footing, for the same reason the
+        // wall does. It is also what stops a loop: where the ground was above a tread, expand
+        // wrote nothing there, the "is it standing" test never saw its block, and the settlement
+        // laid the same flight a hundred and sixty-six times in one session.
+        for (int ground : profile) {
+            if (Math.abs(ground - floor) > PlacitumConfig.MAX_CELL_SLOPE.get()) {
+                return Optional.empty();
+            }
+        }
         BlockPos first = columns.getFirst();
         if (level.getBlockState(new BlockPos(first.getX(), floor + 1, first.getZ()))
                 .is(settlement.craft().wall().getBlock())) {
