@@ -104,11 +104,8 @@ public final class TowerPlan {
             }
             profile.add(ground);
         }
-        int floor = coreFloor(profile);
-        BlockPos middle = columns.get(columns.size() / 2);
-        if (level.getBlockState(new BlockPos(middle.getX(), floor + SIDE - 1, middle.getZ()))
-                .is(settlement.craft().wall().getBlock())) {
-            return Optional.empty();   // standing already
+        if (standing(level, settlement, columns, profile)) {
+            return Optional.empty();
         }
         Placitum.LOGGER.debug("Planned a tower for '{}' at {}", settlement.name(), anchor);
 
@@ -134,6 +131,29 @@ public final class TowerPlan {
             }
         }
         return Ground.highest(core);
+    }
+
+    /**
+     * Whether this tower is already up.
+     *
+     * <p>Asked of the deck, which is at a known height above a known floor. Asking the ground
+     * would get the top of the tower back once there is one.
+     */
+    private static boolean standing(ServerLevel level, Settlement settlement,
+            List<BlockPos> columns, List<Integer> profile) {
+        int floor = coreFloor(profile);
+        BlockPos middle = columns.get(columns.size() / 2);
+        return floor != Ground.SKIP
+                && level.getBlockState(new BlockPos(middle.getX(), floor + SIDE - 1,
+                        middle.getZ())).is(settlement.craft().wall().getBlock());
+    }
+
+    /** Standing, or what is stopping it. For the log when a settlement has gone quiet. */
+    public static String status(ServerLevel level, Settlement settlement, int[] corner,
+            Reach reach) {
+        List<BlockPos> columns = footprint(anchorOf(settlement, corner));
+        return standing(level, settlement, columns, GatePlan.grounds(level, columns))
+                ? "standing" : GatePlan.trouble(level, columns, reach);
     }
 
     /** Which corner this is, carried in the recipe as a rotation. */

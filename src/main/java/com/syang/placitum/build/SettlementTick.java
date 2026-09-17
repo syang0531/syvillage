@@ -231,13 +231,17 @@ public final class SettlementTick {
         if (!settlement.walled()) {
             return;
         }
+        // "Standing" before anything else. A finished gatehouse reads as sixteen unreachable
+        // columns, because a finished gatehouse is eight blocks tall and the walk cannot climb
+        // it - so the line that was meant to say why nothing was built said the same thing
+        // whether it had been built or not, and it fooled me once within a minute of writing it.
         for (Direction side : GatePlan.sides()) {
-            Placitum.LOGGER.info("  gate {}: {}", side, GatePlan.trouble(level,
-                    GatePlan.footprint(GatePlan.anchorOf(settlement, side), side), reach));
+            Placitum.LOGGER.info("  gate {}: {}", side,
+                    GatePlan.status(level, settlement, side, reach));
         }
         for (int[] corner : TowerPlan.corners()) {
-            Placitum.LOGGER.info("  tower {},{}: {}", corner[0], corner[1], GatePlan.trouble(
-                    level, TowerPlan.footprint(TowerPlan.anchorOf(settlement, corner)), reach));
+            Placitum.LOGGER.info("  tower {},{}: {}", corner[0], corner[1],
+                    TowerPlan.status(level, settlement, corner, reach));
         }
     }
 

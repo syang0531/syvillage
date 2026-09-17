@@ -244,6 +244,24 @@ public final class GatePlan {
      * has been guessed at three times now - so the settlement says which columns and what was
      * wrong with them. Principle 11, applied to something bigger than a lot.
      */
+    public static String status(ServerLevel level, Settlement settlement, Direction side,
+            Reach reach) {
+        List<BlockPos> columns = footprint(anchorOf(settlement, side), side);
+        return standing(level, settlement.craft(), columns, grounds(level, columns))
+                ? "standing" : trouble(level, columns, reach);
+    }
+
+    /** The ground under a footprint, with water marked rather than guessed at. */
+    static List<Integer> grounds(ServerLevel level, List<BlockPos> columns) {
+        List<Integer> out = new ArrayList<>(columns.size());
+        for (BlockPos column : columns) {
+            out.add(level.hasChunkAt(column)
+                    ? GridSurvey.groundOrSkip(level, column.getX(), column.getZ())
+                    : Ground.SKIP);
+        }
+        return out;
+    }
+
     public static String trouble(ServerLevel level, List<BlockPos> columns, Reach reach) {
         int unloaded = 0;
         int unreachable = 0;
