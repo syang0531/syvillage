@@ -51,6 +51,16 @@ public class GuardianBlockEntity extends BlockEntity {
      */
     private boolean complained;
 
+    /**
+     * Whether we have ever found this golem alive since raising it.
+     *
+     * <p>Without this the log cannot tell a killed golem from a lost one. A dead golem leaves
+     * the level about a second after it dies and this block looks every ten, so by the time we
+     * ask, "killed" and "we never had hold of it" are the same answer - and the four reasons
+     * added to separate them did not separate the two that matter.
+     */
+    private boolean seen;
+
     public GuardianBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlocks.GUARDIAN.get(), pos, state);
     }
@@ -109,6 +119,7 @@ public class GuardianBlockEntity extends BlockEntity {
         guard.setPlayerCreated(true);
         statue.golem = guard.getUUID();
         statue.complained = false;
+        statue.seen = false;
         statue.setChanged();
         // Info, not debug: this happens once per golem death, so it is not chatter. And it says
         // why, because "raised a golem" three times over is the same line whether the player
@@ -132,7 +143,9 @@ public class GuardianBlockEntity extends BlockEntity {
         // statue owes this town a guard either way.
         Entity found = level.getEntityInAnyDimension(golem);
         if (found == null) {
-            return "its golem could not be found";
+            // The difference that matters. One of these is the block doing its job and the
+            // other is the block raising a golem every ten seconds for ever.
+            return seen ? "its golem died" : "its golem vanished before it was ever seen";
         }
         if (!(found instanceof IronGolem guard)) {
             return "what it remembers is no longer a golem";
@@ -143,6 +156,7 @@ public class GuardianBlockEntity extends BlockEntity {
         if (guard.level() != level) {
             return "its golem left this world";
         }
+        seen = true;
         return null;
     }
 }
