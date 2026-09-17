@@ -180,8 +180,10 @@ public final class GatePlan {
             int d = i / WIDE;
             int a = i % WIDE - WIDE / 2;
 
-            // Foundation, so a gatehouse on a slope stands on the ground rather than over it.
-            for (int y = profile.get(i) + 1; y < floor; y++) {
+            // Foundation, up to and including the floor level. Stopping one short left every
+            // column below the highest with a hole under it, so the gatehouse stood on the one
+            // corner that happened to be level with it and floated over the rest.
+            for (int y = profile.get(i) + 1; y <= floor; y++) {
                 ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), stone));
             }
             for (int h = 1; h <= TALL; h++) {

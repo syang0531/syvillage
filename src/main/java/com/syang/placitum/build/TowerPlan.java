@@ -139,7 +139,9 @@ public final class TowerPlan {
             int u = mirror[0] ? SIDE - 1 - i % SIDE : i % SIDE;
             int v = mirror[1] ? SIDE - 1 - i / SIDE : i / SIDE;
 
-            for (int y = profile.get(i) + 1; y < floor; y++) {
+            // Up to and including the floor: one short of it left a hole under every column
+            // that was not the highest, and the tower floated.
+            for (int y = profile.get(i) + 1; y <= floor; y++) {
                 ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), stone));
             }
             int top = topAt(u, v);

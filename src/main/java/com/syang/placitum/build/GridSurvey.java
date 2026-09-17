@@ -251,6 +251,26 @@ public final class GridSurvey {
     }
 
     /**
+     * The terrain under our own masonry in this column.
+     *
+     * <p>{@link #groundAt} reports the top of a wall as the ground once a wall is standing, which
+     * is right for almost everything and wrong for anything that has to line up with the wall's
+     * footing. A flight of steps levelled against the top of the wall it lands on arrives four
+     * blocks above it.
+     *
+     * <p>Only our own material is walked through, and only in the columns of something we are
+     * building against, so a player's cobblestone house is not treated as a hole.
+     */
+    public static int footingAt(ServerLevel level, int x, int z, BlockState ours) {
+        int y = groundAt(level, x, z);
+        int floor = level.getMinY();
+        while (y > floor && level.getBlockState(new BlockPos(x, y, z)).is(ours.getBlock())) {
+            y--;
+        }
+        return y;
+    }
+
+    /**
      * Whether somebody has already built on this column.
      *
      * <p>{@link #groundAt} walks down past logs and undergrowth, and a plank roof is neither, so

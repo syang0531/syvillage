@@ -72,11 +72,24 @@ public final class StairPlan {
         List<BlockPos> columns = footprint(settlement, side);
         List<Integer> profile = new ArrayList<>(columns.size());
 
-        for (BlockPos column : columns) {
-            if (!level.hasChunkAt(column) || !reach.has(column)) {
+        for (int i = 0; i < columns.size(); i++) {
+            BlockPos column = columns.get(i);
+            if (!level.hasChunkAt(column)) {
                 return Optional.empty();
             }
-            int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
+            // The last column is the wall, and the wall is not walkable from the street - that
+            // is the entire reason these steps exist. Asking it whether it was reachable meant
+            // no flight was ever built once the wall it lands on was standing.
+            boolean landing = i >= columns.size() - WIDE;
+            if (!landing && !reach.has(column)) {
+                return Optional.empty();
+            }
+            // The landing is read down through the wall to the ground it stands on. Levelling
+            // the flight against the top of the wall would put it four blocks too high.
+            int ground = landing
+                    ? GridSurvey.footingAt(level, column.getX(), column.getZ(),
+                            settlement.craft().wall())
+                    : GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
             if (ground == Ground.SKIP) {
                 return Optional.empty();
             }
