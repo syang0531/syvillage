@@ -45,7 +45,7 @@ public final class PlacitumEvents {
      * Builds, for every settlement whose ground is loaded.
      *
      * <p>Loaded is the whole condition. There is no virtual half to fall back on, so a village
-     * nobody visits does not grow - which is the trade that removes the entire LOD boundary and
+     * nobody visits does not grow - which is the trade that removes the second code path and
      * the six bugs that lived on it.
      */
     @SubscribeEvent

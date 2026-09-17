@@ -40,15 +40,14 @@ public class SettlementData extends SavedData {
      * Refuses a partially decoded settlement.
      *
      * <p>{@code SavedDataStorage} reads with {@code resultOrPartial}, so a codec error does not
-     * stop the load - it logs and hands back whatever decoded. DataFixerUpper's list codec drops
-     * the elements it could not read, so one bad field on {@code Resident} silently returns a
-     * settlement with an empty roster. Load it, touch it once, and the next save writes that
+     * stop the load - it logs and hands back whatever decoded. DataFixerUpper's list and map
+     * codecs drop the elements they could not read, so one bad field silently returns a
+     * settlement with no plots on it. Load that, touch it once, and the next save writes the
      * emptiness over the real file.
      *
-     * <p>That happened during M0 testing: a field rename evaporated three residents, with their
-     * names, trades and history, behind a single ERROR line. "Everyone is gone and nobody knows
-     * why" is the exact failure this mod exists to end, so it may not be how the mod itself
-     * fails.
+     * <p>It happened: a field rename evaporated a settlement's whole roster behind a single
+     * ERROR line. "Everything is gone and nobody knows why" is the exact failure this mod exists
+     * to end, so it may not be how the mod itself fails.
      *
      * <p>Returning an error with no partial value makes the storage layer hand back null. The
      * file on disk is then left untouched and stays recoverable once the codec is fixed.

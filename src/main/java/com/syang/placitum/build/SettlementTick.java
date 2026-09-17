@@ -29,7 +29,7 @@ import net.minecraft.world.level.block.Rotation;
  *
  * <p>There is no simulation behind this and no second path for when nobody is watching. A
  * village that is never visited never grows, which is the deal: the fun is watching it happen,
- * and in exchange the whole LOD boundary disappears.
+ * and in exchange there is no second, invisible code path for it to disagree with.
  *
  * <p>A phase at a time, and within a phase: street, then light, then buildings. Phase 0 is the
  * four city blocks that meet at the bell - sixteen lots - and it is finished before phase 1 is

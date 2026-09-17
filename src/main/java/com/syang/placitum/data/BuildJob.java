@@ -10,8 +10,10 @@ import net.minecraft.world.item.Item;
 /**
  * One queued build.
  *
- * <p>{@code progress} is the whole bridge between L0 and L2: the virtual step increments it,
- * the real builder increments it, and promote replays ops[0, progress).
+ * <p>{@code progress} is how many of the recipe's ops have been laid. The ops themselves are
+ * never stored - a house is a few hundred of them and the settlement's file is rewritten whole
+ * every time it changes - so the job keeps a count into a list it can regenerate, which is the
+ * reason {@code expand} has to be a pure function of the recipe.
  */
 public record BuildJob(
         UUID id,

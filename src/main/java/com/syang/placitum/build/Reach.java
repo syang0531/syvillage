@@ -96,7 +96,7 @@ public final class Reach {
     }
 
     /** A column the walk has got to, and how long it has been climbing to get there. */
-    private record Step(int x, int z, int ground, int climb) {}
+    private record Step(int x, int z, int ground, int climb, long from) {}
 
     /**
      * Breadth-first over columns, one block of rise or fall at a time.
@@ -110,6 +110,8 @@ public final class Reach {
             boolean onRoadsOnly) {
         int allowed = PlacitumConfig.MAX_ROAD_CLIMB.get();
         Set<Long> seen = new HashSet<>();
+        Map<Long, Long> cameFrom = new HashMap<>();
+        Set<Long> level = new HashSet<>();
         Deque<Step> queue = new ArrayDeque<>();
 
         for (long start : seed) {
@@ -117,7 +119,8 @@ public final class Reach {
             int z = (int) start;
             int ground = terrain.at(x, z);
             if (ground != Ground.SKIP && seen.add(start)) {
-                queue.add(new Step(x, z, ground, 0));
+                level.add(start);
+                queue.add(new Step(x, z, ground, 0, start));
             }
         }
         while (!queue.isEmpty()) {
@@ -142,11 +145,42 @@ public final class Reach {
                         continue;   // rolling ground: the street gives up rather than ride it
                     }
                 }
-                seen.add(key(x, z));
-                queue.add(new Step(x, z, ground, climb));
+                long here = key(x, z);
+                seen.add(here);
+                cameFrom.put(here, key(at.x(), at.z()));
+                if (climb == 0) {
+                    level.add(here);
+                }
+                queue.add(new Step(x, z, ground, climb, here));
             }
         }
-        return seen;
+        return onRoadsOnly ? leadingSomewhere(seen, cameFrom, level) : seen;
+    }
+
+    /**
+     * The walk with its dead-end climbs pruned off.
+     *
+     * <p>A street that climbs two blocks up a hill and stops because the third was too much is a
+     * ramp to nowhere. The walk cannot know that while it is walking - it finds out by failing to
+     * get any further - so the ramps come off afterwards.
+     *
+     * <p>A column is kept if it is level ground, or if the walk got from it to level ground
+     * later: every column on the path back from somewhere level is on a street that goes
+     * somewhere. Everything else is the tail of a climb that ran out.
+     */
+    public static Set<Long> leadingSomewhere(Set<Long> seen, Map<Long, Long> cameFrom,
+            Set<Long> level) {
+        Set<Long> keep = new HashSet<>(level);
+        for (long at : level) {
+            long step = at;
+            Long parent;
+            // Back to the bell, or to the first column already known to lead somewhere.
+            while ((parent = cameFrom.get(step)) != null && keep.add(parent)) {
+                step = parent;
+            }
+        }
+        keep.retainAll(seen);
+        return keep;
     }
 
     /**
@@ -210,7 +244,8 @@ public final class Reach {
         }
     }
 
-    private static long key(int x, int z) {
+    /** A column as one number, so the walk can keep a set of them cheaply. */
+    public static long key(int x, int z) {
         return ((long) x << 32) ^ (z & 0xFFFFFFFFL);
     }
 }

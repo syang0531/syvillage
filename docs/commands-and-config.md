@@ -1,206 +1,101 @@
 # 명령어와 설정
 
+> 이 문서는 2026-09-17에 다시 썼다. 이전 판은 삭제된 시뮬레이션의 명령어(`tick`, `promote`, `demote`, `debug growth`, `debug sim`)와 설정 키를 설명하고 있었다. 설계는 `docs/design.md`.
+
 ## 마을 등록
 
-V1에는 축2(앵커 블록)가 없다. 성능 상한은 **플레이어의 명시적 등록**이 만든다.
+**종에 시프트 + 우클릭.** 그게 전부고, 이 모드가 월드에 추가하는 유일한 상호작용이다.
 
-> **마을 종을 우클릭 → 등록**
+- 그냥 우클릭은 건드리지 않는다. 종이 울린다. 원래 하던 그대로
+- 이미 등록된 종에 시프트 + 우클릭하면 "두 번째 등록 실패"가 아니라 **그 마을이 지금 뭘 하고 있는지** 보여준다. 마을 id를 외워서 명령어를 칠 필요가 없다
+- 등록되지 않은 바닐라 마을은 코드를 한 줄도 타지 않는다
 
-- 한 번의 상호작용이라 부담이 없다
-- 플레이어가 어느 마을을 키울지 고른다
-- 등록되지 않은 바닐라 마을은 코드를 한 줄도 타지 않는다 (비용 0, 기존 세이브 안전)
-- **V2의 앵커 블록으로 가는 길이 열린다.** 등록된 마을이 규모 조건을 채우면 "영주의 탁자를 지을 수 있다"는 안내가 뜬다. 교체가 아니라 추가라서 승격처럼 느껴진다
-
-등록 조건: 반경 안에 종 1개, 침대 4개 이상, 주민 3명 이상.
+거절되는 경우는 하나뿐이다: 다른 마을의 클레임 안(`minSettlementDistance`).
 
 ## 명령어
 
-전부 `/placitum` 하위. 기본 권한 레벨 2(OP).
+전부 `/placitum` 하위.
 
-예외는 조회 명령 셋이다. `info`, `chronicle`, `debug growth`는 **레벨 0**으로 연다. 싱글플레이 OP가 아닌 플레이어나 멀티플레이 일반 플레이어도 자기 마을 상태를 봐야 한다. 등록 자체는 명령어가 아니라 종 우클릭이므로 권한이 필요 없다.
+| 명령어 | 권한 | 설명 |
+|---|---|---|
+| `/placitum register` | OP | 32블록 안의 가장 가까운 종으로 등록 |
+| `/placitum unregister <id>` | OP | 등록 해제. **지어진 것은 그대로 남는다** |
+| `/placitum list` | 전체 | 등록된 마을 (짧은 id, 이름, 좌표) |
+| `/placitum info <id>` | 전체 | 종 시프트+우클릭과 같은 내용 |
+| `/placitum build <id>` | 전체 | 지금 짓는 것, 또는 **왜 안 짓는지** |
+| `/placitum light <id>` | 전체 | 아직 몹이 스폰될 수 있는 자리 |
+| `/placitum plot show <id>` | 전체 | 부지 지도 |
+| `/placitum plot survey <id>` | OP | 지금 측량 |
+| `/placitum plot block <id> <gx> <gz>` | OP | 그 부지에 짓지 말 것 (플레이어 거부권) |
 
-### 마을 관리
+### 아무것도 안 지을 때 물어볼 것
 
-| 명령어 | 설명 |
-|---|---|
-| `/placitum register` | 가장 가까운 종 기준으로 마을 등록 |
-| `/placitum unregister <id>` | 등록 해제. 데이터 삭제 여부 확인 |
-| `/placitum list` | 등록된 마을 목록 (ID, 이름, 규모, 인구, 좌표) |
-| `/placitum info [id]` | 마을 상세. `catchUp` 후 표시 |
-| `/placitum rename <id> <name>` | |
-
-### 시뮬레이션 디버그
-
-| 명령어 | 설명 |
-|---|---|
-| `/placitum tick <id> <ticks>` | 강제 정산. 인자는 **틱**이며 `ticks / 200`스텝이 돈다. 튜닝의 핵심 도구 |
-| `/placitum promote <id>` | 수동 promote. 가상 고정을 해제한다 |
-| `/placitum demote <id>` | 수동 demote **+ 가상 고정**. 아래 참조 |
-| `/placitum debug growth <id>` | **수용력 3항목과 병목 표시.** 가장 자주 쓰게 된다 |
-| `/placitum debug sim <id>` | 각 `SimModule`의 마지막 스텝 입출력 |
-| `/placitum simulate raid <id> <threat> <n>` | 습격을 n회 굴려 생존율 통계. L0/L2 보정용 |
-| `/placitum alert <id> <state>` | 경보 상태를 강제로 올린다 (peace/alert/combat/rout) |
-
-`simulate raid`는 **시행마다 마을 사본을 새로 뜬다.** 공식이 사람을 죽이고 창고를 턴다 — 1000회를 한 마을에 그대로 돌리면 유령 마을이 남는다.
-
-**`demote`는 고정까지 한다.** 안 그러면 다음 틱에 취소된다 — 명령어를 친 플레이어가 마을에 서 있으므로 거리 판정이 즉시 다시 promote하기 때문이다. 그러면 이 명령어는 아무 일도 안 하는 것처럼 보이고, 정작 존재 이유인 "가상 공식이 도는 것을 관찰하기"에 쓸 수 없다.
-
-고정은 런타임 전용이다. `promote`, `unregister`, 서버 재시작이 해제한다. `info`에 `[held virtual by /placitum demote]`로 표시된다.
-
-`debug growth` 출력 예:
+`/placitum build`가 이 모드에서 가장 중요한 명령어다. "아무 일도 안 일어난다"는 관측에는 늘 설명이 둘 이상 있고, 이게 그중 어느 것인지 말해준다.
 
 ```
-Hearthwood (VILLAGE, 인구 16)
-  수용력 18  ← 침대 24 / 식량 18 ▲병목 / 안전 31
-  식량 재고 340 (소비 16/스텝, 생산 18/스텝)
-  다음 출산 확률 0.014/스텝
+Steinerstead is not building anything
+  lots out to phase 3, street to 99 blocks: 251 steep, 3 ok, 1 taken, 1 water
 ```
 
-### 플롯과 건설
+부지마다 이유가 하나씩 붙는다.
 
-| 명령어 | 설명 |
-|---|---|
-| `/placitum plot list <id>` | 셀 상태 요약 (FREE/ROAD/BUILT/BLOCKED 개수) |
-| `/placitum plot show <id>` | 격자를 파티클로 월드에 표시 |
-| `/placitum plot block <id> <gx> <gz>` | 셀 수동 금지 |
-| `/placitum plot register <id>` | 서 있는 위치의 건물을 수동 등록 |
-| `/placitum build status <id>` | BuildJob 큐, 진행도, 대기 자재 |
-| `/placitum build force <id>` | 현재 job을 즉시 완료 (디버그) |
+| | 뜻 | 플레이어가 할 수 있는 것 |
+|---|---|---|
+| `ok` | 지을 수 있다 | (곧 지어진다) |
+| `taken` | 이미 지었다 | |
+| `forbidden` | `plot block`으로 막았다 | |
+| `unloaded` | 청크가 안 떠 있다 | 가보면 된다 |
+| `built_on` | 누가 이미 서 있다 | |
+| `water` | 물 | 메우면 된다 |
+| `steep` | 평지가 아니다 | **평탄화하면 다음 패스에 집이 선다** |
+| `unreachable` | 종에서 걸어갈 수 없다 | 다리를 놓거나 경사를 만들면 이어진다 |
 
-### 기타
-
-| 명령어 | 설명 |
-|---|---|
-| `/placitum chronicle <id> [n]` | 연대기 최근 n줄 (기본 10) |
-| `/placitum resident list <id>` | 주민 목록 (이름, 직업, 상태, 나이) |
-| `/placitum resident info <uuid>` | 주민 상세 |
-| `/placitum reload` | config 재로드 |
-| `/placitum verify <id>` | 데이터 정합성 복구. 현재는 **유령이 점유한 침대 반납** |
-
-`verify`는 검사가 아니라 **복구**다. 예전 빌드가 엔티티를 반납 없이 버려서, 몇 번 방문한 마을은 침대가 전부 존재하지 않는 주민에게 점유돼 있다. 누수 자체는 막았지만 이미 난 점유는 스스로 풀리지 않고, 플레이어에게 "마을을 새로 만드세요"는 답이 아니다.
-
-보수적으로 동작한다 — 점유된 침대 중 **살아 있는 주민이 아무도 기억하지 않는 것만** 반납한다. 무작정 반납하면 한 침대를 둘이 차지한다. 주민이 실체화된 상태에서만 쓸 수 있다(브레인을 읽어야 한다).
+`steep`이 251개인 것은 **고칠 문제가 아니라 초대장이다.** 이 모드는 혼자 마을을 만들지 않는다 — `docs/design.md`.
 
 ## 설정
 
-`config/placitum-common.toml`. **밸런스에 관여하는 숫자는 전부 여기 있어야 한다.** 매직 넘버 금지.
+`config/placitum-common.toml`. 키는 **14개뿐이고, 전부 실제로 읽힌다.**
 
-### 확률은 전부 스텝 단위다
+예전에는 70개였고 그중 14개만 읽혔다. 나머지는 삭제된 시뮬레이션의 설정이 남은 것이었는데, 플레이어가 편집하는 파일에서 죽은 키는 **거짓말**이다 — `raidChancePerStep`을 보면 습격 빈도를 조절할 수 있다고 믿게 된다. 여기 있는 키는 전부 돌리면 게임이 바뀐다는 약속이다.
 
-`...PerStep` 키는 **10초당 확률**이다. 1 게임일 = 120스텝이므로 감이 크게 어긋난다. 0.02는 하루 2.4회다.
+### `[settlement]`
 
-새 확률 키를 추가할 때는 **주석에 게임일 환산값을 함께 적는다.** 이 함정은 반복해서 밟게 된다.
+| 키 | 기본값 | |
+|---|---|---|
+| `claimRadiusChunks` | 5 | 클레임 반경. **마을의 한계를 정하는 것** |
+| `minSettlementDistance` | 96 | 이보다 가까우면 등록 거절 |
 
-### [settlement]
+### `[plan]`
 
-```toml
-claimRadiusChunks = 5
-registerMinBeds = 4
-registerMinResidents = 3
-minSettlementDistance = 96   # 클레임 겹침 방지. 블록
-```
+| 키 | 기본값 | |
+|---|---|---|
+| `buildMaxPhases` | 8 | 단계 수 천장. 보통은 클레임이 먼저 막는다 |
+| `maxCellSlope` | 0 | 부지 기복 허용치. **0 = 완전 평지** |
+| `maxRoadClimb` | 3 | 도로가 연속으로 높이를 바꿀 수 있는 걸음 수 |
 
-### [lifecycle]
+도시계획의 치수(도로 3, 여유 1, 부지 7, 건축물 5, 주기 20)는 **설정이 아니다.** 그게 "여기 집 지을 자리가 있나"를 판단이 아니게 만드는 것이기 때문이다.
 
-```toml
-promoteRadius = 96          # 블록
-demoteRadius = 144          # promoteRadius보다 반드시 커야 함 (히스테리시스)
-demoteDelayTicks = 200
-replayOpsPerTick = 4
-maxMaterializedResidents = 60
-```
+### `[light]`
 
-### [simulation]
+| 키 | 기본값 | |
+|---|---|---|
+| `minLightLevel` | 8 | `/placitum light`가 어둡다고 보고하는 기준 |
+| `lampBlocksBeyondStreet` | 1 | 마지막 도로에서 몇 블록 더 밝힐지 |
 
-```toml
-stepTicks = 200             # 1 시뮬 스텝 = 10초
-maxCatchupTicks = 72000     # 3 게임일
-tickBudgetNanos = 500000    # 0.5ms
-heartbeatIntervalTicks = 24000
-```
+`minLightLevel`은 **보고 기준이지 배치 기준이 아니다.** 가로등 자리는 계획이 정한다. 밝다고 건너뛰게 했더니 도로 양쪽 기둥이 4블록 간격이라 한쪽이 다른 쪽을 밝혀서, 블록마다 있다 없다 하는 배치가 됐다.
 
-### [chunks]
+### `[building]`
 
-```toml
-maxForcedChunks = 8         # 전역 상한. 기본 동작은 강제 로딩 0
-```
+| 키 | 기본값 | |
+|---|---|---|
+| `surveyScanHeight` | 6 | 기존 건물을 찾을 때 지면 위로 보는 높이 |
+| `surveyIntervalTicks` | 600 | 지면 재측량 주기 (30초) |
+| `planIntervalTicks` | 20 | 유휴 마을이 할 일을 찾는 주기 (1초) |
+| `clearHeight` | 16 | 건설 자리에서 베어낼 높이 |
+| `buildBlocksPerTick` | 10 | 매 틱 놓는 블록 수. **속도 손잡이는 이거 하나뿐** |
+| `roadBlocksPerJob` | 64 | 도로 한 작업의 기둥 수 |
+| `lampsPerJob` | 8 | 한 작업에 세우는 가로등 수 |
 
-### [population]
+`buildBlocksPerTick`이 하나인 데는 이유가 있다. 예전에는 간격과 배치 크기 두 개였고, 예전 월드에서 남은 config가 간격을 10으로 되돌려서 **10틱마다 10블록 = 정확히 원래 속도**가 나왔다. 10배 가속이 상쇄된 채로 "고쳤다"고 보고됐다. 손잡이 하나는 자기 자신과 어긋날 수 없다.
 
-```toml
-baseBirthRate = 0.02
-consumptionPerHead = 1
-yieldRate = 3
-famineGraceSteps = 18
-famineMoralePenalty = 4
-famineDeathChancePerStep = 0.01
-foodWarningSteps = 180
-safetyWindowDays = 7
-safetyDeathPenalty = 3
-enableAging = true
-elderThresholdDays = 90
-elderDeathChancePerStep = 0.0008   # 게임일당 약 9%
-infantDays = 3
-childDays = 20
-immigrationRenownThreshold = 40
-immigrationChancePerStep = 0.001   # 게임일당 약 0.12회
-baseSafetyDefenseDivisor = 4       # baseSafety = 4 + defenseRating / 이 값
-```
-
-`baseBirthRate = 0.02`는 로지스틱 감쇠가 붙은 뒤의 값이라 초기 인구가 적을 때 하루 2회 남짓이 된다. 빠르다고 느껴지면 가장 먼저 내려볼 값이다.
-
-### [defense]
-
-```toml
-curfewLeadTicks = 1200
-alertCooldownTicks = 1200
-routThreshold = 0.5
-watchRadius = 32
-watchIntervalTicks = 20
-militiaRatioCap = 0.3
-raidChancePerStep = 0.002    # 게임일당 약 0.24회 = 4일에 한 번
-golemDefenseWeight = 12
-```
-
-### [construction]
-
-```toml
-buildOpIntervalTicks = 10
-builderReach = 5.5
-verifySampleEvery = 16
-maxRebuildAttempts = 3
-wallSalvageRatio = 0.5
-recentTemplatePenalty = 0.4
-opsPerStepPerBuilder = 6    # L2 진행 속도
-```
-
-### [scale]
-
-```toml
-scaleDemoteMargin = 2       # minPop - 이 값 아래에서만 강등
-scaleHoldRequired = 360     # 조건을 연속 이만큼 유지해야 발동 (스텝)
-```
-
-`docs/data-model.md`의 규모 히스테리시스. 이게 없으면 경계 인구에서 성벽이 무한히 철거·재건된다.
-
-### [debug]
-
-```toml
-logSimSteps = false
-showPlotParticles = false
-strictDeterminism = false   # 켜면 sim 안의 비결정 호출을 예외로 터뜨린다
-```
-
-`strictDeterminism`은 개발용이다. 시뮬레이션 진입 시 스레드 로컬 플래그를 세우고, `level.random` 접근이나 `setBlock` 호출을 감싼 지점에서 검사한다. `docs/testing.md`의 grep 검사가 잡지 못하는 간접 호출을 잡는다.
-
-## 데이터팩 확장 지점
-
-모드 없이 애드온을 만들 수 있게 열어둔다.
-
-| 경로 | 내용 |
-|---|---|
-| `data/placitum/jobs/*.json` | `JobDef` |
-| `data/placitum/structures/**/*.nbt` | 건물 템플릿 |
-| `data/placitum/biome_palette/*.json` | 바이옴별 블록 치환 |
-| `data/placitum/names/given.json`, `family.json` | 이름 풀 |
-| `data/placitum/wall/*.json` | 성벽 등급별 재질 정의 |
+배포용으로는 `buildBlocksPerTick = 1`이 맞다. 10은 개발 속도다.

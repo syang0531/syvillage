@@ -12,10 +12,10 @@ import org.slf4j.LoggerFactory;
 /**
  * Entry point.
  *
- * <p>Placitum turns a registered vanilla village into a settlement that grows and defends
- * itself. The design lives in {@code CLAUDE.md} and {@code docs/}; its invariants are not
- * negotiable. The first one governs everything here: the {@code Resident} record is the truth
- * and the entity is only a view of it.
+ * <p>Placitum gives a registered vanilla village streets, street lights, houses and fields, and
+ * leaves everything a villager does to vanilla. The design lives in {@code CLAUDE.md} and
+ * {@code docs/design.md}; its first invariant governs everything here, including what is absent
+ * from this file: we do not simulate villagers, so there is nothing to attach to one.
  */
 @Mod(Placitum.MODID)
 public class Placitum {
