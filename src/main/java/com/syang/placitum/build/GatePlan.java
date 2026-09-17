@@ -103,6 +103,7 @@ public final class GatePlan {
             return Optional.empty();
         }
         BlockPos anchor = anchorOf(settlement, side);
+        BlockState stone = settlement.craft().wall();
         List<BlockPos> columns = footprint(anchor, side);
         List<Integer> profile = new ArrayList<>(columns.size());
 
@@ -127,7 +128,11 @@ public final class GatePlan {
                 profile.add(Ground.SKIP);   // never read; the chunk is not ours to load
                 continue;
             }
-            int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
+            // Read down through our own masonry. A standing gatehouse is eight blocks tall and
+            // the ground reading returns the top of it, so a built gate levelled its replacement
+            // seven blocks up and asked for the deck seven above that - at the sky. It answered
+            // "not standing" and built a second storey on its own roof.
+            int ground = GridSurvey.footingOrSkip(level, column.getX(), column.getZ(), stone);
             profile.add(ground);
             if (!mine) {
                 continue;
@@ -179,7 +184,15 @@ public final class GatePlan {
     private static int houseFloor(List<Integer> profile) {
         List<Integer> house = new ArrayList<>();
         for (int i = 0; i < profile.size(); i++) {
-            if (Math.abs(i % WIDE - WIDE / 2) <= HOUSE / 2) {
+            int a = i % WIDE - WIDE / 2;
+            // The gatehouse's own nine, less the three the arch goes through.
+            //
+            // The arch is a hole in our own masonry, and reading down through masonry stops at
+            // the first hole: in a built gatehouse those three columns come back four and five
+            // blocks high while the six beside them come back at the ground. Taking the highest
+            // of all nine would then put the floor five blocks up, which is the same wrong
+            // answer by a different route.
+            if (Math.abs(a) <= HOUSE / 2 && Math.abs(a) > TownPlan.ROAD / 2) {
                 house.add(profile.get(i));
             }
         }
@@ -272,16 +285,17 @@ public final class GatePlan {
     public static String status(ServerLevel level, Settlement settlement, Direction side,
             Reach reach) {
         List<BlockPos> columns = footprint(anchorOf(settlement, side), side);
-        return standing(level, settlement.craft(), columns, grounds(level, columns))
+        return standing(level, settlement.craft(), columns,
+                grounds(level, columns, settlement.craft().wall()))
                 ? "standing" : trouble(level, columns, reach, GatePlan::touches);
     }
 
-    /** The ground under a footprint, with water marked rather than guessed at. */
-    static List<Integer> grounds(ServerLevel level, List<BlockPos> columns) {
+    /** The footing under a footprint, with water marked rather than guessed at. */
+    static List<Integer> grounds(ServerLevel level, List<BlockPos> columns, BlockState ours) {
         List<Integer> out = new ArrayList<>(columns.size());
         for (BlockPos column : columns) {
             out.add(level.hasChunkAt(column)
-                    ? GridSurvey.groundOrSkip(level, column.getX(), column.getZ())
+                    ? GridSurvey.footingOrSkip(level, column.getX(), column.getZ(), ours)
                     : Ground.SKIP);
         }
         return out;

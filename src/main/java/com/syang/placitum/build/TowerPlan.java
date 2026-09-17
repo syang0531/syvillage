@@ -126,6 +126,7 @@ public final class TowerPlan {
             return Optional.empty();
         }
         BlockPos anchor = anchorOf(settlement, corner);
+        BlockState stone = settlement.craft().wall();
         List<BlockPos> columns = footprint(anchor);
         List<Integer> profile = new ArrayList<>(columns.size());
 
@@ -150,7 +151,9 @@ public final class TowerPlan {
                 profile.add(Ground.SKIP);
                 continue;
             }
-            int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
+            // Down through our own masonry, for the reason the gatehouse has it: a tower that
+            // is already up reads as ground eight blocks above the ground.
+            int ground = GridSurvey.footingOrSkip(level, column.getX(), column.getZ(), stone);
             profile.add(ground);
             if (!mine) {
                 continue;
@@ -215,7 +218,8 @@ public final class TowerPlan {
     public static String status(ServerLevel level, Settlement settlement, int[] corner,
             Reach reach) {
         List<BlockPos> columns = footprint(anchorOf(settlement, corner));
-        return standing(level, settlement, columns, GatePlan.grounds(level, columns), corner)
+        return standing(level, settlement, columns,
+                GatePlan.grounds(level, columns, settlement.craft().wall()), corner)
                 ? "standing"
                 : GatePlan.trouble(level, columns, reach, i -> touches(i, corner));
     }

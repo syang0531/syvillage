@@ -261,6 +261,19 @@ public final class GridSurvey {
      * <p>Only our own material is walked through, and only in the columns of something we are
      * building against, so a player's cobblestone house is not treated as a hole.
      */
+    /**
+     * The footing, with water marked rather than guessed at.
+     *
+     * <p>The two questions a structure asks of a column, in the one order that answers both:
+     * walk down past our own masonry first, then ask whether what is left is wet. Asking them
+     * the other way round asks the top of a gatehouse whether it is under water.
+     */
+    public static int footingOrSkip(ServerLevel level, int x, int z, BlockState ours) {
+        int y = footingAt(level, x, z, ours);
+        return Ground.underwater(level.getBlockState(new BlockPos(x, y, z)),
+                level.getBlockState(new BlockPos(x, y + 1, z))) ? Ground.SKIP : y;
+    }
+
     public static int footingAt(ServerLevel level, int x, int z, BlockState ours) {
         int y = groundAt(level, x, z);
         int floor = level.getMinY();
