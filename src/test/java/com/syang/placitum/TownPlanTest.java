@@ -360,14 +360,30 @@ class TownPlanTest {
     @Test
     @DisplayName("the claim decides how far the town goes")
     void theClaimBoundsTheTown() {
-        // Five chunks of claim is eighty blocks, and phase 3 reaches eighty-one. The town stops
-        // where the settlement said it would when it was registered.
+        // The last phase that fits inside the claim, not the first that covers it. Five chunks
+        // is eighty blocks; phase 2 reaches sixty-one and phase 3 would reach eighty-one, so the
+        // houses stop at phase 2.
         Settlement settlement = withPlotsAt();
-        assertEquals(5, settlement.identity().claimRadiusChunks());
-        assertEquals(3, TownPlan.maxPhase(settlement));
-        assertEquals(81, TownPlan.phaseReach(3));
-        assertTrue(TownPlan.phaseReach(2) < 5 * 16,
-                "phase 2 stops short of the claim, so there is a phase 3 to build");
+        int claim = settlement.identity().claimRadiusChunks() * 16;
+        assertEquals(80, claim);
+        assertEquals(2, TownPlan.maxPhase(settlement));
+        assertTrue(TownPlan.phaseReach(TownPlan.maxPhase(settlement)) <= claim,
+                "the houses are inside the claim the settlement was registered with");
+        assertTrue(TownPlan.phaseReach(TownPlan.maxPhase(settlement) + 1) > claim,
+                "and one more phase of them would not be");
+
+        // Which is the whole point of the change: everything, wall included, lands on the claim
+        // rather than twenty-two blocks past it. It used to cover the claim instead of fitting
+        // inside it, and the outermost phase was twenty-eight city blocks of nothing but paving.
+        assertTrue(TownPlan.wallOuter(settlement) <= claim + TownPlan.WALL,
+                "the wall stands at " + TownPlan.wallOuter(settlement) + ", off an " + claim
+                        + "-block claim");
+
+        int lots = 0;
+        for (int phase = 0; phase <= TownPlan.maxPhase(settlement); phase++) {
+            lots += TownPlan.lotsInPhase(phase).size();
+        }
+        assertEquals(144, lots, "one phase smaller is a hundred and forty-four lots, not 256");
     }
 
     /** Whether a position falls on the 7x7 lot of whatever cell it is in. */

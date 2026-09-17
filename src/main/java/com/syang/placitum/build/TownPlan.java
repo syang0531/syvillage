@@ -430,7 +430,12 @@ public final class TownPlan {
         int claim = settlement.identity().claimRadiusChunks() * 16;
         int ceiling = PlacitumConfig.BUILD_MAX_PHASES.get();
         int phase = 0;
-        while (phase < ceiling && phaseReach(phase) < claim) {
+        // The last phase that fits <em>inside</em> the claim, not the first that covers it.
+        // Covering it put houses out to 81 blocks on an 80-block claim, one more ring of street
+        // and lamps past that, and the wall at 102 - and the last of those phases was 28 city
+        // blocks of nothing but paving. One step smaller is 144 lots rather than 256, and the
+        // whole town including its wall lands inside the claim it was registered with.
+        while (phase + 1 < ceiling && phaseReach(phase + 1) <= claim) {
             phase++;
         }
         return phase;

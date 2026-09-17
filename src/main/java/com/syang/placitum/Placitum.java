@@ -2,6 +2,7 @@ package com.syang.placitum;
 
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.registry.ModBlocks;
+import com.syang.placitum.registry.ModCreativeTabs;
 import com.syang.placitum.registry.ModVillagers;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -28,5 +29,6 @@ public class Placitum {
         container.registerConfig(ModConfig.Type.COMMON, PlacitumConfig.SPEC);
         ModBlocks.register(modBus);
         ModVillagers.register(modBus);
+        ModCreativeTabs.register(modBus);
     }
 }

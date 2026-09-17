@@ -3,9 +3,9 @@
   "textures": {
     "down": "minecraft:block/stone_bricks",
     "up": "minecraft:block/chiseled_stone_bricks",
-    "north": "minecraft:block/stone_brick_slab",
-    "south": "minecraft:block/stone_brick_slab",
-    "east": "minecraft:block/stone_brick_slab",
+    "north": "minecraft:block/stone_bricks",
+    "south": "minecraft:block/stone_bricks",
+    "east": "minecraft:block/stone_bricks",
     "west": "minecraft:block/chiseled_stone_bricks",
     "particle": "minecraft:block/stone_bricks"
   }
