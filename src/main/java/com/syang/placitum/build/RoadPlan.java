@@ -106,25 +106,10 @@ public final class RoadPlan {
         }
         Placitum.LOGGER.debug("'{}' has {} block(s) of street to lay in phase {}",
                 settlement.name(), todo.size(), phase);
-        // The standard is frozen into the recipe like the ground is. A street half laid when
-        // the mason arrives finishes in the stone it started in, and expand stays a pure
-        // function of its recipe rather than of whoever is living here when it runs.
         return Optional.of(new BuildRecipe(STREET,
                 new BlockPos(todo.getFirst().x(), todo.getFirst().base(), todo.getFirst().z()),
-                Rotation.NONE,
-                Identifier.fromNamespaceAndPath(Placitum.MODID,
-                        "craft/" + settlement.craft().getSerializedName()),
+                Rotation.NONE, settlement.craft().paletteId(),
                 List.copyOf(profile), new BlockPos(todo.size(), 1, 0), Spans.encode(todo)));
-    }
-
-    /** What a recipe's frozen standard paves in, or dirt for anything unrecognised. */
-    private static BlockState paving(Identifier palette) {
-        for (Craft craft : Craft.values()) {
-            if (palette.getPath().equals("craft/" + craft.getSerializedName())) {
-                return craft.paving();
-            }
-        }
-        return Craft.TIMBER.paving();
     }
 
     /**
@@ -136,7 +121,7 @@ public final class RoadPlan {
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Spans> columns = Spans.decode(recipe.gates());
-        BlockState paving = paving(recipe.palette());
+        BlockState paving = Craft.fromPalette(recipe.palette()).paving();
         List<BuildOp> ops = new ArrayList<>();
         Set<BlockPos> claimed = new HashSet<>();
         for (Spans column : columns) {

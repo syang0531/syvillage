@@ -1,6 +1,7 @@
 package com.syang.placitum.data;
 
 import com.mojang.serialization.Codec;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -23,25 +24,66 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public enum Craft implements StringRepresentable {
 
-    /** Where every village starts. Dirt paths and oak. */
-    TIMBER("timber", Blocks.DIRT_PATH.defaultBlockState()),
+    /** Where every village starts. Dirt tracks and oak. */
+    TIMBER("timber",
+            Blocks.DIRT_PATH.defaultBlockState(),
+            Blocks.OAK_PLANKS.defaultBlockState(),
+            Blocks.OAK_PLANKS.defaultBlockState(),
+            Blocks.COBBLESTONE.defaultBlockState()),
 
-    /** A mason lives here. */
-    STONE("stone", Blocks.COBBLESTONE.defaultBlockState());
+    /**
+     * A mason lives here.
+     *
+     * <p>Cobblestone walls under an oak roof, which is what vanilla's own village houses look
+     * like - and the reason this is the middle rung rather than the top. A village that reached
+     * its best standard the moment one villager picked up a stonecutter would not have much of a
+     * story left.
+     */
+    STONE("stone",
+            Blocks.COBBLESTONE.defaultBlockState(),
+            Blocks.COBBLESTONE.defaultBlockState(),
+            Blocks.OAK_PLANKS.defaultBlockState(),
+            Blocks.STONE_BRICKS.defaultBlockState());
 
     public static final Codec<Craft> CODEC = StringRepresentable.fromEnum(Craft::values);
 
     private final String name;
     private final BlockState paving;
+    private final BlockState wall;
+    private final BlockState roof;
+    private final BlockState foundation;
 
-    Craft(String name, BlockState paving) {
+    Craft(String name, BlockState paving, BlockState wall, BlockState roof,
+            BlockState foundation) {
         this.name = name;
         this.paving = paving;
+        this.wall = wall;
+        this.roof = roof;
+        this.foundation = foundation;
     }
 
     /** What the streets are made of. */
     public BlockState paving() {
         return paving;
+    }
+
+    /** Walls, and the floor inside them. */
+    public BlockState wall() {
+        return wall;
+    }
+
+    public BlockState floor() {
+        return wall;
+    }
+
+    /** The roof, which stays timber long after the walls stop being it. */
+    public BlockState roof() {
+        return roof;
+    }
+
+    /** What holds a house up where the ground falls away under it. */
+    public BlockState foundation() {
+        return foundation;
     }
 
     /** The better of two standards. Used to keep the high-water mark. */
@@ -61,6 +103,28 @@ public enum Craft implements StringRepresentable {
             }
         }
         return false;
+    }
+
+    /**
+     * The standard as it is frozen into a build recipe.
+     *
+     * <p>A recipe carries its standard the way it carries its ground profile: read once, written
+     * down, never looked up again. A street half laid when the mason arrives finishes in the
+     * stone it started in, and expand stays a pure function of its recipe rather than of
+     * whoever happens to live here when it runs.
+     */
+    public Identifier paletteId() {
+        return Identifier.fromNamespaceAndPath("placitum", "craft/" + name);
+    }
+
+    /** The standard a recipe was frozen with, or timber for anything unrecognised. */
+    public static Craft fromPalette(Identifier palette) {
+        for (Craft craft : values()) {
+            if (craft.paletteId().equals(palette)) {
+                return craft;
+            }
+        }
+        return TIMBER;
     }
 
     @Override

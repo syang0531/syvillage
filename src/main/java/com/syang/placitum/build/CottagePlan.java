@@ -2,6 +2,7 @@ package com.syang.placitum.build;
 
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
+import com.syang.placitum.data.Craft;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -47,9 +48,6 @@ public final class CottagePlan {
     public static final int HEIGHT = 5;
 
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
-    private static final BlockState WALL = Blocks.OAK_PLANKS.defaultBlockState();
-    private static final BlockState FLOOR = Blocks.OAK_PLANKS.defaultBlockState();
-    private static final BlockState ROOF = Blocks.OAK_PLANKS.defaultBlockState();
     /**
      * A block, not a pane.
      *
@@ -59,7 +57,6 @@ public final class CottagePlan {
      * pane of glass needs no neighbours to look like a window.
      */
     private static final BlockState WINDOW = Blocks.GLASS.defaultBlockState();
-    private static final BlockState FOUNDATION = Blocks.COBBLESTONE.defaultBlockState();
 
     private CottagePlan() {}
 
@@ -116,13 +113,17 @@ public final class CottagePlan {
             return List.of();
         }
         Direction door = doorFacing(recipe.rotation());
+        // Read once off the recipe, not off the settlement: a cottage half built when the mason
+        // arrives finishes in the timber it started in, rather than changing material halfway up
+        // its own wall.
+        Craft craft = Craft.fromPalette(recipe.palette());
 
         // Fixtures first, so the shell knows which positions are already spoken for. Letting
         // both passes write the same block and relying on the later one to win works only
         // because the sort happens to be stable - eight of 253 ops were doing exactly that,
         // which is a shape decided by insertion order rather than by anything readable.
         List<BuildOp> fixtures = new ArrayList<>();
-        fixtures.addAll(doorway(recipe.anchor(), floor, door));
+        fixtures.addAll(doorway(recipe.anchor(), floor, door, craft));
         fixtures.addAll(furnish(recipe.anchor(), floor, door));
         Set<BlockPos> claimed = new HashSet<>();
         for (BuildOp fixture : fixtures) {
@@ -139,20 +140,21 @@ public final class CottagePlan {
 
             // Foundation up to the floor, so the house sits on the ground rather than in it.
             for (int y = profile.get(i) + 1; y < floor; y++) {
-                ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), FOUNDATION));
+                ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()),
+                        craft.foundation()));
             }
-            add(ops, claimed, new BlockPos(column.getX(), floor, column.getZ()), FLOOR);
+            add(ops, claimed, new BlockPos(column.getX(), floor, column.getZ()), craft.floor());
 
             for (int course = 1; course <= HEIGHT - 2; course++) {
                 int y = floor + course;
-                BlockState state = edge ? wallBlock(dx, dz, course, door) : AIR;
+                BlockState state = edge ? wallBlock(dx, dz, course, door, craft) : AIR;
                 add(ops, claimed, new BlockPos(column.getX(), y, column.getZ()), state);
             }
             add(ops, claimed, new BlockPos(column.getX(), floor + HEIGHT - 1, column.getZ()),
-                    ROOF);
+                    craft.roof());
         }
 
-        ops.addAll(step(columns.getLast(), profile.getLast(), floor));
+        ops.addAll(step(columns.getLast(), profile.getLast(), floor, craft));
 
         // Fell whatever is growing on the lot, last, so every position the house itself writes
         // is already spoken for. The ground reading walks down past a trunk on purpose - that is
@@ -187,15 +189,17 @@ public final class CottagePlan {
      * higher. Both happen: the floor sits at the highest ground under the house, so downhill of
      * it the threshold is a ledge and uphill of it the doorway is buried.
      */
-    private static List<BuildOp> step(BlockPos outside, int ground, int floor) {
+    private static List<BuildOp> step(BlockPos outside, int ground, int floor,
+            Craft craft) {
         if (ground == Ground.SKIP) {
             return List.of();
         }
         List<BuildOp> ops = new ArrayList<>();
         for (int y = ground + 1; y < floor; y++) {
-            ops.add(new BuildOp(new BlockPos(outside.getX(), y, outside.getZ()), FOUNDATION));
+            ops.add(new BuildOp(new BlockPos(outside.getX(), y, outside.getZ()),
+                    craft.foundation()));
         }
-        ops.add(new BuildOp(new BlockPos(outside.getX(), floor, outside.getZ()), FLOOR));
+        ops.add(new BuildOp(new BlockPos(outside.getX(), floor, outside.getZ()), craft.floor()));
         for (int y = floor + 1; y <= Math.max(floor + 2, ground + 2); y++) {
             ops.add(new BuildOp(new BlockPos(outside.getX(), y, outside.getZ()), AIR));
         }
@@ -208,13 +212,14 @@ public final class CottagePlan {
      * <p>Windows at head height, and never on a corner - a corner window leaves the roof resting
      * on glass, which looks like a mistake because structurally it is one.
      */
-    private static BlockState wallBlock(int dx, int dz, int course, Direction door) {
+    private static BlockState wallBlock(int dx, int dz, int course, Direction door,
+            Craft craft) {
         boolean corner = (dx == 0 || dx == SIDE - 1) && (dz == 0 || dz == SIDE - 1);
         boolean midWall = dx == SIDE / 2 || dz == SIDE / 2;
         if (course == 2 && !corner && midWall && !isDoorColumn(dx, dz, door)) {
             return WINDOW;
         }
-        return WALL;
+        return craft.wall();
     }
 
     /** The doorway is cut by {@link #doorway}; the wall pass must leave it alone. */
@@ -246,7 +251,8 @@ public final class CottagePlan {
      * which is a fair trade; an iron door cannot be opened by the people who live there, and
      * pathfinding reads it as a wall.
      */
-    private static List<BuildOp> doorway(BlockPos northWest, int floor, Direction door) {
+    private static List<BuildOp> doorway(BlockPos northWest, int floor, Direction door,
+            Craft craft) {
         BlockPos at = doorPosition(northWest, door);
         // Shut, and both halves hinged the same way. The defaults happen to be right, but a
         // door built ajar is a hole in the wall all night and neither half may disagree with the
@@ -262,7 +268,7 @@ public final class CottagePlan {
                 new BuildOp(new BlockPos(at.getX(), floor + 1, at.getZ()), lower),
                 new BuildOp(new BlockPos(at.getX(), floor + 2, at.getZ()),
                         lower.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER)),
-                new BuildOp(new BlockPos(at.getX(), floor + 3, at.getZ()), WALL));
+                new BuildOp(new BlockPos(at.getX(), floor + 3, at.getZ()), craft.wall()));
     }
 
     /**

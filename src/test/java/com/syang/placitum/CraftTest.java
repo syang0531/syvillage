@@ -2,11 +2,13 @@ package com.syang.placitum;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.Settlement;
 import net.minecraft.SharedConstants;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.level.block.Blocks;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,6 +63,37 @@ class CraftTest {
         }
         assertFalse(Craft.isPaving(Blocks.GRASS_BLOCK.defaultBlockState()));
         assertFalse(Craft.isPaving(Blocks.OAK_PLANKS.defaultBlockState()));
+    }
+
+    @Test
+    @DisplayName("a recipe carries its standard, so a half-built house does not change material")
+    void theStandardSurvivesTheTripThroughARecipe() {
+        // A cottage half up when the mason arrives has to finish in the timber it started in.
+        // The alternative is a wall that is oak for three courses and cobble for the fourth.
+        for (Craft craft : Craft.values()) {
+            assertEquals(craft, Craft.fromPalette(craft.paletteId()),
+                    craft + " does not survive being written into a recipe and read back");
+        }
+        assertEquals(Craft.TIMBER,
+                Craft.fromPalette(Identifier.fromNamespaceAndPath("placitum", "craft/marble")),
+                "a standard this version has never heard of has to build something, not crash");
+    }
+
+    @Test
+    @DisplayName("every standard builds a whole house, and the roof stays timber")
+    void everyStandardIsAWholePalette() {
+        for (Craft craft : Craft.values()) {
+            assertNotNull(craft.paving());
+            assertNotNull(craft.wall());
+            assertNotNull(craft.floor());
+            assertNotNull(craft.roof());
+            assertNotNull(craft.foundation());
+        }
+        // Cobblestone walls under an oak roof: what vanilla's own village houses look like, and
+        // the reason stone is the middle rung rather than the top one.
+        assertEquals(Blocks.COBBLESTONE, Craft.STONE.wall().getBlock());
+        assertEquals(Blocks.OAK_PLANKS, Craft.STONE.roof().getBlock());
+        assertEquals(Blocks.OAK_PLANKS, Craft.TIMBER.wall().getBlock());
     }
 
     @Test

@@ -51,11 +51,12 @@ public final class HousePlanner {
         // is still a tree the settlement decided was not there when it called the site flat.
         List<Spans> clearance = Clearance.spans(level,
                 TownPlan.lotColumns(cell, settlement.center()));
-        Placitum.LOGGER.debug("Planned a cottage for '{}' on lot {}, door {}",
-                settlement.name(), cell.toKey(), CottagePlan.doorFacing(facing));
+        Placitum.LOGGER.debug("Planned a {} cottage for '{}' on lot {}, door {}",
+                settlement.craft().getSerializedName(), settlement.name(), cell.toKey(),
+                CottagePlan.doorFacing(facing));
 
         return Optional.of(new BuildRecipe(COTTAGE, corner, facing,
-                Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
+                settlement.craft().paletteId(),
                 List.copyOf(profile),
                 new BlockPos(CottagePlan.SIDE, CottagePlan.HEIGHT, CottagePlan.SIDE),
                 Spans.encode(clearance)));
