@@ -4,6 +4,7 @@ import com.syang.placitum.Placitum;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
+import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.Settlement;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,6 +26,11 @@ import net.minecraft.world.level.block.state.BlockState;
  * they are less something the settlement decides to build than the shape it already has. What is
  * left is putting the blocks down, a stretch at a time, nearest the bell first.
  *
+ * <p>Paved in whatever the settlement can build with. A village that gains a mason finds its
+ * dirt tracks listed as work again and lays them a second time in stone, and no code here knows
+ * that is an upgrade - it is the same question, asked of a village that can now answer it
+ * differently.
+ *
  * <p>Laid on any ground the street itself reaches. A village on a hillside still has streets,
  * and refusing to lay
  * one across a slope would leave the whole plan unanchored.
@@ -33,8 +39,6 @@ public final class RoadPlan {
 
     public static final Identifier STREET =
             Identifier.fromNamespaceAndPath(Placitum.MODID, "road/street");
-
-    private static final BlockState PATH = Blocks.DIRT_PATH.defaultBlockState();
 
     private RoadPlan() {}
 
@@ -78,9 +82,13 @@ public final class RoadPlan {
                     // The cheap question first. Once a phase is paved this is the only test
                     // almost every column reaches, and the settlement asks it of the whole
                     // phase every time it looks for work.
+                    //
+                    // Paved to the standard the settlement has now: a street laid in dirt by a
+                    // village that has since gained a mason comes back as work to do, and that
+                    // is the whole of the upgrade. Nothing here has to know it is an upgrade.
                     if (level.getBlockState(new BlockPos(pos.getX(), ground, pos.getZ()))
-                            .is(Blocks.DIRT_PATH)) {
-                        continue;   // already a street
+                            .is(settlement.craft().paving().getBlock())) {
+                        continue;   // already a street, and made of the right thing
                     }
                     if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
                         continue;   // a building, or the bell itself: the street goes round
@@ -98,11 +106,25 @@ public final class RoadPlan {
         }
         Placitum.LOGGER.debug("'{}' has {} block(s) of street to lay in phase {}",
                 settlement.name(), todo.size(), phase);
+        // The standard is frozen into the recipe like the ground is. A street half laid when
+        // the mason arrives finishes in the stone it started in, and expand stays a pure
+        // function of its recipe rather than of whoever is living here when it runs.
         return Optional.of(new BuildRecipe(STREET,
                 new BlockPos(todo.getFirst().x(), todo.getFirst().base(), todo.getFirst().z()),
                 Rotation.NONE,
-                Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
+                Identifier.fromNamespaceAndPath(Placitum.MODID,
+                        "craft/" + settlement.craft().getSerializedName()),
                 List.copyOf(profile), new BlockPos(todo.size(), 1, 0), Spans.encode(todo)));
+    }
+
+    /** What a recipe's frozen standard paves in, or dirt for anything unrecognised. */
+    private static BlockState paving(Identifier palette) {
+        for (Craft craft : Craft.values()) {
+            if (palette.getPath().equals("craft/" + craft.getSerializedName())) {
+                return craft.paving();
+            }
+        }
+        return Craft.TIMBER.paving();
     }
 
     /**
@@ -114,6 +136,7 @@ public final class RoadPlan {
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Spans> columns = Spans.decode(recipe.gates());
+        BlockState paving = paving(recipe.palette());
         List<BuildOp> ops = new ArrayList<>();
         Set<BlockPos> claimed = new HashSet<>();
         for (Spans column : columns) {
@@ -122,7 +145,7 @@ public final class RoadPlan {
             }
             BlockPos at = column.at(column.base());
             claimed.add(at);
-            ops.add(new BuildOp(at, PATH));
+            ops.add(new BuildOp(at, paving));
         }
         ops.addAll(Clearance.ops(columns, claimed));
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())

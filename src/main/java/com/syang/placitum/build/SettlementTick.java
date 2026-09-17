@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -68,6 +69,15 @@ public final class SettlementTick {
         if (level.getGameTime() % PlacitumConfig.SURVEY_INTERVAL_TICKS.get() != 0) {
             return settlement;
         }
+        Settlement out = forgetCleared(level, settlement).withCraft(Trades.earned(level, settlement));
+        if (out.craft() != settlement.craft()) {
+            Placitum.LOGGER.info("'{}' now builds in {}", out.name(),
+                    out.craft().getSerializedName());
+            out = out.record(EntryType.BUILD, out.name(),
+                    "now builds in " + out.craft().getSerializedName(), level.getGameTime());
+        }
+        settlement = out;
+
         if (settlement.buildQueue().isEmpty()) {
             Reach reach = Reach.from(level, settlement, TownPlan.outerPhase(settlement));
             Placitum.LOGGER.info("'{}' is building nothing. {} column(s) of street reach the"
@@ -77,6 +87,46 @@ public final class SettlementTick {
                     Lots.describe(Lots.tally(level, settlement, reach)));
         }
         return settlement.withGrid(GridSurvey.run(level, settlement).grid());
+    }
+
+    /**
+     * Drops the record of anything the player has pulled down.
+     *
+     * <p>A lot the settlement has built on is off the list for good otherwise, so demolishing a
+     * cottage left a hole the village would never fill. Forgetting it puts the lot back in the
+     * plan, and the replacement goes up to whatever standard the village builds to now - which
+     * is the whole upgrade path for houses, and needs no rule about overwriting somebody's
+     * walls, because there are no walls left to overwrite.
+     *
+     * <p>Only when the lot is completely clear and completely loaded. Half a cottage is still a
+     * cottage, and a chunk nobody has loaded has not told us anything.
+     */
+    private static Settlement forgetCleared(ServerLevel level, Settlement settlement) {
+        Map<UUID, Plot> keep = new LinkedHashMap<>();
+        for (Map.Entry<UUID, Plot> entry : settlement.plots().entrySet()) {
+            if (standing(level, settlement, entry.getValue().anchor())) {
+                keep.put(entry.getKey(), entry.getValue());
+            } else {
+                Placitum.LOGGER.info("'{}' lost its {} on lot {}; the lot is free again",
+                        settlement.name(), entry.getValue().kind(),
+                        entry.getValue().anchor().toKey());
+            }
+        }
+        return keep.size() == settlement.plots().size() ? settlement
+                : settlement.withPlots(keep).withGrid(settlement.grid());
+    }
+
+    /** Whether anything at all is still built on this lot, as far as we can see. */
+    private static boolean standing(ServerLevel level, Settlement settlement, CellPos cell) {
+        for (BlockPos column : TownPlan.lotColumns(cell, settlement.center())) {
+            if (!level.hasChunkAt(column)) {
+                return true;   // not loaded, so not demolished as far as anyone here knows
+            }
+            if (GridSurvey.builtOn(level, column.getX(), column.getZ())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -3,6 +3,7 @@ package com.syang.placitum;
 import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.CellState;
 import com.syang.placitum.data.Chronicle;
+import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.ChronicleEntry;
 import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Plot;
@@ -61,7 +62,7 @@ public final class SettlementFixture {
 
         return new Settlement(identity(),
                 new PlotGrid(new BlockPos(112, 68, -304), 9, cells),
-                plots, List.of(), List.of(), chronicle);
+                plots, List.of(), Craft.STONE, chronicle);
     }
 
     /** A settlement that has only just been registered: a bell and unread ground. */

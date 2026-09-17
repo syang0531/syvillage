@@ -29,7 +29,7 @@ public record Settlement(
         PlotGrid grid,
         Map<UUID, Plot> plots,
         List<BuildJob> buildQueue,
-        List<BuildOp> pendingOps,
+        Craft craft,
         Chronicle chronicle) {
 
     public static final Codec<Settlement> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -38,8 +38,9 @@ public record Settlement(
             Codec.unboundedMap(UUIDUtil.STRING_CODEC, Plot.CODEC).fieldOf("plots")
                     .forGetter(Settlement::plots),
             BuildJob.CODEC.listOf().fieldOf("build_queue").forGetter(Settlement::buildQueue),
-            BuildOp.CODEC.listOf().optionalFieldOf("pending_ops", List.of())
-                    .forGetter(Settlement::pendingOps),
+            // Optional with a default, because a settlement saved before there were standards
+            // to build to has to load as one that builds in timber rather than not at all.
+            Craft.CODEC.optionalFieldOf("craft", Craft.TIMBER).forGetter(Settlement::craft),
             Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle)
     ).apply(i, Settlement::new));
 
@@ -53,7 +54,6 @@ public record Settlement(
     public Settlement {
         plots = sorted(plots);
         buildQueue = List.copyOf(buildQueue);
-        pendingOps = List.copyOf(pendingOps);
     }
 
     private static Map<UUID, Plot> sorted(Map<UUID, Plot> in) {
@@ -69,7 +69,7 @@ public record Settlement(
     public static Settlement founding(SettlementId identity) {
         return new Settlement(identity,
                 PlotGrid.empty(identity.center(), PlotGrid.sizeForClaim(identity.claimRadiusChunks())),
-                Map.of(), List.of(), List.of(), Chronicle.EMPTY);
+                Map.of(), List.of(), Craft.TIMBER, Chronicle.EMPTY);
     }
 
     public UUID id() {
@@ -101,23 +101,29 @@ public record Settlement(
     // Copy helpers. Callers do not rebuild the record by hand.
 
     public Settlement withGrid(PlotGrid newGrid) {
-        return new Settlement(identity, newGrid, plots, buildQueue, pendingOps, chronicle);
+        return new Settlement(identity, newGrid, plots, buildQueue, craft, chronicle);
     }
 
     public Settlement withPlots(Map<UUID, Plot> newPlots) {
-        return new Settlement(identity, grid, newPlots, buildQueue, pendingOps, chronicle);
+        return new Settlement(identity, grid, newPlots, buildQueue, craft, chronicle);
     }
 
     public Settlement withBuildQueue(List<BuildJob> newQueue) {
-        return new Settlement(identity, grid, plots, newQueue, pendingOps, chronicle);
+        return new Settlement(identity, grid, plots, newQueue, craft, chronicle);
     }
 
-    public Settlement withPendingOps(List<BuildOp> newOps) {
-        return new Settlement(identity, grid, plots, buildQueue, newOps, chronicle);
+    /**
+     * The settlement building to a better standard.
+     *
+     * <p>Only ever better: {@link Craft#or} keeps the high-water mark, so losing the mason to a
+     * creeper does not turn the high street back into mud.
+     */
+    public Settlement withCraft(Craft newCraft) {
+        return new Settlement(identity, grid, plots, buildQueue, craft.or(newCraft), chronicle);
     }
 
     public Settlement withChronicle(Chronicle newChronicle) {
-        return new Settlement(identity, grid, plots, buildQueue, pendingOps, newChronicle);
+        return new Settlement(identity, grid, plots, buildQueue, craft, newChronicle);
     }
 
     public Settlement record(EntryType type, String subject, String detail, long gameTime) {
