@@ -34,6 +34,12 @@ class WallAccessTest {
     private static final BlockPos ANCHOR = new BlockPos(0, 64, 0);
     private static final int FLOOR = 64;
 
+    /** The two columns of the rampart you actually walk on, in the tower's own frame. */
+    private static int[] walkway() {
+        int outerFace = TownPlan.RAMP + (TowerPlan.SIDE + TownPlan.WALL) / 2 - 1;
+        return new int[] {outerFace - 2, outerFace - 1};
+    }
+
     @BeforeAll
     static void bootstrap() {
         SharedConstants.tryDetectVersion();
@@ -99,7 +105,7 @@ class WallAccessTest {
         // 4 of an eight-wide tower centred on the corner. If the tower's edge there is not the
         // wall's own height, the circuit ends in a step up or a hole.
         Map<BlockPos, BuildOp> world = tower();
-        for (int lane : new int[] {3, 4}) {
+        for (int lane : walkway()) {
             assertEquals(TownPlan.WALL_HEIGHT - 1, topOf(world, lane, 0),
                     "the ramp mouth at u=" + lane + " is not level with the wall");
             assertEquals(TownPlan.WALL_HEIGHT - 1, topOf(world, 0, lane),
@@ -113,13 +119,11 @@ class WallAccessTest {
         Map<BlockPos, BuildOp> world = tower();
         int deck = TowerPlan.SIDE - 1;
 
-        for (int lane : new int[] {3, 4}) {
-            // Walked the whole way across rather than to a fixed square. The two ramps cross in
-            // the middle four and level off there for a block, so which square a given lane
-            // reaches the deck at is a consequence rather than a rule; what is a rule is that it
-            // never climbs more than one and never drops.
+        for (int lane : walkway()) {
+            // The ramp is on the wall now, so it climbs cleanly from the rampart to the deck
+            // without the two of them crossing and arguing about the middle.
             int previous = topOf(world, lane, 0);
-            for (int v = 1; v < TowerPlan.SIDE; v++) {
+            for (int v = 1; v < TowerPlan.FRAME; v++) {
                 int top = topOf(world, lane, v);
                 assertTrue(top >= previous, "the ramp drops from " + previous + " to " + top
                         + " at v=" + v);
@@ -129,7 +133,8 @@ class WallAccessTest {
             }
             assertEquals(deck, previous, "and gets to the deck");
         }
-        assertEquals(deck, topOf(world, 6, 6), "the rest of the tower is deck");
+        assertEquals(deck, topOf(world, TowerPlan.FRAME - 2, TowerPlan.FRAME - 2),
+                "the rest of the tower is deck");
     }
 
     @Test
@@ -139,13 +144,13 @@ class WallAccessTest {
         // the wrong square is a wall across the top of the stairs.
         Map<BlockPos, BuildOp> world = tower();
         int parapet = FLOOR + TowerPlan.SIDE;
-        for (int lane : new int[] {3, 4}) {
-            assertFalse(solid(world, lane, TowerPlan.SIDE, 0),
+        for (int lane : walkway()) {
+            assertFalse(solid(world, lane, TowerPlan.SIDE, TownPlan.RAMP),
                     "a merlon blocks the ramp mouth at u=" + lane);
-            assertFalse(solid(world, 0, TowerPlan.SIDE, lane),
+            assertFalse(solid(world, TownPlan.RAMP, TowerPlan.SIDE, lane),
                     "a merlon blocks the ramp mouth at v=" + lane);
         }
-        assertTrue(solid(world, 0, TowerPlan.SIDE, 0),
+        assertTrue(solid(world, TownPlan.RAMP, TowerPlan.SIDE, TownPlan.RAMP),
                 "but the corner of the parapet is still a corner");
         assertEquals(FLOOR + TowerPlan.SIDE, parapet);
     }
@@ -160,7 +165,7 @@ class WallAccessTest {
             if (!entry.getValue().state().isAir()) {
                 highest = Math.max(highest, pos.getY());
             }
-            assertTrue(pos.getX() >= ANCHOR.getX() && pos.getX() < ANCHOR.getX() + TowerPlan.SIDE,
+            assertTrue(pos.getX() >= ANCHOR.getX() && pos.getX() < ANCHOR.getX() + TowerPlan.FRAME,
                     "the tower reaches outside its own footprint at " + pos);
         }
         assertEquals(FLOOR + TowerPlan.SIDE, highest);

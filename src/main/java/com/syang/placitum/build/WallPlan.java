@@ -78,15 +78,13 @@ public final class WallPlan {
         for (int along = -outer; along <= outer && todo.size() < wanted; along++) {
             for (int side = 0; side < 4 && todo.size() < wanted; side++) {
                 List<Spans> slice = new ArrayList<>(TownPlan.WALL);
+                if (!level(level, settlement, bell, along, side)) {
+                    continue;   // not flat enough here; the player levels it or it stays open
+                }
                 for (int depth = 0; depth < TownPlan.WALL; depth++) {
-                    int out = outer - depth;
-                    BlockPos pos = switch (side) {
-                        case 0 -> bell.offset(along, 0, -out);
-                        case 1 -> bell.offset(along, 0, out);
-                        case 2 -> bell.offset(-out, 0, along);
-                        default -> bell.offset(out, 0, along);
-                    };
+                    BlockPos pos = columnAt(bell, side, along, outer - depth);
                     if (!TownPlan.onWall(pos, settlement) || TownPlan.inGateway(pos, settlement)
+                            || TownPlan.inTower(pos, settlement)
                             || !level.hasChunkAt(pos) || !reach.has(pos)) {
                         // The gateway is skipped here rather than when the blocks are laid.
                         // Skipping it there queued the same columns every second for ever: the
@@ -130,6 +128,52 @@ public final class WallPlan {
                 List.copyOf(profile),
                 new BlockPos(TownPlan.wallInner(settlement), TownPlan.WALL_HEIGHT, outer),
                 Spans.encode(todo)));
+    }
+
+    /**
+     * Whether the ground here is flat enough to put a wall on.
+     *
+     * <p>Measured over this cross-section <em>and the one before it</em>, so it answers both of
+     * the ways a wall came out wrong: four columns at four heights gave a walkway you could not
+     * walk two abreast on, and one cross-section a block above the last gave a rampart that
+     * came apart into steps down the hillside.
+     *
+     * <p>The same {@code maxCellSlope} a building lot is held to, because it is the same
+     * question - how level does ground have to be before we put something on it - and because a
+     * player who wants a wall over a hill can level the hill, which is the answer the mod gives
+     * to everything else.
+     */
+    private static boolean level(ServerLevel level, Settlement settlement, BlockPos bell,
+            int along, int side) {
+        int lowest = Integer.MAX_VALUE;
+        int highest = Integer.MIN_VALUE;
+        int outer = TownPlan.wallOuter(settlement);
+
+        for (int back = 0; back <= 1; back++) {
+            for (int depth = 0; depth < TownPlan.WALL; depth++) {
+                BlockPos pos = columnAt(bell, side, along - back, outer - depth);
+                if (!level.hasChunkAt(pos)) {
+                    return false;
+                }
+                int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
+                if (ground == Ground.SKIP) {
+                    return false;
+                }
+                lowest = Math.min(lowest, ground);
+                highest = Math.max(highest, ground);
+            }
+        }
+        return highest - lowest <= PlacitumConfig.MAX_CELL_SLOPE.get();
+    }
+
+    /** One column of the ring, by which side of the square it is on and how far along. */
+    private static BlockPos columnAt(BlockPos bell, int side, int along, int out) {
+        return switch (side) {
+            case 0 -> bell.offset(along, 0, -out);
+            case 1 -> bell.offset(along, 0, out);
+            case 2 -> bell.offset(-out, 0, along);
+            default -> bell.offset(out, 0, along);
+        };
     }
 
     /**

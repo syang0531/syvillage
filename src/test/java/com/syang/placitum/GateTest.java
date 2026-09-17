@@ -103,47 +103,61 @@ class GateTest {
     }
 
     @Test
-    @DisplayName("the walkway arrives at the wall's level and leaves at it")
-    void theWalkwayMeetsTheWall() {
-        // A gatehouse that starts the walkway at the wrong height is a four-block drop at each
-        // end of it, twice per gate, and the wall stops being a circuit.
+    @DisplayName("the wall arrives at the ramp's foot at its own height")
+    void theRampStartsLevelWithTheWall() {
+        // The ramp is on the wall now, not inside the gatehouse. Its far end has to be ordinary
+        // rampart height or the circuit ends in a step, twice per gate.
         Map<BlockPos, BuildOp> world = built();
-        int wallTop = TownPlan.WALL_HEIGHT - 1;   // the block you stand on out on the wall
+        int wallTop = TownPlan.WALL_HEIGHT - 1;
 
         for (int lane : new int[] {3, 4}) {
-            for (int a : new int[] {-4, 4}) {
-                assertFalse(open(world, lane, a, wallTop),
-                        "nothing to walk in on at across " + a);
-                assertTrue(open(world, lane, a, wallTop + 1),
-                        "and nothing to walk into either");
+            for (int a : new int[] {-(GatePlan.WIDE / 2), GatePlan.WIDE / 2}) {
+                assertFalse(open(world, lane, a, wallTop), "nothing to walk in on at across " + a);
+                assertTrue(open(world, lane, a, wallTop + 1), "and nothing to walk into either");
             }
         }
     }
 
     @Test
-    @DisplayName("the walkway climbs to the deck, a step at a time, with room to stand up")
-    void theStairsClimbAndHaveHeadroom() {
+    @DisplayName("the ramp climbs the wall to the deck, a block at a time")
+    void theRampClimbsOutside() {
         Map<BlockPos, BuildOp> world = built();
-        int previous = -1;
-        for (int a = -4; a <= 0; a++) {
-            int step = -1;
-            for (int h = 1; h <= GatePlan.TALL; h++) {
-                if (!open(world, 4, a, h)) {
-                    step = h;
+        for (int lane : new int[] {3, 4}) {
+            int previous = -1;
+            for (int a = GatePlan.WIDE / 2; a >= GatePlan.HOUSE / 2; a--) {
+                int top = 0;
+                for (int h = 1; h <= GatePlan.TALL; h++) {
+                    if (!open(world, lane, a, h)) {
+                        top = h;
+                    }
+                }
+                if (previous >= 0) {
+                    assertEquals(previous + 1, top,
+                            "the ramp has to gain exactly one at across " + a);
+                }
+                previous = top;
+                for (int head = 1; head <= 2; head++) {
+                    assertTrue(open(world, lane, a, top + head),
+                            "no headroom over the ramp at across " + a);
                 }
             }
-            assertTrue(step > previous, "the walkway has to gain height at across " + a
-                    + ", and went from " + previous + " to " + step);
-            assertTrue(step - previous <= 1 || previous < 0,
-                    "and gain it one block at a time, not " + (step - previous));
-            previous = step;
+            assertEquals(GatePlan.TALL - 1, previous, "and arrive on the deck");
+        }
+    }
 
-            for (int head = 1; head <= 2; head++) {
-                assertTrue(open(world, 4, a, step + head),
-                        "no headroom above the step at across " + a);
+    @Test
+    @DisplayName("the deck is whole, because the climb is no longer cut out of it")
+    void theDeckIsNotEatenByStairs() {
+        // The point of moving the ramp onto the wall. The deck used to lose two of its rows to
+        // the staircase, which made the one place worth standing the one place there was no room
+        // to stand.
+        Map<BlockPos, BuildOp> world = built();
+        for (int d = 0; d < GatePlan.DEEP; d++) {
+            for (int a = -(GatePlan.HOUSE / 2); a <= GatePlan.HOUSE / 2; a++) {
+                assertFalse(open(world, d, a, GatePlan.TALL - 1),
+                        "a hole in the deck at depth " + d + ", across " + a);
             }
         }
-        assertEquals(GatePlan.TALL - 1, previous, "and arrive on the deck");
     }
 
     @Test
@@ -204,7 +218,9 @@ class GateTest {
             }
         }
         assertEquals(FLOOR + GatePlan.TALL, highest, "the parapet is the top of it");
-        assertEquals(9, GatePlan.WIDE);
+        assertEquals(9, GatePlan.HOUSE, "the gatehouse proper is nine across the road");
         assertEquals(8, GatePlan.DEEP);
+        assertEquals(GatePlan.HOUSE + 2 * TownPlan.RAMP, GatePlan.WIDE,
+                "and the footprint carries a ramp either side of it");
     }
 }

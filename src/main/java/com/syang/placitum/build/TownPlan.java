@@ -169,6 +169,15 @@ public final class TownPlan {
     public static final int GATE_WIDTH = 9;
 
     /**
+     * How far a ramp runs along the wall to reach the top of a gatehouse or a tower.
+     *
+     * <p>Four, because the deck stands four above the walkway and a ramp gains a block a block.
+     * The climb used to be cut into the structure itself, which cost the deck two of its rows
+     * and made the one place worth standing the one place there was no room to stand.
+     */
+    public static final int RAMP = 4;
+
+    /**
      * The inner face of the wall, in blocks from the bell.
      *
      * <p>Exactly where the outer phase's closing road would have been. That phase is left open
@@ -221,7 +230,7 @@ public final class TownPlan {
      */
     public static boolean inGateway(BlockPos pos, Settlement settlement) {
         return onWall(pos, settlement) && acrossFromBellRoad(pos, settlement.center())
-                <= GATE_WIDTH / 2;
+                <= GATE_WIDTH / 2 + RAMP;
     }
 
     /**
@@ -233,6 +242,20 @@ public final class TownPlan {
      */
     public static int gateOuter(Settlement settlement) {
         return wallOuter(settlement) + (TOWER - WALL) / 2;
+    }
+
+    /**
+     * Whether a column belongs to a corner tower, ramps included.
+     *
+     * <p>The rampart has to leave these alone: the tower owns its own approach, because the wall
+     * has to arrive at the tower's height rather than four blocks below it.
+     */
+    public static boolean inTower(BlockPos pos, Settlement settlement) {
+        int near = wallInner(settlement) - (TOWER - WALL) / 2 - RAMP;
+        int far = gateOuter(settlement);
+        int dx = Math.abs(pos.getX() - settlement.center().getX());
+        int dz = Math.abs(pos.getZ() - settlement.center().getZ());
+        return dx >= near && dx <= far && dz >= near && dz <= far;
     }
 
     /**

@@ -48,8 +48,17 @@ public final class GatePlan {
     public static final Identifier GATEHOUSE =
             Identifier.fromNamespaceAndPath(Placitum.MODID, "wall/gatehouse");
 
-    /** Blocks across the road. Odd, so the gate is centred on a road that is itself centred. */
-    public static final int WIDE = TownPlan.GATE_WIDTH;
+    /**
+     * Blocks across the road, ramps included: nine of gatehouse and four of approach either side.
+     *
+     * <p>The climb used to be cut into the gatehouse, which cost the deck two of its rows and
+     * made the one place worth standing the one place there was nowhere to stand. It is on the
+     * wall now, so the wall arrives at the deck's height instead of four blocks under it.
+     */
+    public static final int WIDE = TownPlan.GATE_WIDTH + 2 * TownPlan.RAMP;
+
+    /** The gatehouse proper, in the middle of that. */
+    public static final int HOUSE = TownPlan.GATE_WIDTH;
 
     /** Blocks along the road: the wall's four, and two of gatehouse either side of it. */
     public static final int DEEP = 8;
@@ -127,12 +136,29 @@ public final class GatePlan {
      */
     private static boolean standing(ServerLevel level, Craft craft, List<BlockPos> columns,
             List<Integer> profile) {
-        int floor = Ground.highest(profile);
+        int floor = houseFloor(profile);
         BlockPos middle = columns.get(columns.size() / 2);
         // Asked for our own masonry rather than for "not air", so that a tree standing where the
         // deck will go does not read as a finished gatehouse.
         return level.getBlockState(new BlockPos(middle.getX(), floor + TALL - 1, middle.getZ()))
                 .is(craft.wall().getBlock());
+    }
+
+    /**
+     * The level the gatehouse stands at, taken from the gatehouse and not from its ramps.
+     *
+     * <p>The ramps run four blocks further out along the wall in each direction, and letting
+     * their ground vote would lift the whole gate onto whatever the highest hummock out there
+     * happened to be.
+     */
+    private static int houseFloor(List<Integer> profile) {
+        List<Integer> house = new ArrayList<>();
+        for (int i = 0; i < profile.size(); i++) {
+            if (Math.abs(i % WIDE - WIDE / 2) <= HOUSE / 2) {
+                house.add(profile.get(i));
+            }
+        }
+        return Ground.highest(house);
     }
 
     public static Rotation rotationOf(Direction side) {
@@ -168,7 +194,7 @@ public final class GatePlan {
         if (profile.size() != columns.size()) {
             return List.of();
         }
-        int floor = Ground.highest(profile);
+        int floor = houseFloor(profile);
         if (floor == Ground.SKIP) {
             return List.of();
         }
@@ -180,11 +206,17 @@ public final class GatePlan {
             int d = i / WIDE;
             int a = i % WIDE - WIDE / 2;
 
-            // Foundation, up to and including the floor level. Stopping one short left every
-            // column below the highest with a hole under it, so the gatehouse stood on the one
-            // corner that happened to be level with it and floated over the rest.
-            for (int y = profile.get(i) + 1; y <= floor; y++) {
-                ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), stone));
+            boolean bears = Math.abs(a) <= HOUSE / 2 || inWall(d);
+            if (bears) {
+                // Foundation, up to and including the floor level. Stopping one short left every
+                // column below the highest with a hole under it, so the gatehouse stood on the
+                // one corner that happened to be level with it and floated over the rest.
+                //
+                // Only under what is actually built: the rest of a ramp's width is open ground
+                // out here, and filling it would be a plinth with nothing on it.
+                for (int y = profile.get(i) + 1; y <= floor; y++) {
+                    ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), stone));
+                }
             }
             for (int h = 1; h <= TALL; h++) {
                 BlockState state = blockAt(d, a, h, stone);
@@ -220,28 +252,18 @@ public final class GatePlan {
      * 8 is the parapet.
      */
     private static BlockState blockAt(int d, int a, int h, BlockState stone) {
-        boolean onRoad = Math.abs(a) <= TownPlan.ROAD / 2;
-        boolean inStairwell = d == stairLane(0) || d == stairLane(1);
-
-        if (h == TALL) {
-            // Crenellated all round the deck, but not over the stairwell, which is where the
-            // walkway climbs in and out and wants its head.
-            boolean edge = d == 0 || d == DEEP - 1 || Math.abs(a) == WIDE / 2;
-            return edge && !inStairwell && (d + a) % 2 == 0 ? stone : AIR;
+        if (Math.abs(a) > HOUSE / 2) {
+            return onRamp(d, a, h, stone);
         }
-        if (inStairwell) {
-            // The way through goes through here too. The walkway's two columns are the ones the
-            // road passes under, so taking the stairwell's word for it would have walled the
-            // gate shut with the staircase that exists to get over it.
-            if (onRoad && h <= archHeight(a)) {
-                return AIR;
-            }
-            // Four steps up and four down, and everything above each step is air so that
-            // somebody can stand on it.
-            return h <= stepHeight(a) ? stone : AIR;
+        boolean onRoad = Math.abs(a) <= TownPlan.ROAD / 2;
+        if (h == TALL) {
+            // Crenellated all round the deck, except where the two ramps arrive.
+            boolean edge = d == 0 || d == DEEP - 1 || Math.abs(a) == HOUSE / 2;
+            boolean mouth = Math.abs(a) == HOUSE / 2 && inWalkway(d);
+            return edge && !mouth && (d + a) % 2 == 0 ? stone : AIR;
         }
         if (h == TALL - 1) {
-            return stone;   // the deck, over everything that is not the stairwell
+            return stone;   // the deck, solid the whole way across now
         }
         if (onRoad && h <= archHeight(a)) {
             return AIR;     // the way through
@@ -249,26 +271,53 @@ public final class GatePlan {
         return stone;
     }
 
-    /** The two columns of the wall's walkway, as indices along the gatehouse. */
-    private static int stairLane(int which) {
-        int outerFace = (DEEP + TownPlan.WALL) / 2 - 1;
-        return outerFace - 1 - which;
+    /**
+     * The wall, climbing to meet the gatehouse.
+     *
+     * <p>Only the four columns the rampart itself occupies. The rest of a gatehouse's width is
+     * ordinary ground out here and is left as it was.
+     */
+    private static BlockState onRamp(int d, int a, int h, BlockState stone) {
+        if (!inWall(d)) {
+            return null;
+        }
+        boolean parapet = !inWalkway(d);
+        int top = rampTop(a, parapet);
+        if (h > top) {
+            return AIR;
+        }
+        if (parapet && h == top && (d + a) % 2 != 0) {
+            return AIR;   // crenellated as it climbs, like the rest of the rampart
+        }
+        return stone;
     }
 
-    /**
-     * How high the walkway has climbed by this point across the gatehouse.
-     *
-     * <p>It comes in at the wall's own level and has to be on the deck by the time it is over
-     * the arch, so it gains a block for every block inward. Four steps, because the deck is four
-     * above the walkway - which is the arch's headroom, paid for.
-     */
-    private static int stepHeight(int a) {
-        int fromEdge = WIDE / 2 - Math.abs(a);
-        return Math.min(TALL - 1, TownPlan.WALL_HEIGHT - 1 + fromEdge);
+    /** The four columns of the rampart, as indices into the gatehouse's depth. */
+    private static boolean inWall(int d) {
+        int outerFace = (DEEP + TownPlan.WALL) / 2 - 1;
+        return d <= outerFace && d > outerFace - TownPlan.WALL;
+    }
+
+    /** The two of those four you walk on. */
+    private static boolean inWalkway(int d) {
+        int outerFace = (DEEP + TownPlan.WALL) / 2 - 1;
+        return d == outerFace - 1 || d == outerFace - 2;
     }
 
     /** The arch: three wide and four tall, with a crown over the middle of the road. */
     private static int archHeight(int a) {
         return a == 0 ? TownPlan.WALL_HEIGHT + 1 : TownPlan.WALL_HEIGHT;
+    }
+
+    /**
+     * How high the wall stands where it is climbing towards the gatehouse.
+     *
+     * <p>Level with the rest of the rampart at the far end of the ramp, and level with the deck
+     * by the time it meets the gatehouse. The parapet rides a block above the walkway the whole
+     * way up, so the climb has a handrail rather than an edge.
+     */
+    private static int rampTop(int a, boolean parapet) {
+        int climbed = TownPlan.RAMP - (Math.abs(a) - HOUSE / 2);
+        return TownPlan.WALL_HEIGHT - 1 + climbed + (parapet ? 1 : 0);
     }
 }

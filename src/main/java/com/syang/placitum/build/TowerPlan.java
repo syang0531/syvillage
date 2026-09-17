@@ -43,6 +43,15 @@ public final class TowerPlan {
     /** A side of the tower, and its height. Twice the wall, like the gatehouse. */
     public static final int SIDE = TownPlan.TOWER;
 
+    /**
+     * The whole footprint: the tower, and the ramp that climbs the wall to reach it.
+     *
+     * <p>The climb used to be cut into the tower, which cost the deck two of its rows on each
+     * of two sides - a quarter of the one place in a town worth standing to look from. It is on
+     * the wall now, and the wall arrives at the tower's height instead of four blocks under it.
+     */
+    public static final int FRAME = TownPlan.RAMP + SIDE;
+
     private TowerPlan() {}
 
     /** The four corners, as the pair of signs that puts a tower in that quadrant. */
@@ -58,18 +67,18 @@ public final class TowerPlan {
      * read as a corner rather than as two walls crossing.
      */
     public static BlockPos anchorOf(Settlement settlement, int[] corner) {
-        int near = TownPlan.wallInner(settlement) - (SIDE - TownPlan.WALL) / 2;
+        int near = TownPlan.wallInner(settlement) - (SIDE - TownPlan.WALL) / 2 - TownPlan.RAMP;
         BlockPos bell = settlement.center();
         return new BlockPos(
-                bell.getX() + (corner[0] < 0 ? -(near + SIDE - 1) : near), bell.getY(),
-                bell.getZ() + (corner[1] < 0 ? -(near + SIDE - 1) : near));
+                bell.getX() + (corner[0] < 0 ? -(near + FRAME - 1) : near), bell.getY(),
+                bell.getZ() + (corner[1] < 0 ? -(near + FRAME - 1) : near));
     }
 
     /** Every column of the tower, west to east and then north to south. */
     public static List<BlockPos> footprint(BlockPos anchor) {
-        List<BlockPos> out = new ArrayList<>(SIDE * SIDE);
-        for (int v = 0; v < SIDE; v++) {
-            for (int u = 0; u < SIDE; u++) {
+        List<BlockPos> out = new ArrayList<>(FRAME * FRAME);
+        for (int v = 0; v < FRAME; v++) {
+            for (int u = 0; u < FRAME; u++) {
                 out.add(anchor.offset(u, 0, v));
             }
         }
@@ -95,7 +104,7 @@ public final class TowerPlan {
             }
             profile.add(ground);
         }
-        int floor = Ground.highest(profile);
+        int floor = coreFloor(profile);
         BlockPos middle = columns.get(columns.size() / 2);
         if (level.getBlockState(new BlockPos(middle.getX(), floor + SIDE - 1, middle.getZ()))
                 .is(settlement.craft().wall().getBlock())) {
@@ -107,8 +116,24 @@ public final class TowerPlan {
         // about which corner this is, and expansion may not go and ask the settlement.
         return Optional.of(new BuildRecipe(TOWER, anchor, quadrantOf(corner),
                 settlement.craft().paletteId(), List.copyOf(profile),
-                new BlockPos(SIDE, SIDE, SIDE),
+                new BlockPos(FRAME, SIDE, FRAME),
                 Spans.encode(Clearance.spans(level, columns, profile))));
+    }
+
+    /**
+     * The level the tower stands at, taken from the tower and not from its ramps.
+     *
+     * <p>The ramps run four blocks further along the wall in each direction, and letting their
+     * ground vote would lift the whole tower onto whatever was highest out there.
+     */
+    private static int coreFloor(List<Integer> profile) {
+        List<Integer> core = new ArrayList<>();
+        for (int i = 0; i < profile.size(); i++) {
+            if (i % FRAME >= TownPlan.RAMP && i / FRAME >= TownPlan.RAMP) {
+                core.add(profile.get(i));
+            }
+        }
+        return Ground.highest(core);
     }
 
     /** Which corner this is, carried in the recipe as a rotation. */
@@ -126,7 +151,7 @@ public final class TowerPlan {
         if (profile.size() != columns.size()) {
             return List.of();
         }
-        int floor = Ground.highest(profile);
+        int floor = coreFloor(profile);
         if (floor == Ground.SKIP) {
             return List.of();
         }
@@ -136,15 +161,18 @@ public final class TowerPlan {
 
         for (int i = 0; i < columns.size(); i++) {
             BlockPos column = columns.get(i);
-            int u = mirror[0] ? SIDE - 1 - i % SIDE : i % SIDE;
-            int v = mirror[1] ? SIDE - 1 - i / SIDE : i / SIDE;
+            int u = mirror[0] ? FRAME - 1 - i % FRAME : i % FRAME;
+            int v = mirror[1] ? FRAME - 1 - i / FRAME : i / FRAME;
 
+            int top = topAt(u, v);
+            if (top <= 0) {
+                continue;   // open ground beside a ramp; nothing of ours belongs here
+            }
             // Up to and including the floor: one short of it left a hole under every column
             // that was not the highest, and the tower floated.
             for (int y = profile.get(i) + 1; y <= floor; y++) {
                 ops.add(new BuildOp(new BlockPos(column.getX(), y, column.getZ()), stone));
             }
-            int top = topAt(u, v);
             for (int h = 1; h <= top; h++) {
                 ops.add(new BuildOp(new BlockPos(column.getX(), floor + h, column.getZ()), stone));
             }
@@ -177,34 +205,56 @@ public final class TowerPlan {
     }
 
     /**
-     * How high the masonry goes in one column.
+     * How high the masonry goes in one column of the frame.
      *
-     * <p>Everything is solid to the deck except the two ramps, which come in at the wall's own
-     * height and gain a block per block until they reach it. The walkway's columns are depths 1
-     * and 2 of the wall, which land on 3 and 4 of an eight-wide tower centred on the corner.
+     * <p>Inside the tower it is solid all the way to the deck - the whole eight by eight of it,
+     * which is the point of moving the climb out. Outside, this is the rampart on its way up:
+     * only the four columns the wall occupies are ours, and the rest of the frame is open ground
+     * beside it.
      */
     private static int topAt(int u, int v) {
-        int deck = SIDE - 1;
-        int reached = deck;
-        boolean onRamp = false;
-        if ((u == 3 || u == 4) && v <= 4) {
-            reached = Math.min(reached, TownPlan.WALL_HEIGHT - 1 + v);
-            onRamp = true;
+        boolean inCore = u >= TownPlan.RAMP && v >= TownPlan.RAMP;
+        if (inCore) {
+            return SIDE - 1;
         }
-        if ((v == 3 || v == 4) && u <= 4) {
-            // The lower of the two where they cross, not the higher. Taking the higher put a
-            // two-block step in the middle of one ramp: at the crossing the two disagree by one,
-            // and the ramp that was climbing has to be the one that is believed.
-            reached = Math.min(reached, TownPlan.WALL_HEIGHT - 1 + u);
-            onRamp = true;
+        if (u >= TownPlan.RAMP) {
+            return inWall(u) ? rampTop(v, !inWalkway(u)) : 0;
         }
-        return onRamp ? reached : deck;
+        if (v >= TownPlan.RAMP) {
+            return inWall(v) ? rampTop(u, !inWalkway(v)) : 0;
+        }
+        return 0;   // the square beyond both ramps belongs to neither of them
     }
 
-    /** The parapet runs round the edge, but never across the mouth of a ramp. */
+    /** Where the rampart's four columns land in the frame. */
+    private static boolean inWall(int w) {
+        int outerFace = TownPlan.RAMP + (SIDE + TownPlan.WALL) / 2 - 1;
+        return w <= outerFace && w > outerFace - TownPlan.WALL;
+    }
+
+    /** The two of those four you walk on. */
+    private static boolean inWalkway(int w) {
+        int outerFace = TownPlan.RAMP + (SIDE + TownPlan.WALL) / 2 - 1;
+        return w == outerFace - 1 || w == outerFace - 2;
+    }
+
+    /**
+     * How high the wall stands where it is climbing towards the tower.
+     *
+     * <p>Rampart height at the far end of the ramp and deck height where it meets the tower,
+     * with the parapet a block above the walkway the whole way, so the climb has a handrail
+     * rather than an edge.
+     */
+    private static int rampTop(int along, boolean parapet) {
+        return TownPlan.WALL_HEIGHT - 1 + along + (parapet ? 1 : 0);
+    }
+
+    /** The parapet runs round the edge of the deck, but never across the mouth of a ramp. */
     private static boolean merlon(int u, int v) {
-        boolean edge = u == 0 || u == SIDE - 1 || v == 0 || v == SIDE - 1;
-        boolean mouth = (v == 0 && (u == 3 || u == 4)) || (u == 0 && (v == 3 || v == 4));
+        boolean edge = u == TownPlan.RAMP || u == FRAME - 1
+                || v == TownPlan.RAMP || v == FRAME - 1;
+        boolean mouth = (v == TownPlan.RAMP && inWalkway(u))
+                || (u == TownPlan.RAMP && inWalkway(v));
         return edge && !mouth;
     }
 }
