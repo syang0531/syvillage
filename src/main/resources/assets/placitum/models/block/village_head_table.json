@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "minecraft:block/stripped_oak_log_top",
+    "up": "minecraft:block/lectern_top",
+    "north": "minecraft:block/lectern_sides",
+    "south": "minecraft:block/lectern_sides",
+    "east": "minecraft:block/lectern_sides",
+    "west": "minecraft:block/lectern_front",
+    "particle": "minecraft:block/lectern_sides"
+  }
+}

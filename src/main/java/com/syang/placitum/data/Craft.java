@@ -43,6 +43,19 @@ public enum Craft implements StringRepresentable {
             Blocks.COBBLESTONE.defaultBlockState(),
             Blocks.COBBLESTONE.defaultBlockState(),
             Blocks.OAK_PLANKS.defaultBlockState(),
+            Blocks.STONE_BRICKS.defaultBlockState()),
+
+    /**
+     * A village head keeps the plan here.
+     *
+     * <p>The top of the ladder, and the roof finally stops being timber. Reached by the player
+     * crafting a table and a spare villager taking the job at it, which is the same shape as
+     * every other rung: an object placed, and a village that answers.
+     */
+    MASONRY("masonry",
+            Blocks.STONE_BRICKS.defaultBlockState(),
+            Blocks.STONE_BRICKS.defaultBlockState(),
+            Blocks.STONE_BRICK_SLAB.defaultBlockState(),
             Blocks.STONE_BRICKS.defaultBlockState());
 
     public static final Codec<Craft> CODEC = StringRepresentable.fromEnum(Craft::values);

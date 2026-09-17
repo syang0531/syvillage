@@ -1,3 +1,5 @@
 {
-  "placitum.title": "플라키툼"
+  "placitum.title": "플라키툼",
+  "block.placitum.village_head_table": "촌장 탁자",
+  "entity.placitum.villager.village_head": "촌장"
 }

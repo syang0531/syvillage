@@ -1,3 +1,5 @@
 {
-  "placitum.title": "Placitum"
+  "placitum.title": "Placitum",
+  "block.placitum.village_head_table": "Village Head's Table",
+  "entity.placitum.villager.village_head": "Village Head"
 }

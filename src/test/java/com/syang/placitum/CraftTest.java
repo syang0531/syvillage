@@ -94,6 +94,12 @@ class CraftTest {
         assertEquals(Blocks.COBBLESTONE, Craft.STONE.wall().getBlock());
         assertEquals(Blocks.OAK_PLANKS, Craft.STONE.roof().getBlock());
         assertEquals(Blocks.OAK_PLANKS, Craft.TIMBER.wall().getBlock());
+
+        // Three rungs, and the roof only stops being timber at the top of them.
+        assertEquals(3, Craft.values().length);
+        assertTrue(Craft.MASONRY.betterThan(Craft.STONE));
+        assertEquals(Blocks.OAK_PLANKS, Craft.TIMBER.roof().getBlock());
+        assertEquals(Blocks.STONE_BRICK_SLAB, Craft.MASONRY.roof().getBlock());
     }
 
     @Test
