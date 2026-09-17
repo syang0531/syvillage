@@ -211,4 +211,84 @@ class WallAccessTest {
         assertEquals(TownPlan.RAMP * TownPlan.RAMP + 2 * TownPlan.WALL * TownPlan.RAMP, spare);
         assertEquals(48, spare);
     }
+
+    /** The four corners, and the rotation each one is carried as. */
+    private static List<int[]> corners() {
+        return List.of(new int[] {-1, -1}, new int[] {1, -1}, new int[] {1, 1}, new int[] {-1, 1});
+    }
+
+    /**
+     * Whether a footprint column is one of the sixty-four the tower proper stands on.
+     *
+     * <p>Measured out from the deck column, because a reflection preserves distance: this is the
+     * same square whichever way the corner's axes run, without having to mirror anything here.
+     */
+    private static boolean isCore(int index, int[] corner) {
+        int deck = TowerPlan.deckColumn(corner);
+        int du = Math.abs(index % TowerPlan.FRAME - deck % TowerPlan.FRAME);
+        int dv = Math.abs(index / TowerPlan.FRAME - deck / TowerPlan.FRAME);
+        return du <= TowerPlan.SIDE / 2 && dv <= TowerPlan.SIDE / 2;
+    }
+
+    /**
+     * A tower whose ramp ground is five blocks above its core.
+     *
+     * <p>Uneven on purpose. Every corner is the same tower with its axes flipped, so a reader
+     * that forgets the flip still gets the right answer when the ground is flat - which is every
+     * other test in this file, and was the only way the wall had ever been tried.
+     */
+    private static Map<BlockPos, BuildOp> onARidge(int[] corner) {
+        List<BlockPos> columns = TowerPlan.footprint(ANCHOR);
+        List<Integer> profile = new ArrayList<>();
+        for (int i = 0; i < columns.size(); i++) {
+            profile.add(isCore(i, corner) ? FLOOR : FLOOR + 5);
+        }
+        List<BuildOp> ops = TowerPlan.expand(new BuildRecipe(TowerPlan.TOWER, ANCHOR,
+                TowerPlan.quadrantOf(corner), Craft.STONE.paletteId(), profile,
+                new BlockPos(TowerPlan.SIDE, TowerPlan.SIDE, TowerPlan.SIDE),
+                Spans.encode(List.of())));
+
+        Map<BlockPos, BuildOp> world = new HashMap<>();
+        for (BuildOp op : ops) {
+            world.put(op.pos(), op);
+        }
+        return world;
+    }
+
+    @Test
+    @DisplayName("every corner levels its tower against its own core, not against the ramps")
+    void theFloorComesFromTheTowerNotTheApproach() {
+        for (int[] corner : corners()) {
+            Map<BlockPos, BuildOp> world = onARidge(corner);
+            int highest = FLOOR;
+            for (Map.Entry<BlockPos, BuildOp> entry : world.entrySet()) {
+                if (!entry.getValue().state().isAir()) {
+                    highest = Math.max(highest, entry.getKey().getY());
+                }
+            }
+            assertEquals(FLOOR + TowerPlan.SIDE, highest,
+                    "the tower at corner " + corner[0] + "," + corner[1] + " was levelled"
+                            + " against the ridge its ramps climb rather than against the ground"
+                            + " it stands on: the frame is mirrored per corner, and whoever"
+                            + " picked the core square did not mirror with it");
+        }
+    }
+
+    @Test
+    @DisplayName("the column standing() asks about is deck in every corner")
+    void theQuestionIsPutToTheDeck() {
+        for (int[] corner : corners()) {
+            int deck = TowerPlan.deckColumn(corner);
+            assertTrue(TowerPlan.touches(deck, corner),
+                    "corner " + corner[0] + "," + corner[1] + " asks whether the tower is up by"
+                            + " looking at a column the tower never builds in, so it can only"
+                            + " answer no - and nothing else now stops it being built again");
+
+            BlockPos column = TowerPlan.footprint(ANCHOR).get(deck);
+            BuildOp op = onARidge(corner).get(new BlockPos(column.getX(),
+                    FLOOR + TowerPlan.SIDE - 1, column.getZ()));
+            assertTrue(op != null && !op.state().isAir(),
+                    "and there is no deck there to find at corner " + corner[0] + corner[1]);
+        }
+    }
 }

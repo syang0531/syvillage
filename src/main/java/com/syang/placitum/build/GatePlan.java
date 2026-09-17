@@ -106,15 +106,37 @@ public final class GatePlan {
         List<BlockPos> columns = footprint(anchor, side);
         List<Integer> profile = new ArrayList<>(columns.size());
 
-        for (BlockPos column : columns) {
-            if (!level.hasChunkAt(column) || !reach.has(column)) {
-                return Optional.empty();   // the ground it needs is not there, or not walkable
+        // Only the columns this build actually stands on. A gatehouse footprint is seventeen
+        // across and a tower frame is twelve square because that is the box the shape fits in,
+        // not because we build on all of it: thirty-two columns of the one and forty-eight of
+        // the other are ground it never puts a block in. Demanding those be walkable refused
+        // every gate in a finished town over sixteen columns of hillside outside the wall.
+        //
+        // The ground is still read for all of them, because expand indexes the profile by
+        // footprint position and the indices have to line up. It is just not a veto.
+        List<BlockPos> ours = new ArrayList<>();
+        List<Integer> oursGround = new ArrayList<>();
+
+        for (int i = 0; i < columns.size(); i++) {
+            BlockPos column = columns.get(i);
+            boolean mine = touches(i);
+            if (!level.hasChunkAt(column)) {
+                if (mine) {
+                    return Optional.empty();
+                }
+                profile.add(Ground.SKIP);   // never read; the chunk is not ours to load
+                continue;
             }
             int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
-            if (ground == Ground.SKIP) {
+            profile.add(ground);
+            if (!mine) {
+                continue;
+            }
+            if (ground == Ground.SKIP || !reach.has(column)) {
                 return Optional.empty();   // a gate half in a lake is worse than a gap
             }
-            profile.add(ground);
+            ours.add(column);
+            oursGround.add(ground);
         }
         if (standing(level, settlement.craft(), columns, profile)) {
             return Optional.empty();
@@ -125,7 +147,9 @@ public final class GatePlan {
         return Optional.of(new BuildRecipe(GATEHOUSE, anchor, rotationOf(side),
                 settlement.craft().paletteId(), List.copyOf(profile),
                 new BlockPos(WIDE, TALL, DEEP),
-                Spans.encode(Clearance.spans(level, columns, profile))));
+                // Felled only where we build, which is the other half of the same rule: a tree
+                // on ground we are not going to build on is left exactly where it is.
+                Spans.encode(Clearance.spans(level, ours, oursGround))));
     }
 
     /**

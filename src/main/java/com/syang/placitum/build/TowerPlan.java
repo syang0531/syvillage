@@ -54,6 +54,41 @@ public final class TowerPlan {
 
     private TowerPlan() {}
 
+    /**
+     * The tower's own coordinates for a footprint index.
+     *
+     * <p>Every corner is the same tower with its axes flipped, and these two are the flip. They
+     * exist because expand did it inline and the other three readers of the footprint did not do
+     * it at all: {@code coreFloor} took a square of the footprint that is the core for one corner
+     * out of four, and for the north-west tower forty-eight of the sixty-four columns it levelled
+     * against were ramp. On flat ground every one of those is the same number, which is why it
+     * survived a flat-ground test.
+     */
+    private static int frameU(int index, boolean[] mirror) {
+        return mirror[0] ? FRAME - 1 - index % FRAME : index % FRAME;
+    }
+
+    private static int frameV(int index, boolean[] mirror) {
+        return mirror[1] ? FRAME - 1 - index / FRAME : index / FRAME;
+    }
+
+    /** And back: where a frame cell lands in the footprint. */
+    private static int indexOf(int u, int v, boolean[] mirror) {
+        return (mirror[1] ? FRAME - 1 - v : v) * FRAME + (mirror[0] ? FRAME - 1 - u : u);
+    }
+
+    /**
+     * A column in the middle of the deck, as an index into the footprint.
+     *
+     * <p>What "is this tower already up" is asked of. It used to be the middle of the
+     * <em>footprint</em>, which for two corners out of four is a column the tower never puts a
+     * block in - so those two could only ever answer no.
+     */
+    public static int deckColumn(int[] corner) {
+        int middle = TownPlan.RAMP + SIDE / 2;
+        return indexOf(middle, middle, mirrorOf(quadrantOf(corner)));
+    }
+
     /** The four corners, as the pair of signs that puts a tower in that quadrant. */
     public static List<int[]> corners() {
         return List.of(new int[] {-1, -1}, new int[] {1, -1}, new int[] {1, 1}, new int[] {-1, 1});
@@ -94,17 +129,44 @@ public final class TowerPlan {
         List<BlockPos> columns = footprint(anchor);
         List<Integer> profile = new ArrayList<>(columns.size());
 
-        for (BlockPos column : columns) {
-            if (!level.hasChunkAt(column) || !reach.has(column)) {
-                return Optional.empty();
+        // Only the columns this build actually stands on. A gatehouse footprint is seventeen
+        // across and a tower frame is twelve square because that is the box the shape fits in,
+        // not because we build on all of it: thirty-two columns of the one and forty-eight of
+        // the other are ground it never puts a block in. Demanding those be walkable refused
+        // every gate in a finished town over sixteen columns of hillside outside the wall.
+        //
+        // The ground is still read for all of them, because expand indexes the profile by
+        // footprint position and the indices have to line up. It is just not a veto.
+        List<BlockPos> ours = new ArrayList<>();
+        List<Integer> oursGround = new ArrayList<>();
+
+        for (int i = 0; i < columns.size(); i++) {
+            BlockPos column = columns.get(i);
+            boolean mine = touches(i, corner);
+            if (!level.hasChunkAt(column)) {
+                if (mine) {
+                    return Optional.empty();
+                }
+                profile.add(Ground.SKIP);
+                continue;
             }
             int ground = GridSurvey.groundOrSkip(level, column.getX(), column.getZ());
-            if (ground == Ground.SKIP) {
+            profile.add(ground);
+            if (!mine) {
+                continue;
+            }
+            if (ground == Ground.SKIP || !reach.has(column)) {
                 return Optional.empty();   // a tower with its feet in a lake is not a tower
             }
-            profile.add(ground);
+            ours.add(column);
+            oursGround.add(ground);
         }
-        if (standing(level, settlement, columns, profile)) {
+        // And this is now the only thing that stops a finished tower being built again. It used
+        // to be the reach test above: a tower you cannot walk up is a tower whose columns are
+        // unreachable, so the plan gave up before it ever got here. Relaxing that test takes the
+        // guard away - the ramps make a standing tower's own columns walkable - which is why
+        // standing() had to be right first. For two corners of four it never once said yes.
+        if (standing(level, settlement, columns, profile, corner)) {
             return Optional.empty();
         }
         Placitum.LOGGER.debug("Planned a tower for '{}' at {}", settlement.name(), anchor);
@@ -114,7 +176,7 @@ public final class TowerPlan {
         return Optional.of(new BuildRecipe(TOWER, anchor, quadrantOf(corner),
                 settlement.craft().paletteId(), List.copyOf(profile),
                 new BlockPos(FRAME, SIDE, FRAME),
-                Spans.encode(Clearance.spans(level, columns, profile))));
+                Spans.encode(Clearance.spans(level, ours, oursGround))));
     }
 
     /**
@@ -123,10 +185,11 @@ public final class TowerPlan {
      * <p>The ramps run four blocks further along the wall in each direction, and letting their
      * ground vote would lift the whole tower onto whatever was highest out there.
      */
-    private static int coreFloor(List<Integer> profile) {
+    private static int coreFloor(List<Integer> profile, Rotation quadrant) {
+        boolean[] mirror = mirrorOf(quadrant);
         List<Integer> core = new ArrayList<>();
         for (int i = 0; i < profile.size(); i++) {
-            if (i % FRAME >= TownPlan.RAMP && i / FRAME >= TownPlan.RAMP) {
+            if (frameU(i, mirror) >= TownPlan.RAMP && frameV(i, mirror) >= TownPlan.RAMP) {
                 core.add(profile.get(i));
             }
         }
@@ -140,19 +203,19 @@ public final class TowerPlan {
      * would get the top of the tower back once there is one.
      */
     private static boolean standing(ServerLevel level, Settlement settlement,
-            List<BlockPos> columns, List<Integer> profile) {
-        int floor = coreFloor(profile);
-        BlockPos middle = columns.get(columns.size() / 2);
+            List<BlockPos> columns, List<Integer> profile, int[] corner) {
+        int floor = coreFloor(profile, quadrantOf(corner));
+        BlockPos deck = columns.get(deckColumn(corner));
         return floor != Ground.SKIP
-                && level.getBlockState(new BlockPos(middle.getX(), floor + SIDE - 1,
-                        middle.getZ())).is(settlement.craft().wall().getBlock());
+                && level.getBlockState(new BlockPos(deck.getX(), floor + SIDE - 1,
+                        deck.getZ())).is(settlement.craft().wall().getBlock());
     }
 
     /** Standing, or what is stopping it. For the log when a settlement has gone quiet. */
     public static String status(ServerLevel level, Settlement settlement, int[] corner,
             Reach reach) {
         List<BlockPos> columns = footprint(anchorOf(settlement, corner));
-        return standing(level, settlement, columns, GatePlan.grounds(level, columns))
+        return standing(level, settlement, columns, GatePlan.grounds(level, columns), corner)
                 ? "standing"
                 : GatePlan.trouble(level, columns, reach, i -> touches(i, corner));
     }
@@ -166,9 +229,7 @@ public final class TowerPlan {
      */
     public static boolean touches(int index, int[] corner) {
         boolean[] mirror = mirrorOf(quadrantOf(corner));
-        int u = mirror[0] ? FRAME - 1 - index % FRAME : index % FRAME;
-        int v = mirror[1] ? FRAME - 1 - index / FRAME : index / FRAME;
-        return topAt(u, v) > 0;
+        return topAt(frameU(index, mirror), frameV(index, mirror)) > 0;
     }
 
     /** Which corner this is, carried in the recipe as a rotation. */
@@ -186,7 +247,7 @@ public final class TowerPlan {
         if (profile.size() != columns.size()) {
             return List.of();
         }
-        int floor = coreFloor(profile);
+        int floor = coreFloor(profile, recipe.rotation());
         if (floor == Ground.SKIP) {
             return List.of();
         }
@@ -196,8 +257,8 @@ public final class TowerPlan {
 
         for (int i = 0; i < columns.size(); i++) {
             BlockPos column = columns.get(i);
-            int u = mirror[0] ? FRAME - 1 - i % FRAME : i % FRAME;
-            int v = mirror[1] ? FRAME - 1 - i / FRAME : i / FRAME;
+            int u = frameU(i, mirror);
+            int v = frameV(i, mirror);
 
             int top = topAt(u, v);
             if (top <= 0) {
