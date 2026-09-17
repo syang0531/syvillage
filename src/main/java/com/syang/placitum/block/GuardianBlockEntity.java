@@ -78,9 +78,12 @@ public class GuardianBlockEntity extends BlockEntity {
     public static void serverTick(Level level, BlockPos pos, BlockState state,
             GuardianBlockEntity statue) {
         if (!(level instanceof ServerLevel server)
-                || level.getGameTime() % PlacitumConfig.GUARD_CHECK_TICKS.get() != 0
-                || statue.onDuty(server)) {
+                || level.getGameTime() % PlacitumConfig.GUARD_CHECK_TICKS.get() != 0) {
             return;
+        }
+        String vacancy = statue.vacancy(server);
+        if (vacancy == null) {
+            return;   // on duty
         }
         Optional<IronGolem> raised = SpawnUtil.trySpawnMob(EntityTypes.IRON_GOLEM,
                 EntitySpawnReason.MOB_SUMMONED, server, pos, ATTEMPTS, RANGE_XZ, RANGE_Y,
@@ -107,19 +110,39 @@ public class GuardianBlockEntity extends BlockEntity {
         statue.golem = guard.getUUID();
         statue.complained = false;
         statue.setChanged();
-        // Info, not debug. This happens once per golem death, so it is not chatter - and a test
-        // of this block that produces no log line at all cannot be read.
-        Placitum.LOGGER.info("A guardian statue at {} raised a golem", pos);
+        // Info, not debug: this happens once per golem death, so it is not chatter. And it says
+        // why, because "raised a golem" three times over is the same line whether the player
+        // killed two or the statue lost track of them, and those need different fixes.
+        Placitum.LOGGER.info("A guardian statue at {} raised a golem - {}", pos, vacancy);
     }
 
-    /** Whether the golem it remembers is still alive, still a golem, and still in this world. */
-    private boolean onDuty(ServerLevel level) {
+    /**
+     * Why this statue owes the town a golem, or null if it does not.
+     *
+     * <p>A sentence rather than a boolean, and for once that is not decoration. Every one of
+     * these means the same thing to the code and something different to whoever is reading the
+     * log: a golem the player killed is the block working, and a golem that cannot be found at
+     * all is the block losing track of one.
+     */
+    private @Nullable String vacancy(ServerLevel level) {
         if (golem == null) {
-            return false;
+            return "it had none";
         }
-        // Any dimension, because "somewhere else" and "gone" are different answers and the statue
-        // owes a guard to this town either way.
+        // Any dimension, because "somewhere else" and "gone" are different answers and the
+        // statue owes this town a guard either way.
         Entity found = level.getEntityInAnyDimension(golem);
-        return found instanceof IronGolem guard && guard.isAlive() && guard.level() == level;
+        if (found == null) {
+            return "its golem could not be found";
+        }
+        if (!(found instanceof IronGolem guard)) {
+            return "what it remembers is no longer a golem";
+        }
+        if (!guard.isAlive()) {
+            return "its golem died";
+        }
+        if (guard.level() != level) {
+            return "its golem left this world";
+        }
+        return null;
     }
 }
