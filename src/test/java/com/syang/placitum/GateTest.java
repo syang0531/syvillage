@@ -223,4 +223,53 @@ class GateTest {
         assertEquals(GatePlan.HOUSE + 2 * TownPlan.RAMP, GatePlan.WIDE,
                 "and the footprint carries a ramp either side of it");
     }
+
+    /**
+     * The same gatehouse on a site with nothing growing on it.
+     *
+     * <p>Bare on purpose, which is the opposite of what {@link #built()} wants and right here:
+     * felling a wood writes air in every column of the footprint, including the ones the
+     * gatehouse never touches, so a cleared site cannot answer which columns are structural.
+     */
+    private static java.util.Set<Long> occupied() {
+        List<Integer> profile = new ArrayList<>();
+        for (int i = 0; i < GatePlan.footprint(ANCHOR, Direction.NORTH).size(); i++) {
+            profile.add(FLOOR);
+        }
+        List<BuildOp> ops = GatePlan.expand(new BuildRecipe(GatePlan.GATEHOUSE, ANCHOR,
+                GatePlan.rotationOf(Direction.NORTH), Craft.STONE.paletteId(), profile,
+                new BlockPos(GatePlan.WIDE, GatePlan.TALL, GatePlan.DEEP),
+                Spans.encode(List.of())));
+
+        java.util.Set<Long> out = new java.util.HashSet<>();
+        for (BuildOp op : ops) {
+            out.add(((long) op.pos().getX() << 32) ^ (op.pos().getZ() & 0xffffffffL));
+        }
+        return out;
+    }
+
+    @Test
+    @DisplayName("touches() names exactly the columns the gatehouse writes in")
+    void theDiagnosticKnowsWhichGroundIsOurs() {
+        java.util.Set<Long> occupied = occupied();
+        List<BlockPos> columns = GatePlan.footprint(ANCHOR, Direction.NORTH);
+        int ours = 0;
+
+        for (int i = 0; i < columns.size(); i++) {
+            BlockPos column = columns.get(i);
+            boolean wrote = occupied.contains(
+                    ((long) column.getX() << 32) ^ (column.getZ() & 0xffffffffL));
+            assertEquals(wrote, GatePlan.touches(i),
+                    "the idle report asks touches() whether a blocked column is ground the"
+                            + " gatehouse would stand on. If it disagrees with expand, the"
+                            + " diagnostic is confidently wrong at " + column);
+            if (wrote) {
+                ours++;
+            }
+        }
+        // Eight of the seventeen columns across are a ramp's width of open ground, and out
+        // there only the rampart's four depths are ours.
+        assertEquals(columns.size() - 8 * (GatePlan.DEEP - TownPlan.WALL), ours,
+                "thirty-two columns of the footprint are ground the gatehouse walks past");
+    }
 }

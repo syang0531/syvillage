@@ -153,7 +153,22 @@ public final class TowerPlan {
             Reach reach) {
         List<BlockPos> columns = footprint(anchorOf(settlement, corner));
         return standing(level, settlement, columns, GatePlan.grounds(level, columns))
-                ? "standing" : GatePlan.trouble(level, columns, reach);
+                ? "standing"
+                : GatePlan.trouble(level, columns, reach, i -> touches(i, corner));
+    }
+
+    /**
+     * Whether the build writes anything at all in this column of the frame.
+     *
+     * <p>Sixteen of the hundred and forty-four are the four-by-four beyond both ramps, which
+     * {@link #topAt} answers zero for and expand skips outright - "open ground beside a ramp;
+     * nothing of ours belongs here". They are in the footprint only because the frame is square.
+     */
+    public static boolean touches(int index, int[] corner) {
+        boolean[] mirror = mirrorOf(quadrantOf(corner));
+        int u = mirror[0] ? FRAME - 1 - index % FRAME : index % FRAME;
+        int v = mirror[1] ? FRAME - 1 - index / FRAME : index / FRAME;
+        return topAt(u, v) > 0;
     }
 
     /** Which corner this is, carried in the recipe as a rotation. */

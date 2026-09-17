@@ -171,4 +171,44 @@ class WallAccessTest {
         assertEquals(FLOOR + TowerPlan.SIDE, highest);
         assertEquals(8, TowerPlan.SIDE);
     }
+
+    @Test
+    @DisplayName("touches() names exactly the columns the tower writes in")
+    void theDiagnosticKnowsWhichGroundIsOurs() {
+        // A bare site. Felling a wood writes air in every column of the frame, including the
+        // sixteen the tower never touches, so a cleared site cannot answer this question.
+        List<Integer> profile = new ArrayList<>();
+        List<BlockPos> columns = TowerPlan.footprint(ANCHOR);
+        for (int i = 0; i < columns.size(); i++) {
+            profile.add(FLOOR);
+        }
+        List<BuildOp> ops = TowerPlan.expand(new BuildRecipe(TowerPlan.TOWER, ANCHOR,
+                Rotation.CLOCKWISE_180, Craft.STONE.paletteId(), profile,
+                new BlockPos(TowerPlan.SIDE, TowerPlan.SIDE, TowerPlan.SIDE),
+                Spans.encode(List.of())));
+
+        java.util.Set<Long> occupied = new java.util.HashSet<>();
+        for (BuildOp op : ops) {
+            occupied.add(((long) op.pos().getX() << 32) ^ (op.pos().getZ() & 0xffffffffL));
+        }
+        int[] corner = {1, 1};   // south-east, which is CLOCKWISE_180
+        int spare = 0;
+
+        for (int i = 0; i < columns.size(); i++) {
+            BlockPos column = columns.get(i);
+            boolean wrote = occupied.contains(
+                    ((long) column.getX() << 32) ^ (column.getZ() & 0xffffffffL));
+            assertEquals(wrote, TowerPlan.touches(i, corner),
+                    "the idle report asks touches() whether a blocked column is ground the"
+                            + " tower would stand on; it disagrees with expand at " + column);
+            if (!wrote) {
+                spare++;
+            }
+        }
+        // The four-by-four beyond both ramps, plus the width of each ramp arm that is not the
+        // rampart's own four columns. Forty-eight of a hundred and forty-four: a third of what
+        // the planner demands be walkable is ground the tower never puts a block on.
+        assertEquals(TownPlan.RAMP * TownPlan.RAMP + 2 * TownPlan.WALL * TownPlan.RAMP, spare);
+        assertEquals(48, spare);
+    }
 }

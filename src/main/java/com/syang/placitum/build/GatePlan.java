@@ -8,6 +8,7 @@ import com.syang.placitum.data.Settlement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntPredicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
@@ -248,7 +249,7 @@ public final class GatePlan {
             Reach reach) {
         List<BlockPos> columns = footprint(anchorOf(settlement, side), side);
         return standing(level, settlement.craft(), columns, grounds(level, columns))
-                ? "standing" : trouble(level, columns, reach);
+                ? "standing" : trouble(level, columns, reach, GatePlan::touches);
     }
 
     /** The ground under a footprint, with water marked rather than guessed at. */
@@ -262,11 +263,20 @@ public final class GatePlan {
         return out;
     }
 
-    public static String trouble(ServerLevel level, List<BlockPos> columns, Reach reach) {
+    /**
+     * @param ours whether the build would put a block in that column, by footprint index
+     */
+    public static String trouble(ServerLevel level, List<BlockPos> columns, Reach reach,
+            IntPredicate ours) {
         int unloaded = 0;
         int unreachable = 0;
         int wet = 0;
-        for (BlockPos column : columns) {
+        int blocking = 0;
+        BlockPos first = null;
+
+        for (int i = 0; i < columns.size(); i++) {
+            BlockPos column = columns.get(i);
+            boolean bad = true;
             if (!level.hasChunkAt(column)) {
                 unloaded++;
             } else if (GridSurvey.groundOrSkip(level, column.getX(), column.getZ())
@@ -274,13 +284,26 @@ public final class GatePlan {
                 wet++;
             } else if (!reach.has(column)) {
                 unreachable++;
+            } else {
+                bad = false;
+            }
+            if (bad && ours.test(i)) {
+                blocking++;
+                if (first == null) {
+                    first = column;
+                }
             }
         }
         if (unloaded + unreachable + wet == 0) {
             return "nothing";
         }
-        return unreachable + " unreachable, " + wet + " water, " + unloaded + " unloaded"
-                + " of " + columns.size();
+        // The count alone has now been read wrong twice. Eight structures all reporting sixteen
+        // says the number is not terrain, but it does not say whether those sixteen are ground
+        // the gatehouse would stand on or ground it was only going to walk past - and those are
+        // a bad site and an over-strict rule, which want opposite fixes.
+        return unreachable + " unreachable, " + wet + " water, " + unloaded + " unloaded of "
+                + columns.size() + " - " + blocking + " under the build"
+                + (first == null ? "" : ", first at " + first.getX() + "," + first.getZ());
     }
 
     /** The positions a build has already spoken for. */
@@ -290,6 +313,23 @@ public final class GatePlan {
             out.add(op.pos());
         }
         return out;
+    }
+
+    /**
+     * Whether the build writes anything at all in this column of the footprint.
+     *
+     * <p>A gatehouse is seventeen columns across but only nine of them are gatehouse; the eight
+     * outside are a ramp's width of ordinary ground, and out there only the four columns the
+     * rampart occupies are ours - {@link #onRamp} returns null for the rest and expand leaves
+     * them exactly as it found them. Thirty-two of a hundred and thirty-six.
+     *
+     * <p>This exists so the diagnostic can say whether what is blocking a gatehouse is ground it
+     * would build on, which is a different problem from ground it was only going to walk past.
+     */
+    public static boolean touches(int index) {
+        int d = index / WIDE;
+        int a = index % WIDE - WIDE / 2;
+        return Math.abs(a) <= HOUSE / 2 || inWall(d);
     }
 
     /**
