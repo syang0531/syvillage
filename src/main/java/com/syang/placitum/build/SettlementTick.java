@@ -181,17 +181,19 @@ public final class SettlementTick {
             }
         }
         if (next.isEmpty()) {
-            // Before the rampart too. A walkway nobody can get onto is scenery, and the steps
-            // land on a stretch of wall that has to be standing for them to land on anyway.
+            next = WallPlan.plan(level, settlement, reach);
+        }
+        if (next.isEmpty()) {
+            // Last of all, and it has to be: the steps take the inner parapet out where they
+            // land, and the rampart knows nothing about them. Built first, they cut a doorway
+            // in a wall that did not exist yet and the wall then put the parapet back - a
+            // staircase ending in a wall, which is the one thing they exist not to be.
             for (Direction side : GatePlan.sides()) {
                 next = StairPlan.plan(level, settlement, side, reach);
                 if (next.isPresent()) {
                     break;
                 }
             }
-        }
-        if (next.isEmpty()) {
-            next = WallPlan.plan(level, settlement, reach);
         }
         if (next.isEmpty()) {
             reportIdle(level, settlement, reach);
