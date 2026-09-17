@@ -1,5 +1,6 @@
 package com.syang.placitum.build;
 
+import java.util.List;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -28,6 +29,22 @@ public final class Ground {
      * shallows. It is a free function taking two block states so that it can be tested without
      * a world, which is what the version that lived inside the world lookup could not be.
      */
+    /**
+     * The highest ground in a profile, or {@link #SKIP} if there is none.
+     *
+     * <p>What a structure's floor is levelled to. Digging into a slope reads as griefing and
+     * standing on stilts reads as a bug, so everything below it gets a foundation instead.
+     */
+    public static int highest(List<Integer> profile) {
+        int best = SKIP;
+        for (int ground : profile) {
+            if (ground != SKIP && (best == SKIP || ground > best)) {
+                best = ground;
+            }
+        }
+        return best;
+    }
+
     public static boolean underwater(BlockState ground, BlockState above) {
         return !ground.getFluidState().isEmpty() || !above.getFluidState().isEmpty();
     }

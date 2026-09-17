@@ -39,6 +39,12 @@ public final class BuildPlanner {
         if (recipe.template().equals(GatePlan.GATEHOUSE)) {
             return GatePlan.expand(recipe);
         }
+        if (recipe.template().equals(TowerPlan.TOWER)) {
+            return TowerPlan.expand(recipe);
+        }
+        if (recipe.template().equals(StairPlan.STEPS)) {
+            return StairPlan.expand(recipe);
+        }
         return List.of();
     }
 }

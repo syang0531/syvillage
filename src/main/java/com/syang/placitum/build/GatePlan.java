@@ -127,23 +127,12 @@ public final class GatePlan {
      */
     private static boolean standing(ServerLevel level, Craft craft, List<BlockPos> columns,
             List<Integer> profile) {
-        int floor = floorOf(profile);
+        int floor = Ground.highest(profile);
         BlockPos middle = columns.get(columns.size() / 2);
         // Asked for our own masonry rather than for "not air", so that a tree standing where the
         // deck will go does not read as a finished gatehouse.
         return level.getBlockState(new BlockPos(middle.getX(), floor + TALL - 1, middle.getZ()))
                 .is(craft.wall().getBlock());
-    }
-
-    /** One level for the whole gatehouse, taken as the highest ground under it. */
-    private static int floorOf(List<Integer> profile) {
-        int best = Ground.SKIP;
-        for (int ground : profile) {
-            if (ground != Ground.SKIP && (best == Ground.SKIP || ground > best)) {
-                best = ground;
-            }
-        }
-        return best;
     }
 
     public static Rotation rotationOf(Direction side) {
@@ -179,7 +168,7 @@ public final class GatePlan {
         if (profile.size() != columns.size()) {
             return List.of();
         }
-        int floor = floorOf(profile);
+        int floor = Ground.highest(profile);
         if (floor == Ground.SKIP) {
             return List.of();
         }

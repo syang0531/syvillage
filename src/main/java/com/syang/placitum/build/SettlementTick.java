@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -164,8 +165,26 @@ public final class SettlementTick {
             // Gates before the rampart: the wall leaves their ground alone, so a gatehouse can
             // go up whenever its own footprint is ready, and a town that gets one gate and three
             // gaps is further along than a town with a ring and no way through it.
-            for (net.minecraft.core.Direction side : GatePlan.sides()) {
+            for (Direction side : GatePlan.sides()) {
                 next = GatePlan.plan(level, settlement, side, reach);
+                if (next.isPresent()) {
+                    break;
+                }
+            }
+        }
+        if (next.isEmpty()) {
+            for (int[] corner : TowerPlan.corners()) {
+                next = TowerPlan.plan(level, settlement, corner, reach);
+                if (next.isPresent()) {
+                    break;
+                }
+            }
+        }
+        if (next.isEmpty()) {
+            // Before the rampart too. A walkway nobody can get onto is scenery, and the steps
+            // land on a stretch of wall that has to be standing for them to land on anyway.
+            for (Direction side : GatePlan.sides()) {
+                next = StairPlan.plan(level, settlement, side, reach);
                 if (next.isPresent()) {
                     break;
                 }
