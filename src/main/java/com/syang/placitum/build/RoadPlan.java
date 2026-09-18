@@ -68,8 +68,9 @@ public final class RoadPlan {
                             || !level.hasChunkAt(pos)) {
                         continue;
                     }
-                    if (TownPlan.atOrBeyondWall(pos, settlement) && !TownPlan.inArch(pos, bell)) {
-                        continue;   // side streets end at the wall; the bell's roads go through
+                    if (TownPlan.beyondTheLastRing(pos, settlement)
+                            && !TownPlan.inArch(pos, bell)) {
+                        continue;   // side streets end at the ring road; the bell's go through
                     }
                     if (!reach.street(pos)) {
                         // The far shore of a lake, or a shelf too high to climb. The street

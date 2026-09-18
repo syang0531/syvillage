@@ -231,18 +231,20 @@ public final class TownPlan {
     }
 
     /**
-     * Whether a column is on the wall line or outside it.
+     * Whether a column is outside the last closed ring of street.
      *
      * <p>Where the side streets stop. The outer ring's block-boundary streets used to run on
      * out to the ring's edge and the wall was built over them, twenty blocks apart all the way
-     * round. Only the bell's own two roads go through, under the gatehouses; every other
-     * street ends at the wall's inner face and the ring closes there. The line is arithmetic,
-     * so a street stops at it before there is a wall to stop at.
+     * round; stopped at the wall's inner face instead, they left three-block stubs poking out
+     * from the ring road towards the wall. So they end at the ring road, and the crossings
+     * there become corners and T-junctions. Only the bell's own two roads carry on, out
+     * through the gatehouses to the edge of the plan. The line is arithmetic, so a street
+     * stops at it before there is a wall to stop at.
      */
-    public static boolean atOrBeyondWall(BlockPos pos, Settlement settlement) {
+    public static boolean beyondTheLastRing(BlockPos pos, Settlement settlement) {
         int reach = Math.max(Math.abs(pos.getX() - settlement.center().getX()),
                 Math.abs(pos.getZ() - settlement.center().getZ()));
-        return reach >= wallInner(settlement);
+        return reach > phaseReach(maxPhase(settlement));
     }
 
     /**

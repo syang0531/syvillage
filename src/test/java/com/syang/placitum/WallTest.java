@@ -269,6 +269,22 @@ class WallTest {
     }
 
     @Test
+    @DisplayName("side streets end at the last ring road; the bell's own roads carry on")
+    void sideStreetsEndAtTheRing() {
+        Settlement town = town();
+        int ring = TownPlan.phaseReach(TownPlan.maxPhase(town));
+        // A side street's column: on a road line twenty blocks along the ring.
+        assertFalse(TownPlan.beyondTheLastRing(BELL.offset(20, 0, ring), town),
+                "on the ring road itself");
+        assertTrue(TownPlan.beyondTheLastRing(BELL.offset(20, 0, ring + 1), town),
+                "one past it is the stub that used to poke out towards the wall");
+        // The bell's road passes the same line; RoadPlan lets it through by inArch, not here.
+        assertTrue(TownPlan.inArch(BELL.offset(0, 0, ring + 1), BELL));
+        assertTrue(TownPlan.beyondTheLastRing(BELL.offset(0, 0, TownPlan.wallInner(town)), town),
+                "and the wall is beyond the ring, so the ring closes inside it");
+    }
+
+    @Test
     @DisplayName("the cross-section is the player's: parapet, three of walkway, parapet")
     void theCrossSectionIsTheSample() {
         // Two blocks of rampart were saved from a creative world; this is what they said. Body
