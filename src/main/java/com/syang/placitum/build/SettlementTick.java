@@ -12,6 +12,7 @@ import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Plot;
 import com.syang.placitum.data.PlotKind;
 import com.syang.placitum.data.Settlement;
+import net.minecraft.resources.Identifier;
 import com.syang.placitum.data.Stage;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -284,8 +285,10 @@ public final class SettlementTick {
             // Asked only once there is somewhere to put the answer. It counts villagers with an
             // entity scan over the claim, which is not a thing to do while deciding there is
             // nowhere to build.
-            return Need.next(level, settlement) == Need.Kind.HOUSE
-                    ? HousePlanner.plan(level, settlement, cell)
+            Need.Kind need = Need.next(level, settlement);
+            Optional<Identifier> building = Houses.pick(settlement.craft(), need, cell);
+            return building.isPresent()
+                    ? HousePlan.plan(level, settlement, cell, building.get())
                     : FarmPlan.plan(level, settlement, cell);
         }
         return Optional.empty();
@@ -302,6 +305,13 @@ public final class SettlementTick {
      * building site.
      */
     private static Settlement lay(ServerLevel level, Settlement settlement) {
+        // A job planned before a restart names a vanilla template nobody has loaded yet in
+        // this game. Expansion cannot ask the level, so the level is asked here, once.
+        for (BuildJob job : settlement.buildQueue()) {
+            if (Houses.isVanilla(job.recipe().template())) {
+                Template.ensure(level.getStructureManager(), job.recipe().template());
+            }
+        }
         if (settlement.buildQueue().isEmpty()) {
             return settlement;
         }
@@ -339,16 +349,16 @@ public final class SettlementTick {
         Identifier template = job.recipe().template();
         Settlement out = settlement.withBuildQueue(List.of());
 
-        if (template.equals(HousePlanner.COTTAGE) || template.equals(FarmPlan.FIELD)) {
-            boolean house = template.equals(HousePlanner.COTTAGE);
+        if (Houses.isVanilla(template) || template.equals(FarmPlan.FIELD)) {
+            boolean field = template.equals(FarmPlan.FIELD);
             CellPos cell = TownPlan.cellAt(job.recipe().anchor(), out.center());
             UUID plotId = UUID.nameUUIDFromBytes(("plot:" + job.id()).getBytes(
                     java.nio.charset.StandardCharsets.UTF_8));
             Map<UUID, Plot> plots = new LinkedHashMap<>(out.plots());
             plots.put(plotId, new Plot(plotId, cell, 1, 1,
-                    house ? job.recipe().rotation() : Rotation.NONE, template,
-                    house ? PlotKind.HOUSE : PlotKind.FARM,
-                    house ? CottagePlan.bedCount() : 0, List.of()));
+                    field ? Rotation.NONE : job.recipe().rotation(), template,
+                    field ? PlotKind.FARM : Houses.kindOf(template),
+                    field ? 0 : Template.of(template).bedCount(), List.of()));
             out = out.withPlots(plots).withGrid(out.grid().with(cell, CellState.BUILT));
         }
 

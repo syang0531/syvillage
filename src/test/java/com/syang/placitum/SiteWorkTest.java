@@ -5,9 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.placitum.build.Clearance;
-import com.syang.placitum.build.CottagePlan;
 import com.syang.placitum.build.Ground;
-import com.syang.placitum.build.HousePlanner;
+import com.syang.placitum.build.HousePlan;
 import com.syang.placitum.build.Spans;
 import com.syang.placitum.build.TownPlan;
 import com.syang.placitum.data.BuildOp;
@@ -49,8 +48,7 @@ class SiteWorkTest {
         // door onto their neighbour's back wall.
         for (int gz = -8; gz <= 7; gz++) {
             CellPos cell = new CellPos(0, gz);
-            Rotation rotation = HousePlanner.doorFacing(cell);
-            Direction door = CottagePlan.doorFacing(rotation);
+            Direction door = HousePlan.doorFacing(cell);
             assertTrue(door == Direction.NORTH || door == Direction.SOUTH,
                     "lot " + cell.toKey() + " has its door facing " + door);
 
@@ -69,10 +67,10 @@ class SiteWorkTest {
     void neighboursDoNotFaceEachOther() {
         // The pair sharing a block have one road between the two of them on each side, so they
         // have to face outward. If both faced the same way one of them is looking at a wall.
-        assertEquals(Rotation.NONE, HousePlanner.doorFacing(new CellPos(0, 0)));
-        assertEquals(Rotation.CLOCKWISE_180, HousePlanner.doorFacing(new CellPos(0, 1)));
-        assertEquals(Rotation.NONE, HousePlanner.doorFacing(new CellPos(0, -2)));
-        assertEquals(Rotation.CLOCKWISE_180, HousePlanner.doorFacing(new CellPos(0, -1)));
+        assertEquals(Direction.NORTH, HousePlan.doorFacing(new CellPos(0, 0)));
+        assertEquals(Direction.SOUTH, HousePlan.doorFacing(new CellPos(0, 1)));
+        assertEquals(Direction.NORTH, HousePlan.doorFacing(new CellPos(0, -2)));
+        assertEquals(Direction.SOUTH, HousePlan.doorFacing(new CellPos(0, -1)));
     }
 
     @Test

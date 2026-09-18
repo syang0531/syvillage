@@ -170,20 +170,10 @@ class TownPlanTest {
     }
 
     @Test
-    @DisplayName("the building sits inside its lot, evenly, with the margin left over")
-    void theBuildingFitsTheLot() {
+    @DisplayName("a lot is seven square and touches neither a road nor a lamp post")
+    void theLotIsClearOfTheStreet() {
         CellPos cell = new CellPos(2, -3);
-        BlockPos lot = TownPlan.lotCorner(cell, BELL);
-        BlockPos building = TownPlan.buildingCorner(cell, BELL);
-        int inset = (TownPlan.LOT - TownPlan.BUILDING) / 2;
-
-        assertEquals(lot.getX() + inset, building.getX());
-        assertEquals(lot.getZ() + inset, building.getZ());
-        assertTrue(building.getX() + TownPlan.BUILDING <= lot.getX() + TownPlan.LOT,
-                "the building runs off the east edge of its own lot");
-        assertTrue(building.getZ() + TownPlan.BUILDING <= lot.getZ() + TownPlan.LOT,
-                "the building runs off the south edge of its own lot");
-
+        assertEquals(TownPlan.LOT * TownPlan.LOT, TownPlan.lotColumns(cell, BELL).size());
         for (BlockPos column : TownPlan.lotColumns(cell, BELL)) {
             assertFalse(TownPlan.onRoad(column, BELL), "the lot overlaps a road at " + column);
             assertFalse(TownPlan.isLampPost(column, BELL),
@@ -203,8 +193,13 @@ class TownPlanTest {
                 CellPos cell = new CellPos(gx, gz);
                 assertEquals(cell, TownPlan.cellAt(TownPlan.lotCorner(cell, BELL), BELL),
                         "lot corner of " + cell.toKey());
-                assertEquals(cell, TownPlan.cellAt(TownPlan.buildingCorner(cell, BELL), BELL),
-                        "building corner of " + cell.toKey());
+                // A house's recipe is anchored wherever its turned box sits inside the lot,
+                // which is any column of it; the middle and the far corner stand for them all.
+                BlockPos lot = TownPlan.lotCorner(cell, BELL);
+                assertEquals(cell, TownPlan.cellAt(lot.offset(TownPlan.LOT / 2, 0, TownPlan.LOT / 2),
+                        BELL), "middle of " + cell.toKey());
+                assertEquals(cell, TownPlan.cellAt(lot.offset(TownPlan.LOT - 1, 0, TownPlan.LOT - 1),
+                        BELL), "far corner of " + cell.toKey());
             }
         }
     }

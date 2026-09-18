@@ -385,6 +385,11 @@ public final class GridSurvey {
     }
 
     /** Villager job sites. Their presence is the strongest signal of all: someone works here. */
+    /** Whether a villager could take a job at this block. */
+    public static boolean isJobSite(BlockState state) {
+        return isWorkstation(state);
+    }
+
     private static boolean isWorkstation(BlockState state) {
         return state.is(Blocks.COMPOSTER) || state.is(Blocks.BARREL)
                 || state.is(Blocks.SMOKER) || state.is(Blocks.BLAST_FURNACE)

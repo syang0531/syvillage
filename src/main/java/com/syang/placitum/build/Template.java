@@ -4,26 +4,41 @@ import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.Craft;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.FenceBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.JigsawBlock;
 import net.minecraft.world.level.block.StairBlock;
+import net.minecraft.world.level.block.state.properties.BedPart;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import org.jspecify.annotations.Nullable;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 
 /**
  * A structure built by hand in a creative world, saved with a structure block, and shipped
@@ -51,32 +66,96 @@ public final class Template {
 
     private static final Map<String, Template> LOADED = new ConcurrentHashMap<>();
 
-    private final String name;
+    private final Identifier id;
     private final int sizeX;
     private final int sizeY;
     private final int sizeZ;
     private final List<Piece> pieces;
+    private final @Nullable Direction front;
 
-    private Template(String name, int sizeX, int sizeY, int sizeZ, List<Piece> pieces) {
-        this.name = name;
+    private Template(Identifier id, int sizeX, int sizeY, int sizeZ, List<Piece> pieces,
+            @Nullable Direction front) {
+        this.id = id;
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         this.sizeZ = sizeZ;
         this.pieces = List.copyOf(pieces);
+        this.front = front;
     }
 
-    /** The template of that name from the jar. Loaded on first use, never again. */
+    /** One of ours, by name: {@code data/placitum/structure/<name>.nbt}. */
     public static Template of(String name) {
-        return LOADED.computeIfAbsent(name, Template::read);
+        return of(Identifier.fromNamespaceAndPath("placitum", name));
     }
 
-    private static Template read(String name) {
-        String path = "/data/placitum/structure/" + name + ".nbt";
+    /**
+     * A template already loaded, ours or vanilla's.
+     *
+     * <p>Ours are read from our own jar on first use. Vanilla's village buildings are in the
+     * game's jar, which is another module: its packages are closed to us, so they cannot be
+     * read as a resource - and they are not copied into our jar either, being Mojang's. They
+     * are read through the game's own {@link StructureTemplateManager} by {@link #ensure} at
+     * the two places that have a level (planning, and laying), and cached; after that
+     * expansion finds them here and stays pure.
+     */
+    public static Template of(Identifier id) {
+        Template cached = LOADED.get(id.toString());
+        if (cached != null) {
+            return cached;
+        }
+        if (!id.getNamespace().equals("placitum")) {
+            throw new IllegalStateException(id + " has not been loaded; Template.ensure first");
+        }
+        return LOADED.computeIfAbsent(id.toString(), key -> read(id));
+    }
+
+    /** Loads a vanilla template through the game, if it is not loaded already. */
+    public static Template ensure(StructureTemplateManager manager, Identifier id) {
+        Template cached = LOADED.get(id.toString());
+        if (cached != null) {
+            return cached;
+        }
+        StructureTemplate template = manager.get(id).orElseThrow(
+                () -> new IllegalStateException("the game has no structure " + id));
+        return LOADED.computeIfAbsent(id.toString(),
+                key -> parse(id, template.save(new CompoundTag())));
+    }
+
+    /**
+     * Loads a template straight out of a jar. For tests, which have no game to ask: the
+     * game's jar is on their classpath, and this reads the data from it in place.
+     */
+    public static Template loadFromJar(Path jar, Identifier id) {
+        String entry = "data/" + id.getNamespace() + "/structure/" + id.getPath() + ".nbt";
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            ZipEntry e = zip.getEntry(entry);
+            if (e == null) {
+                throw new IllegalStateException("no " + entry + " in " + jar);
+            }
+            try (InputStream in = zip.getInputStream(e)) {
+                CompoundTag nbt = NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap());
+                return LOADED.computeIfAbsent(id.toString(), key -> parse(id, nbt));
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("could not read " + entry + " from " + jar, ex);
+        }
+    }
+
+    private static Template read(Identifier id) {
+        String path = "/data/" + id.getNamespace() + "/structure/" + id.getPath() + ".nbt";
         try (InputStream in = Template.class.getResourceAsStream(path)) {
             if (in == null) {
                 throw new IllegalStateException("no template at " + path);
             }
-            CompoundTag nbt = NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap());
+            return parse(id, NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap()));
+        } catch (IOException e) {
+            throw new IllegalStateException("could not read template " + path, e);
+        }
+    }
+
+    /** A template from its NBT, whichever way the NBT arrived. */
+    private static Template parse(Identifier id, CompoundTag nbt) {
+        {
             ListTag size = nbt.getListOrEmpty("size");
             ListTag palette = nbt.getListOrEmpty("palette");
             List<BlockState> states = new ArrayList<>(palette.size());
@@ -85,26 +164,92 @@ public final class Template {
                         palette.getCompoundOrEmpty(i)));
             }
             List<Piece> pieces = new ArrayList<>();
+            Direction front = null;
             ListTag blocks = nbt.getListOrEmpty("blocks");
             for (int i = 0; i < blocks.size(); i++) {
                 CompoundTag block = blocks.getCompoundOrEmpty(i);
                 ListTag pos = block.getListOrEmpty("pos");
                 BlockState state = states.get(block.getIntOr("state", 0));
-                if (state.isAir()) {
-                    continue;   // a structure block saves the air too; we do not build it
+                if (state.is(Blocks.JIGSAW)) {
+                    // A jigsaw is village generation's connector. What it turns into once the
+                    // village is generated is written in it, and the one named
+                    // building_entrance also says which way the building faces - which is the
+                    // table of forty-two door directions nobody has to write by hand.
+                    CompoundTag meta = block.getCompoundOrEmpty("nbt");
+                    if (meta.getStringOr("name", "").equals("minecraft:building_entrance")) {
+                        front = state.getValue(JigsawBlock.ORIENTATION).front();
+                    }
+                    state = finalState(meta.getStringOr("final_state", "minecraft:air"));
+                }
+                if (state.isAir() || state.is(Blocks.STRUCTURE_VOID)) {
+                    continue;   // saved air, or "leave the world alone here": we build neither
                 }
                 pieces.add(new Piece(pos.getIntOr(0, 0), pos.getIntOr(1, 0), pos.getIntOr(2, 0),
                         state));
             }
-            return new Template(name, size.getIntOr(0, 0), size.getIntOr(1, 0),
-                    size.getIntOr(2, 0), pieces);
-        } catch (IOException e) {
-            throw new IllegalStateException("could not read template " + path, e);
+            return new Template(id, size.getIntOr(0, 0), size.getIntOr(1, 0),
+                    size.getIntOr(2, 0), pieces, front);
         }
     }
 
+    private static BlockState finalState(String text) {
+        try {
+            return BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, text, false)
+                    .blockState();
+        } catch (CommandSyntaxException e) {
+            throw new IllegalStateException("a jigsaw's final_state does not parse: " + text, e);
+        }
+    }
+
+    public Identifier id() {
+        return id;
+    }
+
     public String name() {
-        return name;
+        return id.getPath();
+    }
+
+    /**
+     * Which way the building faces, from its {@code building_entrance} jigsaw; null if it has
+     * none. Ours have none - they are placed by where the wall is, not by a street.
+     */
+    public @Nullable Direction front() {
+        return front;
+    }
+
+    /**
+     * How many blocks above the ground the lowest layer goes.
+     *
+     * <p>One for ours: a structure block save starts at the first block standing on the grass.
+     * None for vanilla's village buildings, which are authored with the floor on layer 0 and
+     * placed so that layer replaces the surface - the door is a block up, the doorstep is a
+     * stair at ground level. Placed our way they would stand a block too high, with a step up
+     * to a step up.
+     */
+    public int lift() {
+        return id.getNamespace().equals("minecraft") ? 0 : 1;
+    }
+
+    /** How many beds, counted by their heads. What a lot of it is worth to {@code Need}. */
+    public int bedCount() {
+        int beds = 0;
+        for (Piece piece : pieces) {
+            if (piece.state().getBlock() instanceof BedBlock
+                    && piece.state().getValue(BedBlock.PART) == BedPart.HEAD) {
+                beds++;
+            }
+        }
+        return beds;
+    }
+
+    /** Whether the building comes with a workstation a villager could take a job at. */
+    public boolean hasJobBlock() {
+        for (Piece piece : pieces) {
+            if (GridSurvey.isJobSite(piece.state())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public int sizeX() {
@@ -199,8 +344,13 @@ public final class Template {
         boolean[][] seen = new boolean[sizeX][sizeZ];
         for (Piece piece : pieces) {
             Block block = piece.state().getBlock();
-            if (piece.y() == 0 && (block instanceof StairBlock || block instanceof FenceBlock
-                    || block instanceof FenceGateBlock)) {
+            boolean threshold = piece.y() == 0 && (block instanceof StairBlock
+                    || block instanceof FenceBlock || block instanceof FenceGateBlock);
+            // A vanilla house's door stands on its floor, which is layer 0; the door itself is
+            // on layer 1. It is a way in all the same.
+            boolean door = piece.y() <= 1 && block instanceof DoorBlock
+                    && piece.state().getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER;
+            if (threshold || door) {
                 seen[piece.x()][piece.z()] = true;
             }
         }
@@ -241,7 +391,7 @@ public final class Template {
             }
         }
         if (best == null) {
-            throw new IllegalStateException(name + " has no column solid from the ground");
+            throw new IllegalStateException(id + " has no column solid from the ground");
         }
         return best;
     }
@@ -286,6 +436,65 @@ public final class Template {
     public static BlockPos columnAt(BlockPos bell, int[] origin, Rotation rotation, int x, int z) {
         int[] v = turn(origin[0] + x, origin[1] + z, rotation);
         return new BlockPos(bell.getX() + v[0], bell.getY(), bell.getZ() + v[1]);
+    }
+
+    // ---- turned inside its own box, for a template placed by its corner rather than about
+    // ---- the bell: a house on a lot.
+
+    /** The turned box's width along x. A quarter turn swaps the two. */
+    public int turnedWidth(Rotation rotation) {
+        return rotation == Rotation.CLOCKWISE_90 || rotation == Rotation.COUNTERCLOCKWISE_90
+                ? sizeZ : sizeX;
+    }
+
+    public int turnedDepth(Rotation rotation) {
+        return rotation == Rotation.CLOCKWISE_90 || rotation == Rotation.COUNTERCLOCKWISE_90
+                ? sizeX : sizeZ;
+    }
+
+    /**
+     * A template column turned within the box, so the turned box still starts at (0, 0).
+     *
+     * <p>The same turn as {@link #turn}, then shifted back into the corner: clockwise takes
+     * north to east, which for a box means the west edge becomes the north edge.
+     */
+    public int[] turnInBox(int x, int z, Rotation rotation) {
+        return switch (rotation) {
+            case NONE -> new int[] {x, z};
+            case CLOCKWISE_90 -> new int[] {sizeZ - 1 - z, x};
+            case CLOCKWISE_180 -> new int[] {sizeX - 1 - x, sizeZ - 1 - z};
+            case COUNTERCLOCKWISE_90 -> new int[] {z, sizeX - 1 - x};
+        };
+    }
+
+    /** Where one template column lands, for a template placed by its turned box's corner. */
+    public BlockPos columnAt(BlockPos origin, Rotation rotation, int x, int z) {
+        int[] v = turnInBox(x, z, rotation);
+        return new BlockPos(origin.getX() + v[0], origin.getY(), origin.getZ() + v[1]);
+    }
+
+    /** Every occupied column in the world, in {@link #columns} order. */
+    public List<BlockPos> columnsAt(BlockPos origin, Rotation rotation) {
+        List<BlockPos> out = new ArrayList<>();
+        for (int[] column : columns()) {
+            out.add(columnAt(origin, rotation, column[0], column[1]));
+        }
+        return out;
+    }
+
+    /**
+     * The template's blocks in the world, placed by its turned box's corner.
+     *
+     * @param base the world y its lowest layer goes at
+     */
+    public List<BuildOp> placeAt(BlockPos origin, Rotation rotation, Craft craft, int base) {
+        List<BuildOp> ops = new ArrayList<>(pieces.size());
+        for (Piece piece : pieces) {
+            int[] v = turnInBox(piece.x(), piece.z(), rotation);
+            ops.add(new BuildOp(new BlockPos(origin.getX() + v[0], base + piece.y(),
+                    origin.getZ() + v[1]), remap(piece.state().rotate(rotation), craft)));
+        }
+        return ops;
     }
 
     /**

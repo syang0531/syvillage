@@ -21,8 +21,8 @@ public final class BuildPlanner {
     private BuildPlanner() {}
 
     public static List<BuildOp> expand(BuildRecipe recipe) {
-        if (recipe.template().equals(HousePlanner.COTTAGE)) {
-            return CottagePlan.expand(recipe);
+        if (Houses.isVanilla(recipe.template())) {
+            return HousePlan.expand(recipe);
         }
         if (recipe.template().equals(RoadPlan.STREET)) {
             return RoadPlan.expand(recipe);

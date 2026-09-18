@@ -53,9 +53,6 @@ public final class TownPlan {
     /** One lot. A building uses the middle {@link #BUILDING} of it; a field uses all of it. */
     public static final int LOT = 7;
 
-    /** What a building may occupy, leaving the lot's edge for eaves and steps. */
-    public static final int BUILDING = 5;
-
     /** Lots between one road and the next, per axis. Four to a city block. */
     public static final int LOTS_PER_BLOCK = 2;
 
@@ -439,12 +436,6 @@ public final class TownPlan {
     public static BlockPos lotCorner(CellPos cell, BlockPos bell) {
         return new BlockPos(lotStart(cell.gx(), bell.getX()), bell.getY(),
                 lotStart(cell.gz(), bell.getZ()));
-    }
-
-    /** North-west corner of the 5x5 a building may stand on, inside the lot. */
-    public static BlockPos buildingCorner(CellPos cell, BlockPos bell) {
-        int inset = (LOT - BUILDING) / 2;
-        return lotCorner(cell, bell).offset(inset, 0, inset);
     }
 
     /** Every column of a lot, in a fixed order. */
