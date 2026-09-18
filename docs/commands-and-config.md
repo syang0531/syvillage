@@ -51,7 +51,7 @@ Steinerstead is not building anything
   lots out to phase 3, street to 99 blocks: 251 steep, 3 ok, 1 taken, 1 water
 ```
 
-부지마다 이유가 하나씩 붙는다.
+부지마다 이유가 하나씩 붙는다. 명령어 출력과 종 리포트는 전부 번역 키(`placitum.command.*`, `placitum.report.*`, `placitum.verdict.*`)라 한국어 클라이언트에서는 한국어로 나온다 — 아래 표의 코드 이름은 영어 키다.
 
 | | 뜻 | 플레이어가 할 수 있는 것 |
 |---|---|---|

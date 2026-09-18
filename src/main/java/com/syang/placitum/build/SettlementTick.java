@@ -251,7 +251,7 @@ public final class SettlementTick {
                         + " {} of ground reach a street. Lots out to phase {}: {}",
                 settlement.name(), reach.streetSize(), reach.size(),
                 TownPlan.maxPhase(settlement),
-                Lots.describe(Lots.tally(level, settlement, reach)));
+                Lots.describeForLog(Lots.tally(level, settlement, reach)));
         if (!settlement.walled()) {
             return;
         }

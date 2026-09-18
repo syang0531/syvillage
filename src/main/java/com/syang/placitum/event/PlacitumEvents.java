@@ -127,15 +127,14 @@ public final class PlacitumEvents {
     private static Component describe(Registration.Result result) {
         return switch (result) {
             case Registration.Result.Success success -> Component
-                    .literal("Registered " + success.settlement().name()
-                            + " - shift-click the bell again to see what it is building")
+                    .translatable("placitum.bell.registered", success.settlement().name())
                     .withStyle(ChatFormatting.GREEN);
             case Registration.Result.AlreadyRegistered already -> Component
-                    .literal("This bell already belongs to " + already.name())
+                    .translatable("placitum.bell.already_registered", already.name())
                     .withStyle(ChatFormatting.YELLOW);
             case Registration.Result.Overlaps overlaps -> Component
-                    .literal("Too close to " + overlaps.otherName() + " - " + overlaps.distance()
-                            + " blocks away, " + overlaps.required() + " required")
+                    .translatable("placitum.bell.too_close", overlaps.otherName(),
+                            overlaps.distance(), overlaps.required())
                     .withStyle(ChatFormatting.RED);
         };
     }

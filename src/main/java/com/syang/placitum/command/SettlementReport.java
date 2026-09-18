@@ -20,6 +20,9 @@ import net.minecraft.server.level.ServerLevel;
  * <p>Shared between {@code /placitum info} and shift-right-clicking the bell, because they are
  * the same question asked two ways, and a player standing at the bell should not have to know a
  * settlement's id to be told what it is doing.
+ *
+ * <p>Every line is a translation key under {@code placitum.report.*}: this is the face of
+ * principle 12, and a player who reads Korean should not be told "3 steep, 1 water".
  */
 public final class SettlementReport {
 
@@ -39,34 +42,38 @@ public final class SettlementReport {
     public static List<Component> of(Settlement settlement, ServerLevel level) {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal(settlement.name()).withStyle(ChatFormatting.GOLD));
-        lines.add(Component.literal("  centre " + settlement.center().toShortString() + " in "
-                + settlement.dimension().identifier()));
+        lines.add(Component.translatable("placitum.report.centre",
+                settlement.center().toShortString(), settlement.dimension().identifier().toString()));
         long fields = settlement.plots().values().stream()
                 .filter(p -> p.kind() == PlotKind.FARM).count();
-        lines.add(Component.literal("  " + settlement.houseCount() + " house(s), " + fields
-                + " field(s), " + settlement.grid().countOf(CellState.ROAD) + " road cell(s)"));
-        lines.add(Component.literal("  " + settlement.stage().getSerializedName()
-                + ", built in the " + settlement.craft().getSerializedName() + " style"));
+        lines.add(Component.translatable("placitum.report.counts", settlement.houseCount(), fields,
+                settlement.grid().countOf(CellState.ROAD)));
+        lines.add(Component.translatable("placitum.report.stage",
+                Component.translatable("placitum.stage." + settlement.stage().getSerializedName()),
+                Component.translatable("placitum.craft." + settlement.craft().getSerializedName())));
 
         if (settlement.buildQueue().isEmpty()) {
-            lines.add(Component.literal("  building nothing").withStyle(ChatFormatting.GRAY));
+            lines.add(Component.translatable("placitum.report.building_nothing")
+                    .withStyle(ChatFormatting.GRAY));
             if (level != null) {
-                lines.add(Component.literal("  lots out to phase "
-                        + TownPlan.maxPhase(settlement) + ", street to "
-                        + TownPlan.reachOf(settlement, TownPlan.outerPhase(settlement))
-                        + " blocks: "
-                        + Lots.describe(Lots.tally(level, settlement,
-                                Reach.from(level, settlement,
-                                        TownPlan.outerPhase(settlement)))))
+                lines.add(Component.translatable("placitum.report.lots",
+                        TownPlan.maxPhase(settlement),
+                        TownPlan.reachOf(settlement, TownPlan.outerPhase(settlement)),
+                        Lots.describe(Lots.tally(level, settlement,
+                                Reach.from(level, settlement, TownPlan.outerPhase(settlement)))))
                         .withStyle(ChatFormatting.GRAY));
             }
         }
         for (BuildJob job : settlement.buildQueue()) {
-            int total = BuildPlanner.expand(job.recipe()).size();
-            lines.add(Component.literal("  building " + job.recipe().template().getPath() + "  "
-                    + job.progress() + "/" + total + " at "
-                    + job.recipe().anchor().toShortString()));
+            lines.add(jobLine(job));
         }
         return List.copyOf(lines);
+    }
+
+    /** One job of the queue: what, how far along, and where. */
+    public static Component jobLine(BuildJob job) {
+        int total = BuildPlanner.expand(job.recipe()).size();
+        return Component.translatable("placitum.report.building", job.recipe().template().getPath(),
+                job.progress(), total, job.recipe().anchor().toShortString());
     }
 }

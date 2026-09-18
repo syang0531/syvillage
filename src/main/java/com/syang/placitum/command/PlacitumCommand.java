@@ -4,10 +4,12 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.syang.placitum.build.BuildPlanner;
 import com.syang.placitum.build.GridMap;
 import com.syang.placitum.build.GridSurvey;
 import com.syang.placitum.build.LampPlan;
+import com.syang.placitum.build.Lots;
+import com.syang.placitum.build.Reach;
+import com.syang.placitum.build.TownPlan;
 import com.syang.placitum.data.BuildJob;
 import com.syang.placitum.data.CellPos;
 import com.syang.placitum.data.CellState;
@@ -32,6 +34,9 @@ import net.minecraft.server.level.ServerLevel;
  * food, morale, defence rating, growth - no longer exists to report. What is left answers the
  * two questions a player can actually act on: what is this settlement building, and why is it
  * not building anything.
+ *
+ * <p>Everything a player reads is a translation key under {@code placitum.command.*}; the
+ * English lives in {@code en_us.json} with the rest.
  */
 public final class PlacitumCommand {
 
@@ -98,7 +103,7 @@ public final class PlacitumCommand {
         ServerLevel level = source.getLevel();
         BlockPos bell = nearestBell(level, BlockPos.containing(source.getPosition()));
         if (bell == null) {
-            source.sendFailure(Component.literal("No bell within 32 blocks"));
+            source.sendFailure(Component.translatable("placitum.command.no_bell"));
             return 0;
         }
         SettlementManager manager = SettlementManager.get(source.getServer());
@@ -106,13 +111,13 @@ public final class PlacitumCommand {
 
         switch (result) {
             case Registration.Result.Success success -> source.sendSuccess(() ->
-                    Component.literal("Registered " + success.settlement().name())
-                            .withStyle(ChatFormatting.GREEN), true);
+                    Component.translatable("placitum.command.registered",
+                            success.settlement().name()).withStyle(ChatFormatting.GREEN), true);
             case Registration.Result.AlreadyRegistered already -> source.sendFailure(
-                    Component.literal("This bell already belongs to " + already.name()));
+                    Component.translatable("placitum.command.already_registered", already.name()));
             case Registration.Result.Overlaps overlaps -> source.sendFailure(
-                    Component.literal(overlaps.otherName() + " is only " + overlaps.distance()
-                            + " blocks away; " + overlaps.required() + " is the minimum"));
+                    Component.translatable("placitum.command.too_close", overlaps.otherName(),
+                            overlaps.distance(), overlaps.required()));
         }
         return result instanceof Registration.Result.Success ? 1 : 0;
     }
@@ -121,20 +126,20 @@ public final class PlacitumCommand {
         SettlementManager manager = SettlementManager.get(source.getServer());
         Settlement settlement = resolve(manager, rawId).orElse(null);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            source.sendFailure(Component.translatable("placitum.command.no_such_settlement", rawId));
             return 0;
         }
         String name = settlement.name();
         manager.remove(settlement.id());
-        source.sendSuccess(() -> Component.literal("Unregistered " + name
-                + " - the buildings stay where they are"), true);
+        source.sendSuccess(() -> Component.translatable("placitum.command.unregistered", name),
+                true);
         return 1;
     }
 
     private static int list(CommandSourceStack source) {
         SettlementManager manager = SettlementManager.get(source.getServer());
         if (manager.listed().isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No settlements registered")
+            source.sendSuccess(() -> Component.translatable("placitum.command.none_registered")
                     .withStyle(ChatFormatting.GRAY), false);
             return 0;
         }
@@ -149,7 +154,7 @@ public final class PlacitumCommand {
         SettlementManager manager = SettlementManager.get(source.getServer());
         Settlement settlement = resolve(manager, rawId).orElse(null);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            source.sendFailure(Component.translatable("placitum.command.no_such_settlement", rawId));
             return 0;
         }
         for (Component line : SettlementReport.of(settlement,
@@ -164,29 +169,24 @@ public final class PlacitumCommand {
         SettlementManager manager = SettlementManager.get(source.getServer());
         Settlement settlement = resolve(manager, rawId).orElse(null);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            source.sendFailure(Component.translatable("placitum.command.no_such_settlement", rawId));
             return 0;
         }
         if (settlement.buildQueue().isEmpty()) {
             ServerLevel where = source.getServer().getLevel(settlement.dimension());
-            source.sendSuccess(() -> Component.literal(settlement.name()
-                    + " is not building anything").withStyle(ChatFormatting.GRAY), false);
+            source.sendSuccess(() -> Component.translatable("placitum.command.not_building",
+                    settlement.name()).withStyle(ChatFormatting.GRAY), false);
             if (where != null) {
-                source.sendSuccess(() -> Component.literal("  lots out to phase "
-                        + com.syang.placitum.build.TownPlan.maxPhase(settlement) + ": "
-                        + com.syang.placitum.build.Lots.describe(
-                                com.syang.placitum.build.Lots.tally(where, settlement,
-                                        com.syang.placitum.build.Reach.from(where, settlement,
-                                                com.syang.placitum.build.TownPlan.outerPhase(
-                                                        settlement))))), false);
+                source.sendSuccess(() -> Component.translatable("placitum.command.lots",
+                        TownPlan.maxPhase(settlement),
+                        Lots.describe(Lots.tally(where, settlement,
+                                Reach.from(where, settlement, TownPlan.outerPhase(settlement))))),
+                        false);
             }
             return 0;
         }
         for (BuildJob job : settlement.buildQueue()) {
-            int total = BuildPlanner.expand(job.recipe()).size();
-            source.sendSuccess(() -> Component.literal("  "
-                    + job.recipe().template().getPath() + "  " + job.progress() + "/" + total
-                    + " at " + job.recipe().anchor().toShortString()), false);
+            source.sendSuccess(() -> SettlementReport.jobLine(job), false);
         }
         return settlement.buildQueue().size();
     }
@@ -202,23 +202,22 @@ public final class PlacitumCommand {
         SettlementManager manager = SettlementManager.get(source.getServer());
         Settlement settlement = resolve(manager, rawId).orElse(null);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            source.sendFailure(Component.translatable("placitum.command.no_such_settlement", rawId));
             return 0;
         }
         ServerLevel level = source.getServer().getLevel(settlement.dimension());
         if (level == null) {
-            source.sendFailure(Component.literal("That dimension is not loaded"));
+            source.sendFailure(Component.translatable("placitum.command.dimension_not_loaded"));
             return 0;
         }
         var dark = LampPlan.darkPosts(level, settlement);
         if (dark.isEmpty()) {
-            source.sendSuccess(() -> Component.literal(settlement.name()
-                            + " is lit: nothing can spawn on its ground")
-                    .withStyle(ChatFormatting.GREEN), false);
+            source.sendSuccess(() -> Component.translatable("placitum.command.lit",
+                    settlement.name()).withStyle(ChatFormatting.GREEN), false);
             return 0;
         }
-        source.sendSuccess(() -> Component.literal(dark.size() + " unlit lamp post(s) in "
-                + settlement.name()).withStyle(ChatFormatting.RED), false);
+        source.sendSuccess(() -> Component.translatable("placitum.command.unlit", dark.size(),
+                settlement.name()).withStyle(ChatFormatting.RED), false);
         for (int i = 0; i < Math.min(8, dark.size()); i++) {
             BlockPos where = dark.get(i);
             source.sendSuccess(() -> Component.literal("  " + where.toShortString()), false);
@@ -230,7 +229,7 @@ public final class PlacitumCommand {
         SettlementManager manager = SettlementManager.get(source.getServer());
         Settlement settlement = resolve(manager, rawId).orElse(null);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            source.sendFailure(Component.translatable("placitum.command.no_such_settlement", rawId));
             return 0;
         }
         for (Component line : GridMap.render(settlement)) {
@@ -243,25 +242,24 @@ public final class PlacitumCommand {
         SettlementManager manager = SettlementManager.get(source.getServer());
         Settlement settlement = resolve(manager, rawId).orElse(null);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            source.sendFailure(Component.translatable("placitum.command.no_such_settlement", rawId));
             return 0;
         }
         ServerLevel level = source.getServer().getLevel(settlement.dimension());
         if (level == null) {
-            source.sendFailure(Component.literal("That dimension is not loaded"));
+            source.sendFailure(Component.translatable("placitum.command.dimension_not_loaded"));
             return 0;
         }
         GridSurvey.Result result = GridSurvey.run(level, settlement);
         Settlement updated = settlement.withGrid(result.grid());
         manager.put(updated);
 
-        source.sendSuccess(() -> Component.literal("Surveyed " + result.scanned() + " cell(s)"),
-                false);
+        source.sendSuccess(() -> Component.translatable("placitum.command.surveyed",
+                result.scanned()), false);
         if (!result.complete()) {
             // Saying "surveyed" and stopping would make a half-read grid look like a whole one.
-            source.sendSuccess(() -> Component.literal("  " + result.skipped()
-                            + " cell(s) skipped - those chunks are not loaded")
-                    .withStyle(ChatFormatting.YELLOW), false);
+            source.sendSuccess(() -> Component.translatable("placitum.command.skipped",
+                    result.skipped()).withStyle(ChatFormatting.YELLOW), false);
         }
         for (Component line : GridMap.render(updated)) {
             source.sendSuccess(() -> line, false);
@@ -275,16 +273,15 @@ public final class PlacitumCommand {
         SettlementManager manager = SettlementManager.get(source.getServer());
         Settlement settlement = resolve(manager, rawId).orElse(null);
         if (settlement == null) {
-            source.sendFailure(Component.literal("No such settlement: " + rawId));
+            source.sendFailure(Component.translatable("placitum.command.no_such_settlement", rawId));
             return 0;
         }
         CellPos cell = new CellPos(gx, gz);
         manager.put(settlement.withGrid(settlement.grid().with(cell,
                 block ? CellState.FORBIDDEN : CellState.FREE)));
-        source.sendSuccess(() -> Component.literal((block ? "Blocked " : "Unblocked ")
-                + cell.toKey() + " - world position "
-                + com.syang.placitum.build.TownPlan.lotCorner(cell, settlement.center())
-                        .toShortString()), true);
+        source.sendSuccess(() -> Component.translatable(
+                block ? "placitum.command.blocked" : "placitum.command.unblocked", cell.toKey(),
+                TownPlan.lotCorner(cell, settlement.center()).toShortString()), true);
         return 1;
     }
 

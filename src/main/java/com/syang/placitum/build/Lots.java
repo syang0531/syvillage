@@ -7,6 +7,9 @@ import com.syang.placitum.data.Plot;
 import com.syang.placitum.data.Settlement;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Locale;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 
@@ -144,13 +147,27 @@ public final class Lots {
     }
 
     /** The tally as one line, reasons only, commonest first. */
-    public static String describe(Map<Verdict, Integer> counts) {
+    public static Component describe(Map<Verdict, Integer> counts) {
+        MutableComponent out = Component.empty();
+        boolean first = true;
+        for (Map.Entry<Verdict, Integer> e : counts.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue())).toList()) {
+            out.append(Component.literal((first ? "" : ", ") + e.getValue() + " "))
+                    .append(Component.translatable("placitum.verdict."
+                            + e.getKey().name().toLowerCase(Locale.ROOT)));
+            first = false;
+        }
+        return first ? Component.translatable("placitum.verdict.none") : out;
+    }
+
+    /** The same tally as plain English, for the log. */
+    public static String describeForLog(Map<Verdict, Integer> counts) {
         StringBuilder out = new StringBuilder();
         counts.entrySet().stream()
                 .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
                 .forEach(e -> out.append(out.isEmpty() ? "" : ", ")
                         .append(e.getValue()).append(' ')
-                        .append(e.getKey().name().toLowerCase(java.util.Locale.ROOT)));
+                        .append(e.getKey().name().toLowerCase(Locale.ROOT)));
         return out.isEmpty() ? "no lots in the plan at all" : out.toString();
     }
 

@@ -35,6 +35,7 @@ class GridMapTest {
     static void bootstrap() {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
+        TestLanguage.inject();
     }
 
     private static String render(Settlement settlement) {

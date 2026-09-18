@@ -33,11 +33,9 @@ public final class GridMap {
         List<Component> lines = new ArrayList<>();
 
         int side = grid.size() * PlotGrid.LOT_STRIDE;
-        lines.add(Component.literal(settlement.name() + " - plot grid "
-                        + grid.size() + "x" + grid.size() + " cells of "
-                        + TownPlan.LOT + "x" + TownPlan.LOT + " lots"
-                        + " = " + side + "x" + side + " blocks, centred on "
-                        + grid.origin().toShortString())
+        lines.add(Component.translatable("placitum.grid.header", settlement.name(), grid.size(),
+                        grid.size(), TownPlan.LOT, TownPlan.LOT, side, side,
+                        grid.origin().toShortString())
                 .withStyle(ChatFormatting.GOLD));
 
         for (int gz = -radius; gz <= radius; gz++) {
@@ -53,8 +51,7 @@ public final class GridMap {
         }
 
         lines.add(tally(grid));
-        lines.add(Component.literal(
-                        "  . free   # built   = road   x blocked   ! forbidden   o reserved")
+        lines.add(Component.translatable("placitum.grid.legend")
                 .withStyle(ChatFormatting.DARK_GRAY));
         return lines;
     }
@@ -72,16 +69,17 @@ public final class GridMap {
         int surveyed = grid.cells().size();
         int unknown = total - surveyed;
 
-        String text = "  " + free + " free, " + grid.countOf(CellState.BUILT) + " built, "
-                + grid.countOf(CellState.ROAD) + " road, "
-                + grid.countOf(CellState.BLOCKED) + " blocked"
-                + (grid.countOf(CellState.FORBIDDEN) > 0
-                        ? ", " + grid.countOf(CellState.FORBIDDEN) + " forbidden" : "")
-                + (unknown > 0 ? ", " + unknown + " never surveyed" : "")
-                + String.format(java.util.Locale.ROOT, "  (%.0f%% free)",
-                        100.0 * free / Math.max(1, total));
-        return Component.literal(text).withStyle(
-                unknown > 0 ? ChatFormatting.YELLOW : ChatFormatting.WHITE);
+        Component forbidden = grid.countOf(CellState.FORBIDDEN) > 0
+                ? Component.translatable("placitum.grid.tally.forbidden",
+                        grid.countOf(CellState.FORBIDDEN))
+                : Component.empty();
+        Component unsurveyed = unknown > 0
+                ? Component.translatable("placitum.grid.tally.unsurveyed", unknown)
+                : Component.empty();
+        return Component.translatable("placitum.grid.tally", free, grid.countOf(CellState.BUILT),
+                        grid.countOf(CellState.ROAD), grid.countOf(CellState.BLOCKED), forbidden,
+                        unsurveyed, Math.round(100.0 * free / Math.max(1, total)))
+                .withStyle(unknown > 0 ? ChatFormatting.YELLOW : ChatFormatting.WHITE);
     }
 
     private static String glyph(CellState state) {
