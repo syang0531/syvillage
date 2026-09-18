@@ -58,6 +58,7 @@ Steinerstead is not building anything
 | `ok` | 지을 수 있다 | (곧 지어진다) |
 | `taken` | 이미 지었다 | |
 | `forbidden` | `plot block`으로 막았다 | |
+| `waiting_for_a_head` | 아직 촌장이 없다 — 마을은 가로등만 켠다 | 촌장의 탁자를 놓고, 노는 주민이 잡게 |
 | `unloaded` | 청크가 안 떠 있다 | 가보면 된다 |
 | `built_on` | 누가 이미 서 있다 | |
 | `water` | 물 | 메우면 된다 |
@@ -65,6 +66,27 @@ Steinerstead is not building anything
 | `unreachable` | 종에서 걸어갈 수 없다 | 다리를 놓거나 경사를 만들면 이어진다 |
 
 `steep`이 251개인 것은 **고칠 문제가 아니라 초대장이다.** 이 모드는 혼자 마을을 만들지 않는다 — `docs/design.md`.
+
+### 성문·초소는 한 줄씩 따로 말한다
+
+방어 단계에 들어간 마을의 유휴 리포트에는 성문 넷·초소 넷이 한 줄씩 붙는다.
+
+```
+  gate north: standing
+  gate east: 85 unreachable, 0 water, 0 unloaded of 221 - 85 under the build, first at 485,277
+  gate south: the ways in are not level (65 to 66)
+  tower 1,1: 3 column(s) of hillside above the floor at 66, first at template 12,4
+```
+
+| | 뜻 | 플레이어가 할 수 있는 것 |
+|---|---|---|
+| `standing` | 서 있다 | |
+| `N unreachable … first at x,z` | 발자국 중 종에서 걸어갈 수 없는 기둥. 좌표는 첫 번째 것 | 다리·경사 |
+| `N water` | 발자국이 물·얼음에 걸친다 | 메우기 |
+| `the ways in are not level (a to b)` | 출입구(아치 아래 도로, 계단 발치)의 땅 높이가 서로 다르다 | 그 자리를 같은 높이로 |
+| `N column(s) of hillside above the floor` | 출입구보다 한 칸 넘게 높은 땅이 발자국 안에 있다 | 깎기 — 모드는 깎지 않는다 |
+
+그리고 **같은 구조물이 끝나자마자 다시 계획되면 WARN 한 줄**이 찍힌다 (`plans a wall/gatehouse at … again straight after finishing one`). 그건 마을이 "서 있는지"를 엉뚱한 칸에서 묻고 있다는 뜻이고, 유휴 리포트에는 절대 안 잡히는 종류라 따로 있다.
 
 ## 설정
 
