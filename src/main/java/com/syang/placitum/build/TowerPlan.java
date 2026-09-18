@@ -13,6 +13,7 @@ import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -279,6 +280,15 @@ public final class TowerPlan {
             if (top == SIDE - 1 && merlon(u, v) && (u + v) % 2 == 0) {
                 ops.add(new BuildOp(new BlockPos(column.getX(), floor + SIDE, column.getZ()),
                         stone));
+                // A lantern on the two corner merlons - the one that is the corner of the town
+                // and the one facing in. The tower stands on the ground of one lamp post, which
+                // is never built, and this is the light in its place.
+                boolean corner = (u == TownPlan.RAMP && v == TownPlan.RAMP)
+                        || (u == FRAME - 1 && v == FRAME - 1);
+                if (corner) {
+                    ops.add(new BuildOp(new BlockPos(column.getX(), floor + SIDE + 1,
+                            column.getZ()), Blocks.LANTERN.defaultBlockState()));
+                }
             }
         }
         ops.addAll(Clearance.ops(Spans.decode(recipe.gates()), GatePlan.written(ops)));

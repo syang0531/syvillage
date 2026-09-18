@@ -213,7 +213,8 @@ class GateTest {
         Map<BlockPos, BuildOp> world = built();
         int highest = FLOOR;
         for (Map.Entry<BlockPos, BuildOp> entry : world.entrySet()) {
-            if (!entry.getValue().state().isAir()) {
+            if (!entry.getValue().state().isAir()
+                    && !entry.getValue().state().is(net.minecraft.world.level.block.Blocks.LANTERN)) {
                 highest = Math.max(highest, entry.getKey().getY());
             }
         }
@@ -246,6 +247,25 @@ class GateTest {
             out.add(((long) op.pos().getX() << 32) ^ (op.pos().getZ() & 0xffffffffL));
         }
         return out;
+    }
+
+    @Test
+    @DisplayName("four lanterns on the parapet, in place of the two lamp posts it stands on")
+    void itCarriesItsOwnLight() {
+        Map<BlockPos, BuildOp> world = built();
+        List<BlockPos> columns = GatePlan.footprint(ANCHOR, Direction.NORTH);
+        int lanterns = 0;
+        for (Map.Entry<BlockPos, BuildOp> entry : world.entrySet()) {
+            if (entry.getValue().state().is(net.minecraft.world.level.block.Blocks.LANTERN)) {
+                lanterns++;
+                assertEquals(FLOOR + GatePlan.TALL + 1, entry.getKey().getY(),
+                        "on a merlon, above the parapet, not on the walkway");
+                BlockPos under = entry.getKey().below();
+                assertTrue(!world.get(under).state().isAir(), "a lantern on air at " + under);
+            }
+        }
+        assertEquals(4, lanterns);
+        assertTrue(columns.size() > 0);
     }
 
     @Test

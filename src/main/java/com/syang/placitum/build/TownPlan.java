@@ -178,15 +178,36 @@ public final class TownPlan {
     public static final int RAMP = 4;
 
     /**
+     * How far inside the outer phase's closing road the wall stands.
+     *
+     * <p>The wall used to stand exactly in that road's gap, twenty blocks of empty lit grid
+     * from the last house, and it read as a fence round a field. Counting inward from the gap,
+     * the outer ring is margin (-1), lot (-2 to -8), margin (-9), lot (-10 to -16), margin
+     * (-17), and then the last housing phase's road (-18 to -20); lamp posts stand where two
+     * margins cross. Thirteen puts the rampart's four columns at -13 to -10, inside the inner
+     * lot band, touching neither a road nor a margin. Twelve was the first guess and put the
+     * outer parapet on the -9 margin, which carries a lamp post every eight blocks along the
+     * whole wall. The outer ring's streets and lamps stay where they are, outside, reachable
+     * through the gates.
+     *
+     * <p>A tower is eight to the wall's four and overhangs it by two each way, which reaches
+     * the -9 margin: one lamp post per corner is never built, and the tower carries lanterns
+     * instead. Some post goes under a tower whatever the inset - the lot band is seven and the
+     * tower is eight - and thirteen is one where it lands on a margin rather than on the road.
+     * A gatehouse stands on no post at all: it straddles the road, and the posts halfway along
+     * a block's edges were taken out long ago.
+     */
+    public static final int WALL_INSET = 13;
+
+    /**
      * The inner face of the wall, in blocks from the bell.
      *
-     * <p>Exactly where the outer phase's closing road would have been. That phase is left open
-     * so that the streets run out of the town rather than round it, and the gap it leaves is the
-     * width of a road - which is, near enough, the width of a wall. The wall was not planned to
-     * go there; the space was already the right shape.
+     * <p>{@link #WALL_INSET} inside where the outer phase's closing road would have been. That
+     * phase is left open so that the streets run out of the town rather than round it; the wall
+     * was not planned to go in the gap, and now it does not.
      */
     public static int wallInner(Settlement settlement) {
-        return (outerPhase(settlement) + 1) * PERIOD - 1;
+        return (outerPhase(settlement) + 1) * PERIOD - 1 - WALL_INSET;
     }
 
     /** The outer face. Four blocks further out, and the edge of everything we build. */

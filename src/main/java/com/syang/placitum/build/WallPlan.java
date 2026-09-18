@@ -31,8 +31,8 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>The third is answered by where it goes. The old ring was computed from wherever the
  * settlement had spread, and every bug it had came from that. This one is
- * {@link TownPlan#wallInner} - arithmetic on the bell, in the gap the outer phase leaves by not
- * closing itself.
+ * {@link TownPlan#wallInner} - arithmetic on the bell, thirteen blocks inside the gap the outer
+ * phase leaves by not closing itself.
  *
  * <p>It breaks where a road breaks: at water, at a cliff, at ground nobody can walk to. That
  * leaves holes in it, and the holes are the answer rather than the defect. Level the ground and

@@ -162,7 +162,8 @@ class WallAccessTest {
         int highest = FLOOR;
         for (Map.Entry<BlockPos, BuildOp> entry : world.entrySet()) {
             BlockPos pos = entry.getKey();
-            if (!entry.getValue().state().isAir()) {
+            if (!entry.getValue().state().isAir()
+                    && !entry.getValue().state().is(net.minecraft.world.level.block.Blocks.LANTERN)) {
                 highest = Math.max(highest, pos.getY());
             }
             assertTrue(pos.getX() >= ANCHOR.getX() && pos.getX() < ANCHOR.getX() + TowerPlan.FRAME,
@@ -170,6 +171,22 @@ class WallAccessTest {
         }
         assertEquals(FLOOR + TowerPlan.SIDE, highest);
         assertEquals(8, TowerPlan.SIDE);
+    }
+
+    @Test
+    @DisplayName("two lanterns on the corner merlons, in place of the lamp post it stands on")
+    void itCarriesItsOwnLight() {
+        Map<BlockPos, BuildOp> world = tower();
+        int lanterns = 0;
+        for (Map.Entry<BlockPos, BuildOp> entry : world.entrySet()) {
+            if (entry.getValue().state().is(net.minecraft.world.level.block.Blocks.LANTERN)) {
+                lanterns++;
+                assertEquals(FLOOR + TowerPlan.SIDE + 1, entry.getKey().getY());
+                assertTrue(!world.get(entry.getKey().below()).state().isAir(),
+                        "a lantern on air at " + entry.getKey());
+            }
+        }
+        assertEquals(2, lanterns, "the town's corner, and the one facing in");
     }
 
     @Test
@@ -262,7 +279,8 @@ class WallAccessTest {
             Map<BlockPos, BuildOp> world = onARidge(corner);
             int highest = FLOOR;
             for (Map.Entry<BlockPos, BuildOp> entry : world.entrySet()) {
-                if (!entry.getValue().state().isAir()) {
+                if (!entry.getValue().state().isAir()
+                        && !entry.getValue().state().is(net.minecraft.world.level.block.Blocks.LANTERN)) {
                     highest = Math.max(highest, entry.getKey().getY());
                 }
             }

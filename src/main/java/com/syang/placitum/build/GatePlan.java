@@ -69,6 +69,13 @@ public final class GatePlan {
 
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
 
+    /**
+     * Where the lanterns go, as {@code {d, a}}: four merlons, two on the town side and two on
+     * the field side. Merlons stand where {@code (d + a)} is even, and each of these does.
+     */
+    private static final int[][] LANTERNS = {
+            {0, -HOUSE / 2}, {0, HOUSE / 2}, {DEEP - 1, -(HOUSE / 2 - 1)}, {DEEP - 1, HOUSE / 2 - 1}};
+
     private GatePlan() {}
 
     /** The four outward directions a gate faces, in a fixed order. */
@@ -280,6 +287,16 @@ public final class GatePlan {
                             state));
                 }
             }
+        }
+        // Lanterns on four of the merlons. A gatehouse is a seventeen-wide, eight-tall
+        // block of shadow on a lit grid, and the way into a town at night should be the one
+        // thing you can see. On the parapet rather than the deck, because a lantern on the
+        // walkway is a lantern in the way.
+        for (int[] merlon : LANTERNS) {
+            int i = merlon[0] * WIDE + merlon[1] + WIDE / 2;
+            BlockPos column = columns.get(i);
+            ops.add(new BuildOp(new BlockPos(column.getX(), floor + TALL + 1, column.getZ()),
+                    Blocks.LANTERN.defaultBlockState()));
         }
         // Everything this gatehouse writes, so that felling what grows on the site does not
         // rub out the gatehouse. An empty set here built the structure and cleared it in the

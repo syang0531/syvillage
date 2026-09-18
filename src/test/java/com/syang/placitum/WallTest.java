@@ -49,24 +49,70 @@ class WallTest {
     }
 
     @Test
-    @DisplayName("the wall stands in the gap the outer phase leaves")
-    void theWallTakesTheOmittedRoad() {
-        // The last phase is left open so the streets run out of the town rather than round it,
-        // and the gap that leaves is a road wide. The wall was not planned to go there; the
-        // space was already the right shape.
+    @DisplayName("the wall stands thirteen inside the gap the outer phase leaves, on a lot band")
+    void theWallStandsInsideTheOuterRing() {
+        // The last phase is left open so the streets run out of the town rather than round it.
+        // The wall used to stand in that gap, twenty blocks of lit grid from the last house;
+        // now it stands inside the ring, and the ring's streets and lamps stay outside it.
         Settlement town = town();
         int outerPhase = TownPlan.outerPhase(town);
         int lastRoad = TownPlan.reachOf(town, outerPhase);
 
-        assertEquals(lastRoad + 1, TownPlan.wallInner(town),
-                "the wall starts where the outer phase stopped");
-        assertEquals(TownPlan.phaseReach(outerPhase) - TownPlan.ROAD + 1,
-                TownPlan.wallInner(town),
-                "which is the first of the three columns that closing road would have used");
-        assertTrue(TownPlan.wallOuter(town) > TownPlan.phaseReach(outerPhase),
-                "and the wall is one wider than the road it replaced, so it reaches past it");
+        assertEquals(lastRoad + 1 - TownPlan.WALL_INSET, TownPlan.wallInner(town),
+                "thirteen inside where the outer phase stopped");
         assertEquals(TownPlan.WALL, TownPlan.wallOuter(town) - TownPlan.wallInner(town) + 1,
                 "parapet, walkway, walkway, parapet");
+
+        // Every column of the rampart, radially, is lot: never a road, never the margin a lamp
+        // post stands on. That is what the number twelve was chosen for.
+        for (int out = TownPlan.wallInner(town); out <= TownPlan.wallOuter(town); out++) {
+            int x = BELL.getX() + out;
+            assertFalse(TownPlan.isRoad(x, BELL.getX()), "wall on a road at " + out);
+            assertFalse(TownPlan.isMargin(x, BELL.getX()), "wall on a margin at " + out);
+        }
+    }
+
+    @Test
+    @DisplayName("a tower stands on exactly one lamp post's ground, a gatehouse on none")
+    void theStructuresReplaceTheLampsTheyStandOn() {
+        // The lot band is seven and a tower is eight, so some lamp post goes under it whatever
+        // the inset; twelve is the inset where that post is on a margin and not on the road.
+        // Those posts are never built, and the tower and gatehouse carry lanterns instead.
+        // Only the columns the structure builds on. A tower frame is twelve square but the
+        // tower and its ramps stand on ninety-six of those; the rest is open ground.
+        Settlement town = town();
+        for (int[] corner : com.syang.placitum.build.TowerPlan.corners()) {
+            int posts = 0;
+            List<BlockPos> columns = com.syang.placitum.build.TowerPlan.footprint(
+                    com.syang.placitum.build.TowerPlan.anchorOf(town, corner));
+            for (int i = 0; i < columns.size(); i++) {
+                if (!com.syang.placitum.build.TowerPlan.touches(i, corner)) {
+                    continue;
+                }
+                BlockPos column = columns.get(i);
+                assertFalse(TownPlan.isRoad(column.getX(), BELL.getX())
+                        && TownPlan.isRoad(column.getZ(), BELL.getZ()),
+                        "a tower on a crossroads at " + column);
+                if (TownPlan.isLampPost(column, BELL)) {
+                    posts++;
+                }
+            }
+            assertEquals(1, posts, "tower " + corner[0] + "," + corner[1]);
+        }
+        int posts = 0;
+        List<BlockPos> columns = com.syang.placitum.build.GatePlan.footprint(
+                com.syang.placitum.build.GatePlan.anchorOf(town, net.minecraft.core.Direction.NORTH),
+                net.minecraft.core.Direction.NORTH);
+        for (int i = 0; i < columns.size(); i++) {
+            if (com.syang.placitum.build.GatePlan.touches(i)
+                    && TownPlan.isLampPost(columns.get(i), BELL)) {
+                posts++;
+            }
+        }
+        // None: a block has posts on its corners and at its centre, and the ones halfway
+        // along each edge - which is where a gatehouse straddles the road - were taken out on
+        // purpose. The gatehouse's lanterns are not replacing anything.
+        assertEquals(0, posts);
     }
 
     @Test
