@@ -41,6 +41,10 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class WallPlan {
 
+    /** The rampart's three courses of body, and the height of its parapet above the footing. */
+    private static final int BODY = 3;
+    private static final int PARAPET = 4;
+
     public static final Identifier RAMPART =
             Identifier.fromNamespaceAndPath(Placitum.MODID, "wall/rampart");
 
@@ -83,13 +87,14 @@ public final class WallPlan {
                 }
                 for (int depth = 0; depth < TownPlan.WALL; depth++) {
                     BlockPos pos = columnAt(bell, side, along, outer - depth);
-                    if (!TownPlan.onWall(pos, settlement) || TownPlan.inGateway(pos, settlement)
-                            || TownPlan.inTower(pos, settlement)
+                    if (!TownPlan.onWall(pos, settlement)
+                            || TownPlan.reservedForWall(pos, settlement)
                             || !level.hasChunkAt(pos) || !reach.has(pos)) {
-                        // The gateway is skipped here rather than when the blocks are laid.
-                        // Skipping it there queued the same columns every second for ever: the
-                        // plan wanted them, the laying refused them, and nothing ever changed
-                        // to make the plan stop wanting them.
+                        // The gatehouses and towers are skipped here rather than when the
+                        // blocks are laid - they bring their own stretch of rampart with them.
+                        // Skipping them at laying time queued the same columns every second for
+                        // ever: the plan wanted them, the laying refused them, and nothing ever
+                        // changed to make the plan stop wanting them.
                         continue;
                     }
                     if (!seen.add(Reach.key(pos.getX(), pos.getZ()))) {
@@ -182,20 +187,20 @@ public final class WallPlan {
     }
 
     /**
-     * A column of wall: three of body, then either walkway or parapet.
+     * A column of wall: three of body, then either walkway or parapet, then merlon or not.
      *
-     * <p>The cross-section is decided by how deep into the wall the column is, which
-     * {@link TownPlan#wallDepth} gives as one number, so there is no inside and outside to keep
-     * straight. Depth 0 and 3 are the two faces and carry the parapet; 1 and 2 are the walkway
-     * and are left open to the sky.
+     * <p>The cross-section is the player's - two blocks of rampart saved from a creative world
+     * as {@code rampart.nbt} and read here by eye: five wide, body of three, a parapet on the
+     * two faces at four, merlons at five. Depth 0 and 4 are the faces; 1 to 3 are the walkway,
+     * three abreast, left open to the sky.
      *
-     * <p>Crenellations alternate along the wall rather than across it, so the pattern reads the
-     * way it does on a real rampart. They are cut from the sum of the coordinates, which is the
-     * same on both faces of a straight run and turns the corner without a seam.
+     * <p>Merlons alternate along the wall, and the two faces' merlons line up with each other -
+     * that is how the sample was built. Cut from the coordinate that runs along the wall, which
+     * is the same on both faces of a straight run.
      *
-     * <p>The gateways never reach here: {@link #plan} leaves them out, so that the plan and the
-     * laying cannot disagree about them. They are left as holes for now because an arch wants
-     * headroom a four-high wall has not got - that belongs to the gatehouse, which stands eight.
+     * <p>The gatehouses and towers never reach here: {@link #plan} leaves their ground out, so
+     * that the plan and the laying cannot disagree about it. They bring their own stretch of
+     * rampart, at these same heights, in their templates.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Spans> columns = Spans.decode(recipe.gates());
@@ -212,13 +217,16 @@ public final class WallPlan {
                 continue;
             }
             int base = column.base();
-            for (int dy = 1; dy <= TownPlan.WALL_HEIGHT - 1; dy++) {
+            for (int dy = 1; dy <= BODY; dy++) {
                 ops.add(new BuildOp(column.at(base + dy), stone));
             }
             int depth = depthOf(column, bell, outer);
             boolean parapet = depth == 0 || depth == TownPlan.WALL - 1;
-            boolean merlon = Math.floorMod(column.x() + column.z(), 2) == 0;
-            if (parapet && merlon) {
+            if (!parapet) {
+                continue;
+            }
+            ops.add(new BuildOp(column.at(base + PARAPET), stone));
+            if (Math.floorMod(alongOf(column, bell), 2) == 0) {
                 ops.add(new BuildOp(column.at(base + TownPlan.WALL_HEIGHT), stone));
             }
         }
@@ -226,6 +234,14 @@ public final class WallPlan {
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));
         return List.copyOf(ops);
+    }
+
+    /** The coordinate that runs along the wall at this column: x on the north and south sides,
+     * z on the east and west. At a corner either will do, and x is taken. */
+    private static int alongOf(Spans column, BlockPos bell) {
+        int dx = Math.abs(column.x() - bell.getX());
+        int dz = Math.abs(column.z() - bell.getZ());
+        return dx > dz ? column.z() : column.x();
     }
 
     /**

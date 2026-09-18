@@ -191,18 +191,6 @@ public final class SettlementTick {
             next = WallPlan.plan(level, settlement, reach);
         }
         if (next.isEmpty()) {
-            // Last of all, and it has to be: the steps take the inner parapet out where they
-            // land, and the rampart knows nothing about them. Built first, they cut a doorway
-            // in a wall that did not exist yet and the wall then put the parapet back - a
-            // staircase ending in a wall, which is the one thing they exist not to be.
-            for (Direction side : GatePlan.sides()) {
-                next = StairPlan.plan(level, settlement, side, reach);
-                if (next.isPresent()) {
-                    break;
-                }
-            }
-        }
-        if (next.isEmpty()) {
             reportIdle(level, settlement, reach);
             return settlement;   // nothing missing, so nothing happens
         }

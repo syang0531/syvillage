@@ -157,25 +157,40 @@ public final class TownPlan {
     }
 
     /** Blocks across the wall: parapet, two of walkway, parapet. */
-    public static final int WALL = 4;
-
-    /** How high the wall stands above its footing. Body of three, parapet on top. */
-    public static final int WALL_HEIGHT = 4;
-
-    /** A tower, and a gatehouse, are this on a side and this tall. */
-    public static final int TOWER = 8;
-
-    /** A gate is this wide across the road it lets through. */
-    public static final int GATE_WIDTH = 9;
+    public static final int WALL = 5;
 
     /**
-     * How far a ramp runs along the wall to reach the top of a gatehouse or a tower.
+     * How high the wall stands above its footing, to the top of the merlons.
      *
-     * <p>Four, because the deck stands four above the walkway and a ramp gains a block a block.
-     * The climb used to be cut into the structure itself, which cost the deck two of its rows
-     * and made the one place worth standing the one place there was no room to stand.
+     * <p>Body of three, a parapet on the two faces at four, merlons at five. The cross-section
+     * is the player's: two blocks of it saved from a creative world, in
+     * {@code data/placitum/structure/rampart.nbt}, and read back into {@link WallPlan} by hand.
      */
-    public static final int RAMP = 4;
+    public static final int WALL_HEIGHT = 5;
+
+    /** A tower is this on a side. The template's own nine by nine. */
+    public static final int TOWER = 9;
+
+    /**
+     * The gatehouse template's box: across the road, and along it.
+     *
+     * <p>Twenty-five across because the template carries its own two ends of rampart, nine
+     * deep because the rampart's five run down the middle of it with two rows either side.
+     */
+    public static final int GATE_WIDE = 25;
+    public static final int GATE_DEEP = 9;
+
+    /** The tower template's box: the tower and the two arms of wall that meet at it. */
+    public static final int TOWER_FRAME = 17;
+
+    /**
+     * How far a gatehouse and a tower stand proud of the wall's outer face.
+     *
+     * <p>Both templates put the rampart's cross-section two rows in from their outer edge, so
+     * both overhang the wall by two, and the walk that decides what is reachable has to know
+     * that or their outermost columns are simply not in the set.
+     */
+    public static final int STRUCTURE_PROUD = 2;
 
     /**
      * How far inside the outer phase's closing road the wall stands.
@@ -184,20 +199,20 @@ public final class TownPlan {
      * from the last house, and it read as a fence round a field. Counting inward from the gap,
      * the outer ring is margin (-1), lot (-2 to -8), margin (-9), lot (-10 to -16), margin
      * (-17), and then the last housing phase's road (-18 to -20); lamp posts stand where two
-     * margins cross. Thirteen puts the rampart's four columns at -13 to -10, inside the inner
+     * margins cross. Fourteen puts the rampart's five columns at -14 to -10, inside the inner
      * lot band, touching neither a road nor a margin. Twelve was the first guess and put the
      * outer parapet on the -9 margin, which carries a lamp post every eight blocks along the
      * whole wall. The outer ring's streets and lamps stay where they are, outside, reachable
      * through the gates.
      *
-     * <p>A tower is eight to the wall's four and overhangs it by two each way, which reaches
+     * <p>A tower is nine to the wall's five and overhangs it by two each way, which reaches
      * the -9 margin: one lamp post per corner is never built, and the tower carries lanterns
      * instead. Some post goes under a tower whatever the inset - the lot band is seven and the
-     * tower is eight - and thirteen is one where it lands on a margin rather than on the road.
-     * A gatehouse stands on no post at all: it straddles the road, and the posts halfway along
-     * a block's edges were taken out long ago.
+     * tower is nine - and fourteen is one where it lands on a margin rather than on the road.
+     * A gatehouse, twenty-five across, reaches the two posts at the -9 margin ten either side
+     * of the road; it carries lanterns too.
      */
-    public static final int WALL_INSET = 13;
+    public static final int WALL_INSET = 14;
 
     /**
      * The inner face of the wall, in blocks from the bell.
@@ -251,7 +266,7 @@ public final class TownPlan {
      */
     public static boolean inGateway(BlockPos pos, Settlement settlement) {
         return onWall(pos, settlement) && acrossFromBellRoad(pos, settlement.center())
-                <= GATE_WIDTH / 2 + RAMP;
+                <= GATE_WIDE / 2;
     }
 
     /**
@@ -262,7 +277,7 @@ public final class TownPlan {
      * that, and the walk that decides what is reachable is the one that forgot.
      */
     public static int gateOuter(Settlement settlement) {
-        return wallOuter(settlement) + (TOWER - WALL) / 2;
+        return wallOuter(settlement) + STRUCTURE_PROUD;
     }
 
     /**
@@ -276,9 +291,9 @@ public final class TownPlan {
         int dx = Math.abs(pos.getX() - bell.getX());
         int dz = Math.abs(pos.getZ() - bell.getZ());
         int along = Math.max(dx, dz);
-        return along >= wallInner(settlement) - (TOWER - WALL) / 2
+        return along >= wallInner(settlement) - STRUCTURE_PROUD
                 && along <= gateOuter(settlement)
-                && Math.min(dx, dz) <= GATE_WIDTH / 2 + RAMP;
+                && Math.min(dx, dz) <= GATE_WIDE / 2;
     }
 
     /**
@@ -302,8 +317,8 @@ public final class TownPlan {
      * to arrive at the tower's height rather than four blocks below it.
      */
     public static boolean inTower(BlockPos pos, Settlement settlement) {
-        int near = wallInner(settlement) - (TOWER - WALL) / 2 - RAMP;
         int far = gateOuter(settlement);
+        int near = far - (TOWER_FRAME - 1);
         int dx = Math.abs(pos.getX() - settlement.center().getX());
         int dz = Math.abs(pos.getZ() - settlement.center().getZ());
         return dx >= near && dx <= far && dz >= near && dz <= far;

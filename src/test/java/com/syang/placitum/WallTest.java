@@ -49,7 +49,7 @@ class WallTest {
     }
 
     @Test
-    @DisplayName("the wall stands thirteen inside the gap the outer phase leaves, on a lot band")
+    @DisplayName("the wall stands fourteen inside the gap the outer phase leaves, on a lot band")
     void theWallStandsInsideTheOuterRing() {
         // The last phase is left open so the streets run out of the town rather than round it.
         // The wall used to stand in that gap, twenty blocks of lit grid from the last house;
@@ -59,7 +59,7 @@ class WallTest {
         int lastRoad = TownPlan.reachOf(town, outerPhase);
 
         assertEquals(lastRoad + 1 - TownPlan.WALL_INSET, TownPlan.wallInner(town),
-                "thirteen inside where the outer phase stopped");
+                "fourteen inside where the outer phase stopped");
         assertEquals(TownPlan.WALL, TownPlan.wallOuter(town) - TownPlan.wallInner(town) + 1,
                 "parapet, walkway, walkway, parapet");
 
@@ -73,23 +73,17 @@ class WallTest {
     }
 
     @Test
-    @DisplayName("a tower stands on exactly one lamp post's ground, a gatehouse on none")
+    @DisplayName("a tower stands on exactly one lamp post's ground, a gatehouse on two")
     void theStructuresReplaceTheLampsTheyStandOn() {
         // The lot band is seven and a tower is eight, so some lamp post goes under it whatever
         // the inset; twelve is the inset where that post is on a margin and not on the road.
         // Those posts are never built, and the tower and gatehouse carry lanterns instead.
-        // Only the columns the structure builds on. A tower frame is twelve square but the
-        // tower and its ramps stand on ninety-six of those; the rest is open ground.
+        // A footprint is the template's occupied columns, so every one of these is ground the
+        // structure actually stands on.
         Settlement town = town();
         for (int[] corner : com.syang.placitum.build.TowerPlan.corners()) {
             int posts = 0;
-            List<BlockPos> columns = com.syang.placitum.build.TowerPlan.footprint(
-                    com.syang.placitum.build.TowerPlan.anchorOf(town, corner));
-            for (int i = 0; i < columns.size(); i++) {
-                if (!com.syang.placitum.build.TowerPlan.touches(i, corner)) {
-                    continue;
-                }
-                BlockPos column = columns.get(i);
+            for (BlockPos column : com.syang.placitum.build.TowerPlan.footprint(town, corner)) {
                 assertFalse(TownPlan.isRoad(column.getX(), BELL.getX())
                         && TownPlan.isRoad(column.getZ(), BELL.getZ()),
                         "a tower on a crossroads at " + column);
@@ -100,19 +94,15 @@ class WallTest {
             assertEquals(1, posts, "tower " + corner[0] + "," + corner[1]);
         }
         int posts = 0;
-        List<BlockPos> columns = com.syang.placitum.build.GatePlan.footprint(
-                com.syang.placitum.build.GatePlan.anchorOf(town, net.minecraft.core.Direction.NORTH),
-                net.minecraft.core.Direction.NORTH);
-        for (int i = 0; i < columns.size(); i++) {
-            if (com.syang.placitum.build.GatePlan.touches(i)
-                    && TownPlan.isLampPost(columns.get(i), BELL)) {
+        for (BlockPos column : com.syang.placitum.build.GatePlan.footprint(town,
+                net.minecraft.core.Direction.NORTH)) {
+            if (TownPlan.isLampPost(column, BELL)) {
                 posts++;
             }
         }
-        // None: a block has posts on its corners and at its centre, and the ones halfway
-        // along each edge - which is where a gatehouse straddles the road - were taken out on
-        // purpose. The gatehouse's lanterns are not replacing anything.
-        assertEquals(0, posts);
+        // Twenty-five across reaches the block-centre posts ten either side of the road, on the
+        // margin the gatehouse's inner rows stand on. It carries lanterns for them.
+        assertEquals(2, posts);
     }
 
     @Test
@@ -204,7 +194,7 @@ class WallTest {
         }
 
         List<BuildOp> ops = WallPlan.expand(new BuildRecipe(WallPlan.RAMPART, BELL,
-                Rotation.NONE, Craft.STONE.paletteId(), List.of(64, 64, 64, 64),
+                Rotation.NONE, Craft.STONE.paletteId(), List.of(64, 64, 64, 64, 64),
                 new BlockPos(TownPlan.wallInner(town), TownPlan.WALL_HEIGHT, outer),
                 Spans.encode(columns)));
 
@@ -276,5 +266,44 @@ class WallTest {
         assertFalse(loaded.walled());
         assertEquals(Map.of().size() + SettlementFixture.standard().plots().size(),
                 loaded.plots().size(), "and loses nothing else on the way through");
+    }
+
+    @Test
+    @DisplayName("the cross-section is the player's: parapet, three of walkway, parapet")
+    void theCrossSectionIsTheSample() {
+        // Two blocks of rampart were saved from a creative world; this is what they said. Body
+        // of three, parapet at four on the two faces, merlons at five on alternate columns along
+        // the wall - and the two faces' merlons line up.
+        Settlement town = town();
+        int outer = TownPlan.wallOuter(town);
+        for (int along = 30; along <= 31; along++) {
+            List<Spans> columns = new ArrayList<>();
+            for (int depth = 0; depth < TownPlan.WALL; depth++) {
+                columns.add(new Spans(BELL.getX() + outer - depth, BELL.getZ() + along, 64, 64));
+            }
+            List<BuildOp> ops = WallPlan.expand(new BuildRecipe(WallPlan.RAMPART, BELL,
+                    Rotation.NONE, Craft.PLAINS.paletteId(), List.of(64, 64, 64, 64, 64),
+                    new BlockPos(TownPlan.wallInner(town), TownPlan.WALL_HEIGHT, outer),
+                    Spans.encode(columns)));
+            Set<BlockPos> stone = new LinkedHashSet<>();
+            for (BuildOp op : ops) {
+                if (!op.state().isAir()) {
+                    stone.add(op.pos());
+                }
+            }
+            boolean merlons = Math.floorMod(BELL.getZ() + along, 2) == 0;
+            for (int depth = 0; depth < TownPlan.WALL; depth++) {
+                int x = BELL.getX() + outer - depth;
+                int z = BELL.getZ() + along;
+                boolean face = depth == 0 || depth == TownPlan.WALL - 1;
+                for (int dy = 1; dy <= 3; dy++) {
+                    assertTrue(stone.contains(new BlockPos(x, 64 + dy, z)), "body at depth " + depth);
+                }
+                assertEquals(face, stone.contains(new BlockPos(x, 68, z)),
+                        "parapet only on the faces, depth " + depth);
+                assertEquals(face && merlons, stone.contains(new BlockPos(x, 69, z)),
+                        "merlons on alternate columns, both faces alike, depth " + depth);
+            }
+        }
     }
 }

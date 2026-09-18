@@ -6,6 +6,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -23,62 +24,42 @@ import net.minecraft.world.level.block.state.BlockState;
  * cottage that stands in until that day reads {@link #foundation()} for its walls, which is the
  * cobblestone-under-a-timber-roof look of a vanilla village house.
  *
+ * <p>The fortification templates are built in stone brick and oak, because that is what a
+ * creative player builds in; {@link #wallStairs()}, {@link #fence()} and {@link #fenceGate()}
+ * are what those become here, family for family, so a stair stays a stair and keeps its facing.
+ *
  * <p>The last three constants are not palettes anybody chooses. They are the rungs of the old
  * ladder, kept because saved settlements and queued recipes still name them, and a save that
  * names a palette that does not exist is a save that does not load.
  */
 public enum Craft implements StringRepresentable {
 
-    PLAINS("plains",
-            Blocks.DIRT_PATH.defaultBlockState(),
-            Blocks.STONE_BRICKS.defaultBlockState(),
-            Blocks.OAK_PLANKS.defaultBlockState(),
-            Blocks.COBBLESTONE.defaultBlockState()),
+    PLAINS("plains", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.OAK_PLANKS, Blocks.COBBLESTONE,
+            Blocks.STONE_BRICK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE),
 
-    TAIGA("taiga",
-            Blocks.COBBLESTONE.defaultBlockState(),
-            Blocks.STONE_BRICKS.defaultBlockState(),
-            Blocks.SPRUCE_PLANKS.defaultBlockState(),
-            Blocks.COBBLESTONE.defaultBlockState()),
+    TAIGA("taiga", Blocks.COBBLESTONE, Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS, Blocks.COBBLESTONE,
+            Blocks.STONE_BRICK_STAIRS, Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE),
 
-    SNOWY("snowy",
-            Blocks.COBBLESTONE.defaultBlockState(),
-            Blocks.STONE_BRICKS.defaultBlockState(),
-            Blocks.SPRUCE_PLANKS.defaultBlockState(),
-            Blocks.COBBLESTONE.defaultBlockState()),
+    SNOWY("snowy", Blocks.COBBLESTONE, Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS, Blocks.COBBLESTONE,
+            Blocks.STONE_BRICK_STAIRS, Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE),
 
-    SAVANNA("savanna",
-            Blocks.DIRT_PATH.defaultBlockState(),
-            Blocks.STONE_BRICKS.defaultBlockState(),
-            Blocks.ACACIA_PLANKS.defaultBlockState(),
-            Blocks.COBBLESTONE.defaultBlockState()),
+    SAVANNA("savanna", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.ACACIA_PLANKS, Blocks.COBBLESTONE,
+            Blocks.STONE_BRICK_STAIRS, Blocks.ACACIA_FENCE, Blocks.ACACIA_FENCE_GATE),
 
-    DESERT("desert",
-            Blocks.SMOOTH_SANDSTONE.defaultBlockState(),
-            Blocks.CUT_SANDSTONE.defaultBlockState(),
-            Blocks.SANDSTONE_SLAB.defaultBlockState(),
-            Blocks.SANDSTONE.defaultBlockState()),
+    DESERT("desert", Blocks.SMOOTH_SANDSTONE, Blocks.CUT_SANDSTONE, Blocks.SANDSTONE_SLAB,
+            Blocks.SANDSTONE, Blocks.SANDSTONE_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE),
 
     /** Legacy. The bottom rung of the old ladder; only ever read from a save. */
-    TIMBER("timber",
-            Blocks.DIRT_PATH.defaultBlockState(),
-            Blocks.OAK_PLANKS.defaultBlockState(),
-            Blocks.OAK_PLANKS.defaultBlockState(),
-            Blocks.COBBLESTONE.defaultBlockState()),
+    TIMBER("timber", Blocks.DIRT_PATH, Blocks.OAK_PLANKS, Blocks.OAK_PLANKS, Blocks.COBBLESTONE,
+            Blocks.OAK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE),
 
     /** Legacy. The mason's rung. */
-    STONE("stone",
-            Blocks.COBBLESTONE.defaultBlockState(),
-            Blocks.COBBLESTONE.defaultBlockState(),
-            Blocks.OAK_PLANKS.defaultBlockState(),
-            Blocks.STONE_BRICKS.defaultBlockState()),
+    STONE("stone", Blocks.COBBLESTONE, Blocks.COBBLESTONE, Blocks.OAK_PLANKS, Blocks.STONE_BRICKS,
+            Blocks.COBBLESTONE_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE),
 
     /** Legacy. The village head's rung, and the one every test world is saved in. */
-    MASONRY("masonry",
-            Blocks.STONE_BRICKS.defaultBlockState(),
-            Blocks.STONE_BRICKS.defaultBlockState(),
-            Blocks.STONE_BRICK_SLAB.defaultBlockState(),
-            Blocks.STONE_BRICKS.defaultBlockState());
+    MASONRY("masonry", Blocks.STONE_BRICKS, Blocks.STONE_BRICKS, Blocks.STONE_BRICK_SLAB,
+            Blocks.STONE_BRICKS, Blocks.STONE_BRICK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE);
 
     public static final Codec<Craft> CODEC = StringRepresentable.fromEnum(Craft::values);
 
@@ -87,14 +68,20 @@ public enum Craft implements StringRepresentable {
     private final BlockState wall;
     private final BlockState roof;
     private final BlockState foundation;
+    private final BlockState wallStairs;
+    private final BlockState fence;
+    private final BlockState fenceGate;
 
-    Craft(String name, BlockState paving, BlockState wall, BlockState roof,
-            BlockState foundation) {
+    Craft(String name, Block paving, Block wall, Block roof, Block foundation, Block wallStairs,
+            Block fence, Block fenceGate) {
         this.name = name;
-        this.paving = paving;
-        this.wall = wall;
-        this.roof = roof;
-        this.foundation = foundation;
+        this.paving = paving.defaultBlockState();
+        this.wall = wall.defaultBlockState();
+        this.roof = roof.defaultBlockState();
+        this.foundation = foundation.defaultBlockState();
+        this.wallStairs = wallStairs.defaultBlockState();
+        this.fence = fence.defaultBlockState();
+        this.fenceGate = fenceGate.defaultBlockState();
     }
 
     /**
@@ -125,9 +112,24 @@ public enum Craft implements StringRepresentable {
         return paving;
     }
 
-    /** Fortifications: the rampart, the gatehouses, the towers, the steps up to them. */
+    /** Fortifications: the rampart, the gatehouses, the towers. */
     public BlockState wall() {
         return wall;
+    }
+
+    /** A stair of the fortification's material, for the templates' stairs. */
+    public BlockState wallStairs() {
+        return wallStairs;
+    }
+
+    /** The fence of the palette's wood, for the templates' fences. */
+    public BlockState fence() {
+        return fence;
+    }
+
+    /** And its gate - the ones across the gatehouse's way through. */
+    public BlockState fenceGate() {
+        return fenceGate;
     }
 
     /** The floor of a house, which is the same block as what holds it up. */
