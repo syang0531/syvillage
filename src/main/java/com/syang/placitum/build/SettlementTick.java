@@ -53,6 +53,10 @@ public final class SettlementTick {
 
     private SettlementTick() {}
 
+    /** The last job each settlement started, and which ones have already been warned about. */
+    private static final Map<UUID, BuildRecipe> LAST_STARTED = new java.util.HashMap<>();
+    private static final java.util.Set<UUID> REPEATED = new java.util.HashSet<>();
+
     public static Settlement run(ServerLevel level, Settlement settlement) {
         Settlement out = resurvey(level, settlement);
         out = start(level, out);
@@ -206,6 +210,21 @@ public final class SettlementTick {
         int blocks = BuildPlanner.expand(recipe).size();
         if (blocks == 0) {
             return settlement;
+        }
+        // The loop the tenth principle is about, said out loud. A structure that is planned
+        // again straight after being finished is one the plan and the world disagree about,
+        // and it never shows up in the idle report - the settlement is never idle. Once, not
+        // every five seconds: the alarm is the first line, the rest would be the same line.
+        BuildRecipe last = LAST_STARTED.put(settlement.id(), recipe);
+        if (last != null && last.template().equals(recipe.template())
+                && last.anchor().equals(recipe.anchor()) && !REPEATED.contains(settlement.id())) {
+            REPEATED.add(settlement.id());
+            Placitum.LOGGER.warn("'{}' plans a {} at {} again straight after finishing one. The"
+                    + " world has it standing and the plan does not; whatever the plan asks to"
+                    + " decide that is looking at the wrong block", settlement.name(),
+                    recipe.template().getPath(), recipe.anchor().toShortString());
+        } else if (last != null && !last.anchor().equals(recipe.anchor())) {
+            REPEATED.remove(settlement.id());
         }
         Placitum.LOGGER.info("'{}' starts a {} at {} in phase {}: {} block(s)",
                 settlement.name(), recipe.template().getPath(),

@@ -167,11 +167,28 @@ public final class GatePlan {
     private static boolean standing(ServerLevel level, Craft craft, List<BlockPos> columns,
             List<Integer> profile) {
         int floor = houseFloor(profile);
-        BlockPos middle = columns.get(columns.size() / 2);
+        BlockPos deck = columns.get(deckColumn());
         // Asked for our own masonry rather than for "not air", so that a tree standing where the
         // deck will go does not read as a finished gatehouse.
-        return level.getBlockState(new BlockPos(middle.getX(), floor + TALL - 1, middle.getZ()))
+        return level.getBlockState(new BlockPos(deck.getX(), floor + TALL - 1, deck.getZ()))
                 .is(craft.wall().getBlock());
+    }
+
+    /**
+     * The column standing() asks about, as an index into the footprint: mid-depth, on the road,
+     * where the deck crosses the arch.
+     *
+     * <p>It used to be the middle of the footprint, which is {@code d = 4, a = -8} - the
+     * outermost ramp column, whose masonry stops four blocks up. Seven blocks up there is
+     * always air, so a finished gatehouse could only ever answer no. Nothing noticed for as
+     * long as the rampart had not reached it (the ramp was unreachable, and the plan gave up
+     * before asking) and the one time it was asked, a gatehouse doubled by an earlier bug had
+     * its second storey's foundation sitting in exactly that square. The moment a correctly
+     * built wall arrived at a correctly built gate, the gate was rebuilt in place every five
+     * seconds, nineteen times, until the session ended.
+     */
+    public static int deckColumn() {
+        return (DEEP / 2) * WIDE + WIDE / 2;
     }
 
     /**

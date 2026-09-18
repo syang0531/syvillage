@@ -249,6 +249,29 @@ class GateTest {
     }
 
     @Test
+    @DisplayName("the column standing() asks about is deck, and the old one never was")
+    void theQuestionIsPutToTheDeck() {
+        Map<BlockPos, BuildOp> world = built();
+        List<BlockPos> columns = GatePlan.footprint(ANCHOR, Direction.NORTH);
+
+        BlockPos deck = columns.get(GatePlan.deckColumn());
+        BuildOp atDeck = world.get(new BlockPos(deck.getX(), FLOOR + GatePlan.TALL - 1,
+                deck.getZ()));
+        assertTrue(atDeck != null && !atDeck.state().isAir(),
+                "standing() looks for the deck here and there is none, so a finished gatehouse"
+                        + " answers no and is built again in place for ever");
+
+        // The middle of the footprint is the outermost ramp column, whose masonry stops four
+        // blocks up. Pinned so nobody puts the probe back there.
+        BlockPos middle = columns.get(columns.size() / 2);
+        BuildOp atMiddle = world.get(new BlockPos(middle.getX(), FLOOR + GatePlan.TALL - 1,
+                middle.getZ()));
+        assertTrue(atMiddle == null || atMiddle.state().isAir(),
+                "the middle of the footprint carries deck-height masonry now, so the old probe"
+                        + " would have worked - and this test's reason for existing is gone");
+    }
+
+    @Test
     @DisplayName("touches() names exactly the columns the gatehouse writes in")
     void theDiagnosticKnowsWhichGroundIsOurs() {
         java.util.Set<Long> occupied = occupied();
