@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
@@ -32,7 +33,8 @@ public record Settlement(
         List<BuildJob> buildQueue,
         Craft craft,
         Stage stage,
-        Chronicle chronicle) {
+        Chronicle chronicle,
+        Set<Long> lamps) {
 
     public static final Codec<Settlement> CODEC = RecordCodecBuilder.create(i -> i.group(
             SettlementId.CODEC.fieldOf("identity").forGetter(Settlement::identity),
@@ -48,7 +50,11 @@ public record Settlement(
             // this one keeps its wall; still read, so a save from that build loads at the right
             // stage. Drop it one version from now.
             Codec.BOOL.optionalFieldOf("walled", false).forGetter(Settlement::walled),
-            Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle)
+            Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle),
+            // Every lamp post the settlement has ever planned, as packed columns. A post that
+            // is missing from a remembered column was taken down by somebody, and stays down.
+            Codec.LONG.listOf().optionalFieldOf("lamps", List.of())
+                    .forGetter(s -> List.copyOf(s.lamps))
     ).apply(i, Settlement::load));
 
     /**
@@ -60,10 +66,11 @@ public record Settlement(
      */
     private static Settlement load(SettlementId identity, PlotGrid grid, Map<UUID, Plot> plots,
             List<BuildJob> buildQueue, Craft craft, Optional<Stage> stage, boolean walled,
-            Chronicle chronicle) {
+            Chronicle chronicle, List<Long> lamps) {
         Stage placed = stage.orElse(walled ? Stage.WALLED
                 : craft == Craft.MASONRY ? Stage.HEADED : Stage.LIT);
-        return new Settlement(identity, grid, plots, buildQueue, craft, placed, chronicle);
+        return new Settlement(identity, grid, plots, buildQueue, craft, placed, chronicle,
+                Set.copyOf(lamps));
     }
 
     /**
@@ -76,6 +83,7 @@ public record Settlement(
     public Settlement {
         plots = sorted(plots);
         buildQueue = List.copyOf(buildQueue);
+        lamps = Set.copyOf(lamps);
     }
 
     private static Map<UUID, Plot> sorted(Map<UUID, Plot> in) {
@@ -92,7 +100,7 @@ public record Settlement(
     public static Settlement founding(SettlementId identity, Craft palette) {
         return new Settlement(identity,
                 PlotGrid.empty(identity.center(), PlotGrid.sizeForClaim(identity.claimRadiusChunks())),
-                Map.of(), List.of(), palette, Stage.LIT, Chronicle.EMPTY);
+                Map.of(), List.of(), palette, Stage.LIT, Chronicle.EMPTY, Set.of());
     }
 
     public UUID id() {
@@ -124,15 +132,15 @@ public record Settlement(
     // Copy helpers. Callers do not rebuild the record by hand.
 
     public Settlement withGrid(PlotGrid newGrid) {
-        return new Settlement(identity, newGrid, plots, buildQueue, craft, stage, chronicle);
+        return new Settlement(identity, newGrid, plots, buildQueue, craft, stage, chronicle, lamps);
     }
 
     public Settlement withPlots(Map<UUID, Plot> newPlots) {
-        return new Settlement(identity, grid, newPlots, buildQueue, craft, stage, chronicle);
+        return new Settlement(identity, grid, newPlots, buildQueue, craft, stage, chronicle, lamps);
     }
 
     public Settlement withBuildQueue(List<BuildJob> newQueue) {
-        return new Settlement(identity, grid, plots, newQueue, craft, stage, chronicle);
+        return new Settlement(identity, grid, plots, newQueue, craft, stage, chronicle, lamps);
     }
 
     /**
@@ -144,7 +152,7 @@ public record Settlement(
      */
     public Settlement withStage(Stage earned) {
         return new Settlement(identity, grid, plots, buildQueue, craft, stage.or(earned),
-                chronicle);
+                chronicle, lamps);
     }
 
     /** Whether somebody has ever held the village head's table here. Streets and houses. */
@@ -158,7 +166,21 @@ public record Settlement(
     }
 
     public Settlement withChronicle(Chronicle newChronicle) {
-        return new Settlement(identity, grid, plots, buildQueue, craft, stage, newChronicle);
+        return new Settlement(identity, grid, plots, buildQueue, craft, stage, newChronicle,
+                lamps);
+    }
+
+    /**
+     * The settlement having planned these lamp posts.
+     *
+     * <p>Only ever more. This is the record that lets a knocked-down post stay down: the
+     * planner asks it before the world, so a column that was lit once is never lit again by
+     * us, whatever is standing there now.
+     */
+    public Settlement withLamps(java.util.Collection<Long> planned) {
+        Set<Long> all = new java.util.HashSet<>(lamps);
+        all.addAll(planned);
+        return new Settlement(identity, grid, plots, buildQueue, craft, stage, chronicle, all);
     }
 
     public Settlement record(EntryType type, String subject, String detail, long gameTime) {

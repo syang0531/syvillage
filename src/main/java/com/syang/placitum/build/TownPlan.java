@@ -231,6 +231,21 @@ public final class TownPlan {
     }
 
     /**
+     * Whether a column is on the wall line or outside it.
+     *
+     * <p>Where the side streets stop. The outer ring's block-boundary streets used to run on
+     * out to the ring's edge and the wall was built over them, twenty blocks apart all the way
+     * round. Only the bell's own two roads go through, under the gatehouses; every other
+     * street ends at the wall's inner face and the ring closes there. The line is arithmetic,
+     * so a street stops at it before there is a wall to stop at.
+     */
+    public static boolean atOrBeyondWall(BlockPos pos, Settlement settlement) {
+        int reach = Math.max(Math.abs(pos.getX() - settlement.center().getX()),
+                Math.abs(pos.getZ() - settlement.center().getZ()));
+        return reach >= wallInner(settlement);
+    }
+
+    /**
      * Whether this column is part of the wall ring.
      *
      * <p>A square annulus: out as far as the outer face in one axis or the other, and no further

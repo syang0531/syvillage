@@ -180,4 +180,55 @@ class GateTest {
         assertTrue(under.is(Blocks.STONE_BRICKS), "the hole under the corner is filled");
         assertTrue(stone(world, low, 0), "up to and including the floor");
     }
+
+    @Test
+    @DisplayName("the floor is the road's, however high the ground under the rest of it")
+    void theFloorIsTheWayIn() {
+        // Everything but the ways in stands one higher. The old rule took the highest ground
+        // and put the arch a block above the road; this one builds the block over.
+        Settlement town = town();
+        Template template = GatePlan.template();
+        List<int[]> columns = template.columns();
+        java.util.Set<String> entrances = new java.util.HashSet<>();
+        for (int[] e : template.entrances()) {
+            entrances.add(e[0] + "," + e[1]);
+        }
+        List<Integer> profile = new ArrayList<>();
+        for (int[] column : columns) {
+            profile.add(entrances.contains(column[0] + "," + column[1]) ? FLOOR : FLOOR + 1);
+        }
+        assertEquals(null, GatePlan.siteTrouble(profile), "one block of hillside is built over");
+
+        Map<BlockPos, BuildOp> world = new HashMap<>();
+        for (BuildOp op : GatePlan.expand(GatePlan.recipe(town, Direction.NORTH, profile, List.of()))) {
+            world.put(op.pos(), op);
+        }
+        int[] probe = template.probe();
+        assertTrue(stone(world, at(probe[0], probe[1]), 1 + probe[2]),
+                "the whole structure sits on the road's level, not the hillside's");
+    }
+
+    @Test
+    @DisplayName("it waits when its ways in disagree, or when the hill is higher than a block")
+    void itWaitsForThePlayer() {
+        Template template = GatePlan.template();
+        List<int[]> columns = template.columns();
+        int[] way = template.entrances().getFirst();
+
+        List<Integer> profile = new ArrayList<>();
+        for (int[] column : columns) {
+            boolean thatOne = column[0] == way[0] && column[1] == way[1];
+            profile.add(thatOne ? FLOOR + 1 : FLOOR);
+        }
+        assertTrue(GatePlan.siteTrouble(profile).contains("not level"),
+                "a stair whose foot is a block above the road is a stair to nowhere");
+
+        profile.clear();
+        int[] far = columns.get(0);
+        for (int[] column : columns) {
+            profile.add(column == far ? FLOOR + 2 : FLOOR);
+        }
+        assertTrue(GatePlan.siteTrouble(profile).contains("hillside"),
+                "two blocks of hill would bury it, and we do not cut the hill");
+    }
 }

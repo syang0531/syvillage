@@ -150,30 +150,74 @@ public final class WallPlan {
      */
     private static boolean level(ServerLevel level, Settlement settlement, BlockPos bell,
             int along, int side, BlockState stone) {
+        int here = heightOf(level, settlement, bell, along, side, stone);
+        if (here == Ground.SKIP) {
+            return false;   // not level across, or water, or not loaded
+        }
+        // The wall follows the ground, a block at a time, and never two blocks running: a
+        // step is allowed only after two cross-sections at the same height. Steep enough to
+        // follow a hillside, gentle enough to walk, and never a staircase with parapets. Where
+        // the cross-section before is a gatehouse's or a tower's arm, its height is the arm's,
+        // so the rampart arrives at the structure level with it - or stops one short, where
+        // the player can see the gap and level the ground under it.
+        int before = heightOf(level, settlement, bell, along - 1, side, stone);
+        if (before == Ground.SKIP) {
+            return true;   // nothing to match: water, a gap, the start of a side
+        }
+        if (Math.abs(here - before) > 1) {
+            return false;
+        }
+        if (here != before) {
+            int twoBefore = heightOf(level, settlement, bell, along - 2, side, stone);
+            return twoBefore == before;
+        }
+        return true;
+    }
+
+    /**
+     * The height one cross-section of wall stands at, or SKIP.
+     *
+     * <p>For a cross-section of rampart, built or not, it is the footing: the ground our
+     * masonry stands on, read down through the masonry - a built cross-section reads three
+     * higher otherwise, and the rampart came out as parallel strips over that once. For a
+     * cross-section that is a structure's arm, it is the structure's floor, read off the top
+     * of the arm's walkway body; if the structure is not up yet there is nothing to match.
+     * SKIP too if the five columns are not level with each other: the walkway is three abreast
+     * and a step across it is not a walkway.
+     */
+    private static int heightOf(ServerLevel level, Settlement settlement, BlockPos bell,
+            int along, int side, BlockState stone) {
+        int outer = TownPlan.wallOuter(settlement);
         int lowest = Integer.MAX_VALUE;
         int highest = Integer.MIN_VALUE;
-        int outer = TownPlan.wallOuter(settlement);
 
-        for (int back = 0; back <= 1; back++) {
-            for (int depth = 0; depth < TownPlan.WALL; depth++) {
-                BlockPos pos = columnAt(bell, side, along - back, outer - depth);
-                if (!level.hasChunkAt(pos)) {
-                    return false;
-                }
-                if (GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ()) == Ground.SKIP) {
-                    return false;   // water
-                }
-                // Read down through our own masonry to the ground it stands on. The cross-section
-                // before this one is usually already built, and a built cross-section reads three
-                // blocks higher than the ground - so this said "not level" beside every stretch
-                // of wall that existed, and the rampart came out as separate parallel strips
-                // with a gap between each one.
-                int ground = GridSurvey.footingAt(level, pos.getX(), pos.getZ(), stone);
-                lowest = Math.min(lowest, ground);
-                highest = Math.max(highest, ground);
+        for (int depth = 0; depth < TownPlan.WALL; depth++) {
+            BlockPos pos = columnAt(bell, side, along, outer - depth);
+            if (!level.hasChunkAt(pos)) {
+                return Ground.SKIP;
             }
+            if (TownPlan.reservedForWall(pos, settlement)) {
+                if (depth != TownPlan.WALL / 2) {
+                    continue;   // one column of the arm says it all: the middle of the walkway
+                }
+                if (!GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
+                    return Ground.SKIP;   // not built yet
+                }
+                int top = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
+                return top == Ground.SKIP ? Ground.SKIP : top - BODY;
+            }
+            if (GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ()) == Ground.SKIP) {
+                return Ground.SKIP;   // water
+            }
+            int ground = GridSurvey.footingAt(level, pos.getX(), pos.getZ(), stone);
+            lowest = Math.min(lowest, ground);
+            highest = Math.max(highest, ground);
         }
-        return highest - lowest <= PlacitumConfig.MAX_CELL_SLOPE.get();
+        if (lowest == Integer.MAX_VALUE
+                || highest - lowest > PlacitumConfig.MAX_CELL_SLOPE.get()) {
+            return Ground.SKIP;
+        }
+        return highest;
     }
 
     /** One column of the ring, by which side of the square it is on and how far along. */

@@ -120,4 +120,25 @@ class TemplateTest {
         assertEquals(Blocks.STONE_BRICKS,
                 Template.remap(Blocks.STONE_BRICKS.defaultBlockState(), Craft.PLAINS).getBlock());
     }
+
+    @Test
+    @DisplayName("the ways in are on the lowest layer, and both templates have them")
+    void theWaysInAreOnTheGround() {
+        for (String name : new String[] {"gatehouse", "tower"}) {
+            Template template = Template.of(name);
+            assertFalse(template.entrances().isEmpty(), name + " has no way in");
+            for (int[] column : template.entrances()) {
+                assertTrue(template.hasBase(column[0], column[1]),
+                        name + ": a way in with nothing on the lowest layer at "
+                                + column[0] + "," + column[1]);
+            }
+        }
+        // The gatehouse's ways in include its road: the fence gates across the arch.
+        Template gate = Template.of("gatehouse");
+        boolean onTheRoad = false;
+        for (int[] column : gate.entrances()) {
+            onTheRoad |= column[0] == gate.sizeX() / 2;
+        }
+        assertTrue(onTheRoad, "the arch's fence gates are ways in, so the floor is the road's");
+    }
 }

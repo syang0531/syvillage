@@ -113,4 +113,18 @@ class StageTest {
         edit.accept(json);
         return Settlement.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
     }
+
+    @Test
+    @DisplayName("lamp posts once planned are remembered, and a save without the record loads")
+    void lampsAreRemembered() {
+        Settlement lit = SettlementFixture.founded().withLamps(java.util.List.of(7L, 9L));
+        assertTrue(lit.withLamps(java.util.List.of(11L)).lamps().containsAll(
+                java.util.Set.of(7L, 9L, 11L)), "only ever more");
+
+        JsonObject json = encode(lit);
+        assertEquals(2, json.getAsJsonArray("lamps").size());
+        json.remove("lamps");
+        assertTrue(Settlement.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow().lamps().isEmpty(),
+                "a save from before posts were remembered loads with none remembered");
+    }
 }

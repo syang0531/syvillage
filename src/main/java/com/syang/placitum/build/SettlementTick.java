@@ -203,16 +203,29 @@ public final class SettlementTick {
         // again straight after being finished is one the plan and the world disagree about,
         // and it never shows up in the idle report - the settlement is never idle. Once, not
         // every five seconds: the alarm is the first line, the rest would be the same line.
+        // The whole recipe, not the template and anchor: every gatehouse is anchored on the
+        // bell now, so north followed by east looked like a repeat, and so did one batch of
+        // rampart after another. A true loop plans the identical recipe - same ground, same
+        // spans - and that is what equality on the record asks.
         BuildRecipe last = LAST_STARTED.put(settlement.id(), recipe);
-        if (last != null && last.template().equals(recipe.template())
-                && last.anchor().equals(recipe.anchor()) && !REPEATED.contains(settlement.id())) {
+        if (last != null && last.equals(recipe) && !REPEATED.contains(settlement.id())) {
             REPEATED.add(settlement.id());
             Placitum.LOGGER.warn("'{}' plans a {} at {} again straight after finishing one. The"
                     + " world has it standing and the plan does not; whatever the plan asks to"
                     + " decide that is looking at the wrong block", settlement.name(),
                     recipe.template().getPath(), recipe.anchor().toShortString());
-        } else if (last != null && !last.anchor().equals(recipe.anchor())) {
+        } else if (last != null && !last.equals(recipe)) {
             REPEATED.remove(settlement.id());
+        }
+        if (recipe.template().equals(LampPlan.LAMPS)) {
+            // Remembered as soon as they are planned, so that a post the player knocks down
+            // later is a post that stays down. Streets are relaid when they go missing; light
+            // is the player's to refuse, one post at a time.
+            java.util.List<Long> posts = new java.util.ArrayList<>();
+            for (Spans post : Spans.decode(recipe.gates())) {
+                posts.add(Reach.key(post.x(), post.z()));
+            }
+            settlement = settlement.withLamps(posts);
         }
         Placitum.LOGGER.info("'{}' starts a {} at {} in phase {}: {} block(s)",
                 settlement.name(), recipe.template().getPath(),

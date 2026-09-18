@@ -18,6 +18,9 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FenceBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
@@ -179,6 +182,44 @@ public final class Template {
             }
         }
         return true;
+    }
+
+    /**
+     * The columns whose lowest layer is a way in: a stair's first tread, a fence, a fence gate.
+     *
+     * <p>These are what a structure is levelled against. A gatehouse whose floor was the
+     * highest ground under it stood with its arch a storey above the road on any hillside,
+     * its stairs starting in mid-air and its gates opening onto nothing; a tower did the same
+     * with its ground stairs. The way in has to be on the ground, and that is the whole rule -
+     * the template says where the ways in are by what it puts on its lowest layer, so redrawing
+     * it moves the rule with it.
+     */
+    public List<int[]> entrances() {
+        List<int[]> out = new ArrayList<>();
+        boolean[][] seen = new boolean[sizeX][sizeZ];
+        for (Piece piece : pieces) {
+            Block block = piece.state().getBlock();
+            if (piece.y() == 0 && (block instanceof StairBlock || block instanceof FenceBlock
+                    || block instanceof FenceGateBlock)) {
+                seen[piece.x()][piece.z()] = true;
+            }
+        }
+        for (int[] column : columns()) {
+            if (seen[column[0]][column[1]]) {
+                out.add(column);
+            }
+        }
+        return Collections.unmodifiableList(out);
+    }
+
+    /** Whether the template puts any block at all on its lowest layer in this column. */
+    public boolean hasBase(int x, int z) {
+        for (Piece piece : pieces) {
+            if (piece.x() == x && piece.z() == z && piece.y() == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

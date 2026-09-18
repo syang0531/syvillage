@@ -102,6 +102,11 @@ public final class GatePlan {
         return PLAN.recipe(settlement, rotationOf(side), profile, spans);
     }
 
+    /** What is wrong with this ground for a gatehouse, or null. For tests. */
+    public static String siteTrouble(List<Integer> profile) {
+        return PLAN.siteTrouble(profile);
+    }
+
     /** The template itself, for tests that want to look at the shape. */
     public static Template template() {
         return PLAN.template();

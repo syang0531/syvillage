@@ -59,6 +59,9 @@ public final class LampPlan {
                 if (!TownPlan.isLampPost(pos, bell) || !level.hasChunkAt(pos)) {
                     continue;
                 }
+                if (settlement.lamps().contains(Reach.key(pos.getX(), pos.getZ()))) {
+                    continue;   // lit once already; if it is dark now, somebody wanted it dark
+                }
                 int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
                 if (ground == Ground.SKIP || !reach.has(pos)
                         || GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
@@ -128,6 +131,9 @@ public final class LampPlan {
                 BlockPos pos = bell.offset(dx, 0, dz);
                 if (!TownPlan.isLampPost(pos, bell) || !level.hasChunkAt(pos)) {
                     continue;
+                }
+                if (settlement.lamps().contains(Reach.key(pos.getX(), pos.getZ()))) {
+                    continue;   // lit once already; if it is dark now, somebody wanted it dark
                 }
                 int ground = GridSurvey.groundOrSkip(level, pos.getX(), pos.getZ());
                 if (ground == Ground.SKIP) {

@@ -1,6 +1,7 @@
 package com.syang.placitum.build;
 
 import com.syang.placitum.Placitum;
+import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.Craft;
@@ -96,6 +97,9 @@ public final class TemplatePlan {
         if (isStanding(level, settlement, origin, rotation, profile)) {
             return Optional.empty();
         }
+        if (siteTrouble(profile) != null) {
+            return Optional.empty();   // the ways in are not level, or a hillside is in the way
+        }
         Placitum.LOGGER.debug("Planned a {} for '{}' turned {}", what, settlement.name(),
                 rotation);
         return Optional.of(recipe(settlement, rotation, profile,
@@ -118,23 +122,88 @@ public final class TemplatePlan {
     }
 
     /**
-     * The level the structure stands at: the highest footing under a column that is solid
-     * masonry from the ground up.
+     * The level the structure stands at: the ground under its ways in.
      *
-     * <p>Only those columns vote. The ones with a way through or a stair in them read a floor
-     * of their own, several blocks up, and the highest of all columns would put the whole
-     * structure on stilts over an archway.
+     * <p>A gatehouse stands where its arch meets the road and its stairs meet the street; a
+     * tower where its ground stairs do. Levelled against the highest ground under the whole
+     * footprint instead, either stood a storey above its own front door on any hillside. If a
+     * template has no ways in at all, the solid columns decide, as they used to.
      */
     private int floorOf(List<Integer> profile) {
-        Template template = template();
-        List<int[]> columns = template.columns();
-        List<Integer> solid = new ArrayList<>();
-        for (int i = 0; i < columns.size(); i++) {
-            if (template.solidToTop(columns.get(i)[0], columns.get(i)[1])) {
-                solid.add(profile.get(i));
+        List<Integer> under = groundUnder(template().entrances(), profile);
+        if (under.isEmpty()) {
+            Template template = template();
+            List<int[]> columns = template.columns();
+            for (int i = 0; i < columns.size(); i++) {
+                if (template.solidToTop(columns.get(i)[0], columns.get(i)[1])) {
+                    under.add(profile.get(i));
+                }
             }
         }
-        return Ground.highest(solid);
+        return Ground.highest(under);
+    }
+
+    /** The profile entries for these template columns. */
+    private List<Integer> groundUnder(List<int[]> wanted, List<Integer> profile) {
+        List<int[]> columns = template().columns();
+        List<Integer> out = new ArrayList<>();
+        for (int[] w : wanted) {
+            for (int i = 0; i < columns.size(); i++) {
+                if (columns.get(i)[0] == w[0] && columns.get(i)[1] == w[1]) {
+                    out.add(profile.get(i));
+                    break;
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * What is wrong with this ground for this structure, or null if nothing.
+     *
+     * <p>Two things can be. The ways in have to be level with each other - the road under
+     * the arch and the foot of the stairs are the same layer of the template, so they had
+     * better be the same height in the world. And no column may stand more than one above
+     * the floor: one block of hillside is built over, more would bury the structure, and we
+     * do not cut the hill. Low ground is fine; the foundation reaches down to it.
+     *
+     * <p>Said in words so that the idle report can say them, because a gatehouse that never
+     * appears is indistinguishable from one that is broken unless something says why.
+     */
+    public String siteTrouble(List<Integer> profile) {
+        Template template = template();
+        List<Integer> entrances = groundUnder(template.entrances(), profile);
+        if (!entrances.isEmpty()) {
+            int lowest = Ground.SKIP;
+            int highest = Ground.SKIP;
+            for (int g : entrances) {
+                lowest = lowest == Ground.SKIP ? g : Math.min(lowest, g);
+                highest = highest == Ground.SKIP ? g : Math.max(highest, g);
+            }
+            if (highest - lowest > PlacitumConfig.MAX_CELL_SLOPE.get()) {
+                return "the ways in are not level (" + lowest + " to " + highest + ")";
+            }
+        }
+        int floor = floorOf(profile);
+        if (floor == Ground.SKIP) {
+            return "no ground to stand on";
+        }
+        int above = 0;
+        int[] first = null;
+        List<int[]> columns = template.columns();
+        for (int i = 0; i < columns.size(); i++) {
+            if (profile.get(i) > floor + 1) {
+                above++;
+                if (first == null) {
+                    first = columns.get(i);
+                }
+            }
+        }
+        if (above > 0) {
+            return above + " column(s) of hillside above the floor at " + floor
+                    + ", first at template " + first[0] + "," + first[1];
+        }
+        return null;
     }
 
     public String status(ServerLevel level, Settlement settlement, Rotation rotation,
@@ -142,8 +211,15 @@ public final class TemplatePlan {
         int[] origin = originNorth.apply(settlement);
         List<BlockPos> columns = footprint(settlement.center(), origin, rotation);
         List<Integer> profile = grounds(level, columns, settlement.craft().wall());
-        return isStanding(level, settlement, origin, rotation, profile)
-                ? "standing" : trouble(level, columns, reach, i -> true);
+        if (isStanding(level, settlement, origin, rotation, profile)) {
+            return "standing";
+        }
+        String ground = trouble(level, columns, reach, i -> true);
+        if (!"nothing".equals(ground)) {
+            return ground;
+        }
+        String site = siteTrouble(profile);
+        return site == null ? "nothing" : site;
     }
 
     /** The footing under a footprint, with water marked rather than guessed at. */
@@ -241,9 +317,11 @@ public final class TemplatePlan {
         BlockState stone = craft.wall();
         List<BuildOp> ops = new ArrayList<>();
 
+        // Under every column that has something on the template's lowest layer - masonry,
+        // a stair, a fence post. A stair with nothing under it is a stair over a hole.
         for (int i = 0; i < columns.size(); i++) {
             int[] column = columns.get(i);
-            if (!template.solidToTop(column[0], column[1]) && !baseIsMasonry(template, column)) {
+            if (!template.hasBase(column[0], column[1])) {
                 continue;
             }
             BlockPos at = Template.columnAt(bell, origin, rotation, column[0], column[1]);
@@ -257,15 +335,6 @@ public final class TemplatePlan {
                 .thenComparingInt(op -> op.pos().getX())
                 .thenComparingInt(op -> op.pos().getZ()));
         return List.copyOf(ops);
-    }
-
-    private static boolean baseIsMasonry(Template template, int[] column) {
-        for (Template.Piece piece : template.pieces()) {
-            if (piece.x() == column[0] && piece.z() == column[1] && piece.y() == 0) {
-                return Template.isMasonry(piece.state());
-            }
-        }
-        return false;
     }
 
     /** The positions a build has already spoken for. */
