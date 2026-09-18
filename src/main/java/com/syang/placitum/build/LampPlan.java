@@ -4,6 +4,7 @@ import com.syang.placitum.Placitum;
 import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
+import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.Settlement;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -172,19 +173,22 @@ public final class LampPlan {
                 settlement.name(), dark.size(), phase, batch);
 
         return Optional.of(new BuildRecipe(LAMPS, posts.getFirst(), Rotation.NONE,
-                Identifier.fromNamespaceAndPath(Placitum.MODID, "biome_palette/plains"),
-                List.copyOf(profile), new BlockPos(batch, 0, 0), Spans.encode(columns)));
+                settlement.craft().paletteId(), List.copyOf(profile), new BlockPos(batch, 0, 0),
+                Spans.encode(columns)));
     }
 
     /**
-     * A fence post with a lantern on top.
+     * A block, a post on it, a lantern on that - in the palette's materials.
      *
      * <p>Not a torch on the ground: anything walking into one knocks it off, and a village that
      * relights itself every morning was dark all night. The post also lifts the light a block,
-     * which is what keeps the ground beside it from spawning.
+     * which is what keeps the ground beside it from spawning. The block under the post is what
+     * vanilla's plains lamp has and what two fence posts and a lantern lacked: something to
+     * read as a lamp rather than a stick.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Spans> posts = Spans.decode(recipe.gates());
+        Craft craft = Craft.fromPalette(recipe.palette());
         List<BuildOp> ops = new ArrayList<>();
         Set<BlockPos> claimed = new HashSet<>();
         for (Spans post : posts) {
@@ -194,12 +198,9 @@ public final class LampPlan {
             for (int dy = 1; dy <= 3; dy++) {
                 claimed.add(post.at(post.base() + dy));
             }
-            ops.add(new BuildOp(post.at(post.base() + 1),
-                    Blocks.OAK_FENCE.defaultBlockState()));
-            ops.add(new BuildOp(post.at(post.base() + 2),
-                    Blocks.OAK_FENCE.defaultBlockState()));
-            ops.add(new BuildOp(post.at(post.base() + 3),
-                    Blocks.LANTERN.defaultBlockState()));
+            ops.add(new BuildOp(post.at(post.base() + 1), craft.lampBase()));
+            ops.add(new BuildOp(post.at(post.base() + 2), craft.lampPost()));
+            ops.add(new BuildOp(post.at(post.base() + 3), Blocks.LANTERN.defaultBlockState()));
         }
         ops.addAll(Clearance.ops(posts, claimed));
         ops.sort(Comparator.comparingInt((BuildOp op) -> op.pos().getY())

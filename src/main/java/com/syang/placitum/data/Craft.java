@@ -34,32 +34,43 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public enum Craft implements StringRepresentable {
 
+    // The streets are what vanilla lays in that biome: a dirt path everywhere it has grass,
+    // smooth sandstone where it has sand. Taiga and snowy villages had cobblestone here once,
+    // and were the only grey streets in the game.
     PLAINS("plains", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.OAK_PLANKS, Blocks.COBBLESTONE,
-            Blocks.STONE_BRICK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE),
+            Blocks.STONE_BRICK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
+            Blocks.STRIPPED_OAK_WOOD, Blocks.OAK_FENCE),
 
-    TAIGA("taiga", Blocks.COBBLESTONE, Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS, Blocks.COBBLESTONE,
-            Blocks.STONE_BRICK_STAIRS, Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE),
+    TAIGA("taiga", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS, Blocks.COBBLESTONE,
+            Blocks.STONE_BRICK_STAIRS, Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE,
+            Blocks.STRIPPED_SPRUCE_WOOD, Blocks.SPRUCE_FENCE),
 
-    SNOWY("snowy", Blocks.COBBLESTONE, Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS, Blocks.COBBLESTONE,
-            Blocks.STONE_BRICK_STAIRS, Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE),
+    SNOWY("snowy", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS, Blocks.COBBLESTONE,
+            Blocks.STONE_BRICK_STAIRS, Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE,
+            Blocks.STRIPPED_SPRUCE_WOOD, Blocks.SPRUCE_FENCE),
 
     SAVANNA("savanna", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.ACACIA_PLANKS, Blocks.COBBLESTONE,
-            Blocks.STONE_BRICK_STAIRS, Blocks.ACACIA_FENCE, Blocks.ACACIA_FENCE_GATE),
+            Blocks.STONE_BRICK_STAIRS, Blocks.ACACIA_FENCE, Blocks.ACACIA_FENCE_GATE,
+            Blocks.STRIPPED_ACACIA_WOOD, Blocks.ACACIA_FENCE),
 
     DESERT("desert", Blocks.SMOOTH_SANDSTONE, Blocks.CUT_SANDSTONE, Blocks.SANDSTONE_SLAB,
-            Blocks.SANDSTONE, Blocks.SANDSTONE_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE),
+            Blocks.SANDSTONE, Blocks.SANDSTONE_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
+            Blocks.CUT_SANDSTONE, Blocks.SANDSTONE_WALL),
 
     /** Legacy. The bottom rung of the old ladder; only ever read from a save. */
     TIMBER("timber", Blocks.DIRT_PATH, Blocks.OAK_PLANKS, Blocks.OAK_PLANKS, Blocks.COBBLESTONE,
-            Blocks.OAK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE),
+            Blocks.OAK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
+            Blocks.STRIPPED_OAK_WOOD, Blocks.OAK_FENCE),
 
     /** Legacy. The mason's rung. */
     STONE("stone", Blocks.COBBLESTONE, Blocks.COBBLESTONE, Blocks.OAK_PLANKS, Blocks.STONE_BRICKS,
-            Blocks.COBBLESTONE_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE),
+            Blocks.COBBLESTONE_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
+            Blocks.STRIPPED_OAK_WOOD, Blocks.OAK_FENCE),
 
     /** Legacy. The village head's rung, and the one every test world is saved in. */
     MASONRY("masonry", Blocks.STONE_BRICKS, Blocks.STONE_BRICKS, Blocks.STONE_BRICK_SLAB,
-            Blocks.STONE_BRICKS, Blocks.STONE_BRICK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE);
+            Blocks.STONE_BRICKS, Blocks.STONE_BRICK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
+            Blocks.STRIPPED_OAK_WOOD, Blocks.OAK_FENCE);
 
     public static final Codec<Craft> CODEC = StringRepresentable.fromEnum(Craft::values);
 
@@ -71,9 +82,11 @@ public enum Craft implements StringRepresentable {
     private final BlockState wallStairs;
     private final BlockState fence;
     private final BlockState fenceGate;
+    private final BlockState lampBase;
+    private final BlockState lampPost;
 
     Craft(String name, Block paving, Block wall, Block roof, Block foundation, Block wallStairs,
-            Block fence, Block fenceGate) {
+            Block fence, Block fenceGate, Block lampBase, Block lampPost) {
         this.name = name;
         this.paving = paving.defaultBlockState();
         this.wall = wall.defaultBlockState();
@@ -82,6 +95,8 @@ public enum Craft implements StringRepresentable {
         this.wallStairs = wallStairs.defaultBlockState();
         this.fence = fence.defaultBlockState();
         this.fenceGate = fenceGate.defaultBlockState();
+        this.lampBase = lampBase.defaultBlockState();
+        this.lampPost = lampPost.defaultBlockState();
     }
 
     /**
@@ -130,6 +145,19 @@ public enum Craft implements StringRepresentable {
     /** And its gate - the ones across the gatehouse's way through. */
     public BlockState fenceGate() {
         return fenceGate;
+    }
+
+    /**
+     * The block a street lamp stands on: a stripped log of the palette's wood, as vanilla's
+     * plains lamp has, or cut sandstone in the desert. A post of nothing but fence was a stick.
+     */
+    public BlockState lampBase() {
+        return lampBase;
+    }
+
+    /** The post above that base, which the lantern sits on - a fence, or a wall in the desert. */
+    public BlockState lampPost() {
+        return lampPost;
     }
 
     /** The floor of a house, which is the same block as what holds it up. */

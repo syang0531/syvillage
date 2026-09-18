@@ -67,7 +67,27 @@ class CraftTest {
         }
         // The three rungs, by block: every test world so far is paved in one of these.
         assertTrue(Craft.isPaving(Blocks.DIRT_PATH.defaultBlockState()));
-        assertTrue(Craft.isPaving(Blocks.COBBLESTONE.defaultBlockState()));
+        assertTrue(Craft.isPaving(Blocks.COBBLESTONE.defaultBlockState()),
+                "the old ladder's cobblestone street is still a street");
+    }
+
+    @Test
+    @DisplayName("streets are what vanilla lays there, and a lamp is a block, a post and a lantern")
+    void streetsAndLampsAreTheBiomes() {
+        // Vanilla's taiga and snowy streets are dirt path like the plains'; only the desert paves.
+        for (Craft craft : new Craft[] {Craft.PLAINS, Craft.TAIGA, Craft.SNOWY, Craft.SAVANNA}) {
+            assertEquals(Blocks.DIRT_PATH, craft.paving().getBlock(), craft + " paves in grass");
+        }
+        assertEquals(Blocks.SMOOTH_SANDSTONE, Craft.DESERT.paving().getBlock());
+
+        assertEquals(Blocks.STRIPPED_OAK_WOOD, Craft.PLAINS.lampBase().getBlock());
+        assertEquals(Blocks.OAK_FENCE, Craft.PLAINS.lampPost().getBlock());
+        assertEquals(Blocks.STRIPPED_SPRUCE_WOOD, Craft.SNOWY.lampBase().getBlock());
+        assertEquals(Blocks.SPRUCE_FENCE, Craft.TAIGA.lampPost().getBlock());
+        assertEquals(Blocks.ACACIA_FENCE, Craft.SAVANNA.lampPost().getBlock());
+        // No wood in the desert: a cut sandstone block and a sandstone wall for the post.
+        assertEquals(Blocks.CUT_SANDSTONE, Craft.DESERT.lampBase().getBlock());
+        assertEquals(Blocks.SANDSTONE_WALL, Craft.DESERT.lampPost().getBlock());
         assertTrue(Craft.isPaving(Blocks.STONE_BRICKS.defaultBlockState()));
 
         assertFalse(Craft.isPaving(Blocks.GRASS_BLOCK.defaultBlockState()));
