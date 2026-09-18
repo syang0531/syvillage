@@ -1,12 +1,12 @@
 {
   "parent": "minecraft:block/cube",
   "textures": {
-    "down": "minecraft:block/stone_bricks",
-    "up": "minecraft:block/chiseled_stone_bricks",
-    "north": "minecraft:block/stone_bricks",
-    "south": "minecraft:block/stone_bricks",
-    "east": "minecraft:block/stone_bricks",
-    "west": "minecraft:block/chiseled_stone_bricks",
-    "particle": "minecraft:block/stone_bricks"
+    "down": "placitum:block/lords_table_bottom",
+    "up": "placitum:block/lords_table_top",
+    "north": "placitum:block/lords_table_front",
+    "south": "placitum:block/lords_table_side",
+    "east": "placitum:block/lords_table_side",
+    "west": "placitum:block/lords_table_side",
+    "particle": "placitum:block/lords_table_side"
   }
 }

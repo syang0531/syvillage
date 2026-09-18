@@ -1,6 +1,7 @@
 package com.syang.placitum.registry;
 
 import com.syang.placitum.Placitum;
+import com.syang.placitum.block.FacingTable;
 import com.syang.placitum.block.GuardianBlockEntity;
 import com.syang.placitum.block.GuardianStatue;
 import java.util.function.Function;
@@ -47,7 +48,8 @@ public final class ModBlocks {
                     .mapColor(MapColor.WOOD)
                     .strength(2.5F)
                     .sound(SoundType.WOOD)
-                    .ignitedByLava());
+                    .ignitedByLava(),
+            FacingTable::new);
 
     /**
      * The lord's table: the workstation that lets a settlement wall itself.
@@ -60,7 +62,8 @@ public final class ModBlocks {
                     .mapColor(MapColor.STONE)
                     .strength(3.5F)
                     .requiresCorrectToolForDrops()
-                    .sound(SoundType.STONE));
+                    .sound(SoundType.STONE),
+            FacingTable::new);
 
     /**
      * The guardian statue: an iron golem that comes back.
