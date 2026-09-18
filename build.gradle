@@ -135,4 +135,6 @@ tasks.register('publishCurseForge', TaskPublishCurseForge) {
     mainFile.addModLoader('NeoForge')
     mainFile.addGameVersion(minecraft_version)
     mainFile.addJavaVersion('Java 25')
+    // CurseForge refuses a file with no environment tag (error 1021).
+    mainFile.addEnvironment('Client', 'Server')
 }
