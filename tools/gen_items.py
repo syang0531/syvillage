@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""The two trade items, drawn rather than copied.
+"""The trade items, drawn rather than copied.
 
 Run from the project root:  python tools/gen_items.py
 
-Both are 16x16, transparent background, in the flat "item/generated" style. They are stand-ins
+All are 16x16, transparent background, in the flat "item/generated" style. They are stand-ins
 of the same standard as everything else in M4: recognisable, on-palette, and cheap to redraw
 when M6 gets round to making things pretty.
 """
@@ -79,8 +79,51 @@ def heart():
     return im
 
 
+def charter():
+    """A sheet of parchment, written on, with the village head's seal at the foot."""
+    im = canvas()
+    px = im.load()
+    PAPER, PAPER_DARK, EDGE = (232, 216, 176, 255), (208, 188, 142, 255), (120, 96, 56, 255)
+    INK = (78, 60, 40, 255)
+    WAX, WAX_DARK = (163, 38, 38, 255), (110, 22, 22, 255)
+    rows = [
+        '................',
+        '..EEEEEEEEEEE...',
+        '..E#########E...',
+        '..E#########E...',
+        '..E#-----##.E...',
+        '..E#########E...',
+        '..E#------#.E...',
+        '..E#########E...',
+        '..E#-----##.E...',
+        '..E#########E...',
+        '..E#---#####E...',
+        '..E#########E...',
+        '..E#####WWW#E...',
+        '..E#####WwW#E...',
+        '..EEEEEEWWWEE...',
+        '................',
+    ]
+    for y, row in enumerate(rows):
+        for x, c in enumerate(row):
+            if c == 'E':
+                px[x, y] = EDGE
+            elif c == '#':
+                px[x, y] = PAPER
+            elif c == '.' and 2 < x < 12 and 1 < y < 14:
+                px[x, y] = PAPER_DARK
+            elif c == '-':
+                px[x, y] = INK
+            elif c == 'W':
+                px[x, y] = WAX
+            elif c == 'w':
+                px[x, y] = WAX_DARK
+    return im
+
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     seal().save(os.path.join(OUT, 'lords_seal.png'))
     heart().save(os.path.join(OUT, 'golem_heart.png'))
-    print('wrote lords_seal.png, golem_heart.png')
+    charter().save(os.path.join(OUT, 'freemans_charter.png'))
+    print('wrote lords_seal.png, golem_heart.png, freemans_charter.png')

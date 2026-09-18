@@ -36,5 +36,9 @@ public final class ModCreativeTabs {
             event.accept(ModItems.LORDS_SEAL.get());
             event.accept(ModItems.GOLEM_HEART.get());
         }
+        // The charter is a spawn egg with a different picture on it, so it goes with those.
+        if (event.getTabKey().equals(CreativeModeTabs.SPAWN_EGGS)) {
+            event.accept(ModItems.FREEMANS_CHARTER.get());
+        }
     }
 }

@@ -1,0 +1,12 @@
+{
+  "wants": {
+    "id": "minecraft:emerald",
+    "count": 40.0
+  },
+  "gives": {
+    "id": "placitum:freemans_charter"
+  },
+  "max_uses": 2.0,
+  "reputation_discount": 0.05,
+  "xp": 20.0
+}
