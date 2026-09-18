@@ -142,9 +142,9 @@ public final class PlacitumConfig {
                         "There used to be two keys here - an interval and a batch size - and a",
                         "config file left over from an earlier world set one of them back, so",
                         "ten blocks every ten ticks came out as exactly the old speed. One knob",
-                        "cannot disagree with itself. 10 is a development speed; 1 is what a",
-                        "finished mod would ship.")
-                .defineInRange("buildBlocksPerTick", 10, 1, 256);
+                        "cannot disagree with itself. 1 is a village you can watch being built;",
+                        "10 is the speed it was developed at.")
+                .defineInRange("buildBlocksPerTick", 1, 1, 256);
         ROAD_BLOCKS_PER_JOB = b.comment("Street blocks laid per job. Bounded so the search for",
                         "unlaid street stops as soon as it has a batch rather than walking the",
                         "whole claim every tick looking for work that was finished an hour ago.")

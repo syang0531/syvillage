@@ -128,14 +128,14 @@ Steinerstead is not building anything
 | `surveyIntervalTicks` | 600 | 지면 재측량 주기 (30초) |
 | `planIntervalTicks` | 20 | 유휴 마을이 할 일을 찾는 주기 (1초) |
 | `clearHeight` | 16 | 건설 자리에서 베어낼 높이 |
-| `buildBlocksPerTick` | 10 | 매 틱 놓는 블록 수. **속도 손잡이는 이거 하나뿐** |
+| `buildBlocksPerTick` | 1 | 매 틱 놓는 블록 수. **속도 손잡이는 이거 하나뿐** |
 | `roadBlocksPerJob` | 64 | 도로 한 작업의 기둥 수 |
 | `lampsPerJob` | 8 | 한 작업에 세우는 가로등 수 |
 | `wallColumnsPerJob` | 32 | 한 작업에 올리는 성벽 기둥 수 |
 
 `buildBlocksPerTick`이 하나인 데는 이유가 있다. 예전에는 간격과 배치 크기 두 개였고, 예전 월드에서 남은 config가 간격을 10으로 되돌려서 **10틱마다 10블록 = 정확히 원래 속도**가 나왔다. 10배 가속이 상쇄된 채로 "고쳤다"고 보고됐다. 손잡이 하나는 자기 자신과 어긋날 수 없다.
 
-배포용으로는 `buildBlocksPerTick = 1`이 맞다. 10은 개발 속도다.
+기본값 1은 지어지는 것을 **볼 수 있는** 속도다. 개발 중에는 10으로 돌렸고, 테스트 월드의 config에는 그 값이 남아 있다 — 새 월드만 1로 시작한다.
 
 ### `[guardian]`
 
