@@ -72,15 +72,17 @@ public final class Template {
     private final int sizeZ;
     private final List<Piece> pieces;
     private final @Nullable Direction front;
+    private final int entranceY;
 
     private Template(Identifier id, int sizeX, int sizeY, int sizeZ, List<Piece> pieces,
-            @Nullable Direction front) {
+            @Nullable Direction front, int entranceY) {
         this.id = id;
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         this.sizeZ = sizeZ;
         this.pieces = List.copyOf(pieces);
         this.front = front;
+        this.entranceY = entranceY;
     }
 
     /** One of ours, by name: {@code data/placitum/structure/<name>.nbt}. */
@@ -165,6 +167,7 @@ public final class Template {
             }
             List<Piece> pieces = new ArrayList<>();
             Direction front = null;
+            int entranceY = 0;
             ListTag blocks = nbt.getListOrEmpty("blocks");
             for (int i = 0; i < blocks.size(); i++) {
                 CompoundTag block = blocks.getCompoundOrEmpty(i);
@@ -178,6 +181,7 @@ public final class Template {
                     CompoundTag meta = block.getCompoundOrEmpty("nbt");
                     if (meta.getStringOr("name", "").equals("minecraft:building_entrance")) {
                         front = state.getValue(JigsawBlock.ORIENTATION).front();
+                        entranceY = pos.getIntOr(1, 0);
                     }
                     state = finalState(meta.getStringOr("final_state", "minecraft:air"));
                 }
@@ -188,7 +192,7 @@ public final class Template {
                         state));
             }
             return new Template(id, size.getIntOr(0, 0), size.getIntOr(1, 0),
-                    size.getIntOr(2, 0), pieces, front);
+                    size.getIntOr(2, 0), pieces, front, entranceY);
         }
     }
 
@@ -221,13 +225,15 @@ public final class Template {
      * How many blocks above the ground the lowest layer goes.
      *
      * <p>One for ours: a structure block save starts at the first block standing on the grass.
-     * None for vanilla's village buildings, which are authored with the floor on layer 0 and
-     * placed so that layer replaces the surface - the door is a block up, the doorstep is a
-     * stair at ground level. Placed our way they would stand a block too high, with a step up
-     * to a step up.
+     * For a vanilla village building it is whatever puts its {@code building_entrance} jigsaw
+     * one above the ground, because that is where a street piece's jigsaw is - the path blocks
+     * are the piece's layer 0 and replace the surface, and its jigsaws stand on them. A plains
+     * house has its entrance on layer 0, so it sits a block up with its doorstep stair on the
+     * grass; a desert house has it on layer 1 and sits on the ground with its door where you
+     * walk in. Placing every vanilla house at ground level put the plains doorsteps in a hole.
      */
     public int lift() {
-        return id.getNamespace().equals("minecraft") ? 0 : 1;
+        return front == null ? 1 : 1 - entranceY;
     }
 
     /** How many beds, counted by their heads. What a lot of it is worth to {@code Need}. */

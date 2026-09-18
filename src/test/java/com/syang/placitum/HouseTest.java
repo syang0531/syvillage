@@ -101,7 +101,7 @@ class HouseTest {
             Template t = Template.of(id);
             assertTrue(t.sizeX() <= TownPlan.LOT && t.sizeZ() <= TownPlan.LOT, id + " does not fit");
             assertNotNull(t.front(), id + " has no building_entrance jigsaw");
-            assertEquals(0, t.lift(), "a vanilla house is authored with its floor at ground level");
+            assertTrue(t.lift() >= -1 && t.lift() <= 1, id + " sits at " + t.lift());
             for (Template.Piece piece : t.pieces()) {
                 assertFalse(piece.state().is(Blocks.JIGSAW), id + " still has a jigsaw in it");
                 assertFalse(piece.state().is(Blocks.STRUCTURE_VOID), id + " has a void");
@@ -143,8 +143,16 @@ class HouseTest {
     }
 
     @Test
-    @DisplayName("the floor replaces the surface, the door is a block up, and the doorstep is a stair")
-    void itSitsInTheGround() {
+    @DisplayName("a house sits where its entrance jigsaw is one above the ground")
+    void itSitsWhereTheStreetWouldMeetIt() {
+        // A plains house carries its entrance on layer 0: it sits a block up, doorstep stair on
+        // the grass, door above that. A desert house carries it on layer 1: it sits on the
+        // ground and you walk straight in. Both are what a generated village does.
+        assertEquals(1, Template.of(Identifier.withDefaultNamespace(
+                "village/plains/houses/plains_small_house_1")).lift());
+        assertEquals(0, Template.of(Identifier.withDefaultNamespace(
+                "village/desert/houses/desert_small_house_4")).lift());
+
         Identifier id = Identifier.withDefaultNamespace("village/plains/houses/plains_small_house_1");
         Map<BlockPos, BuildOp> world = built(id, new CellPos(1, 0));
 
@@ -159,17 +167,17 @@ class HouseTest {
             if (entry.getValue().state().getBlock() instanceof DoorBlock
                     && entry.getValue().state().getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER) {
                 doors++;
-                assertEquals(FLOOR + 1, entry.getKey().getY(), "the door stands on the floor");
+                assertEquals(FLOOR + 2, entry.getKey().getY(), "the door stands on the raised floor");
                 // Which way the door itself faces is the builder's habit - inward in the plains
                 // set, outward in the desert set - so the front comes from the jigsaw, not the
                 // door, and is checked in everyBuildingSitsOnItsLot.
             }
             if (entry.getValue().state().getBlock() instanceof StairBlock
-                    && entry.getKey().getY() == FLOOR) {
+                    && entry.getKey().getY() == FLOOR + 1) {
                 steps++;
             }
         }
-        assertEquals(FLOOR, lowest, "layer 0 is the floor and it replaces the surface block");
+        assertEquals(FLOOR + 1, lowest, "layer 0 stands on the grass, the doorstep with it");
         assertEquals(1, doors);
         assertTrue(steps >= 1, "the entrance jigsaw became its final state, a doorstep stair");
     }
