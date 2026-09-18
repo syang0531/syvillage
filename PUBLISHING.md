@@ -19,7 +19,7 @@
 5. 생성 후 운영진 **승인 대기** 상태가 됩니다 (몇 시간~며칠). 승인 전에도 아래 단계는 진행 가능하므로 **지금 신청해두는 편이 낫습니다**
 6. 프로젝트 페이지에서 **숫자 Project ID** 확인
 
-> 등록정보 문서의 본문은 **V1 계획 기준**입니다. 첫 파일 업로드 직전에 실제 출시 범위와 대조해 고치세요.
+> 등록정보 문서의 본문은 2026-09-18에 출시 범위(M1~M6)에 맞춰 다시 썼습니다.
 
 ### A-2. `gradle.properties` 채우기
 ```properties
@@ -69,11 +69,13 @@ CURSEFORGE_TOKEN=xxxx RELEASE_TYPE=beta ./gradlew publishCurseForge --no-configu
 
 ## 배포 전 점검
 
-`docs/roadmap.md` M5의 완료 기준과 중복되지만, 배포 직전에 반드시 확인할 것만 추립니다.
+`docs/roadmap.md` M6의 완료 기준과 중복되지만, 배포 직전에 반드시 확인할 것만 추립니다.
 
-- [ ] `curseforge_project_id`가 실제 값인가
+- [x] `curseforge_project_id`가 실제 값인가 — `1696659`
+- [x] CurseForge에 게임 버전 `26.2`가 있는가 — 있다 (2026-09-18 확인). 없으면 `addGameVersion`이 실패한다
 - [ ] `mod_version`과 태그가 일치하는가
-- [ ] **모드를 제거했을 때 남는 것**을 CurseForge 설명에 적었는가 — `MilitiaEntity`가 남은 상태로 제거하면 그 주민은 사라집니다. 제거 전 `/placitum unregister` 권장 (`docs/vanilla-interop.md`)
-- [ ] 등록되지 않은 바닐라 마을이 완전히 바닐라로 동작하는가
-- [ ] 전용 서버에서 클라이언트 크래시가 없는가
-- [ ] `logo.png`를 `src/main/resources/`에 넣고 `neoforge.mods.toml`의 `logoFile`을 되살렸는가
+- [x] **모드를 제거했을 때 남는 것**을 CurseForge 설명에 적었는가 — 마을이 지은 것은 전부 평범한 블록이라 그대로 남고, 이 모드의 블록은 탁자 둘·수호상뿐. 주민은 바닐라 주민이라 아무 일도 없다
+- [x] 등록되지 않은 바닐라 마을이 완전히 바닐라로 동작하는가 — 등록된 정주지만 틱을 탄다
+- [ ] 전용 서버에서 클라이언트 크래시가 없는가 — 아직 안 해봤다. 서버 전용 코드가 없어 위험은 낮지만, 첫 릴리스 뒤 한 번 볼 것
+- [x] `logo.png`를 `src/main/resources/`에 넣고 `neoforge.mods.toml`의 `logoFile`을 되살렸는가
+- [ ] `CURSEFORGE_TOKEN` 시크릿이 등록돼 있는가 — 저장소 소유자가 직접. 평문으로 노출된 적 있는 토큰은 재발급
