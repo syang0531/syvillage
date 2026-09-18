@@ -73,9 +73,10 @@ CURSEFORGE_TOKEN=xxxx RELEASE_TYPE=beta ./gradlew publishCurseForge --no-configu
 
 - [x] `curseforge_project_id`가 실제 값인가 — `1696659`
 - [x] CurseForge에 게임 버전 `26.2`가 있는가 — 있다 (2026-09-18 확인). 없으면 `addGameVersion`이 실패한다
-- [ ] `mod_version`과 태그가 일치하는가
+- [x] `mod_version`과 태그가 일치하는가 — CI가 태그에서 뽑으므로 어긋날 수 없다
 - [x] **모드를 제거했을 때 남는 것**을 CurseForge 설명에 적었는가 — 마을이 지은 것은 전부 평범한 블록이라 그대로 남고, 이 모드의 블록은 탁자 둘·수호상뿐. 주민은 바닐라 주민이라 아무 일도 없다
 - [x] 등록되지 않은 바닐라 마을이 완전히 바닐라로 동작하는가 — 등록된 정주지만 틱을 탄다
 - [ ] 전용 서버에서 클라이언트 크래시가 없는가 — 아직 안 해봤다. 서버 전용 코드가 없어 위험은 낮지만, 첫 릴리스 뒤 한 번 볼 것
 - [x] `logo.png`를 `src/main/resources/`에 넣고 `neoforge.mods.toml`의 `logoFile`을 되살렸는가
-- [ ] `CURSEFORGE_TOKEN` 시크릿이 등록돼 있는가 — 저장소 소유자가 직접. 평문으로 노출된 적 있는 토큰은 재발급
+- [x] `CURSEFORGE_TOKEN` 시크릿이 등록돼 있는가 — 저장소 소유자가 직접. 평문으로 노출된 적 있는 토큰은 재발급. **값이 비어 있으면** 실행 로그의 env에 `***` 대신 공백이 찍히고 CurseForge가 401을 낸다 — 첫 업로드가 그렇게 두 번 실패했다
+- [x] 파일에 환경 태그(Client/Server)가 붙는가 — `build.gradle`의 `addEnvironment`. 없으면 CurseForge가 error 1021로 거부한다
