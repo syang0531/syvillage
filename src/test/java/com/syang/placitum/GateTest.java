@@ -220,16 +220,9 @@ class GateTest {
             boolean thatOne = column[0] == way[0] && column[1] == way[1];
             profile.add(thatOne ? FLOOR + 1 : FLOOR);
         }
-        assertEquals(null, GatePlan.siteTrouble(profile),
-                "one block between the ways in is a step at the foot of the stairs");
-
-        profile.clear();
-        for (int[] column : columns) {
-            boolean thatOne = column[0] == way[0] && column[1] == way[1];
-            profile.add(thatOne ? FLOOR + 2 : FLOOR);
-        }
         assertTrue(GatePlan.siteTrouble(profile).contains("not level"),
-                "two blocks is a stair to nowhere");
+                "a stair whose foot is a block above the road is a stair to nowhere - one block"
+                        + " of tolerance was tried and the step it left looked wrong");
 
         profile.clear();
         int[] far = columns.get(0);
