@@ -241,12 +241,12 @@ public final class GridSurvey {
      * ground was by different rules than the survey that judged the site buildable would put its
      * footings at a height the site never agreed to.
      *
-     * <p>Whether the column is wet is {@link Ground#underwater}, which looks above the ground as
+     * <p>Whether the column is fit to build on is {@link Ground#unfit}, which looks above the ground as
      * well as at it. See there for why that matters, and for how long it did not.
      */
     public static int groundOrSkip(ServerLevel level, int x, int z) {
         int y = groundAt(level, x, z);
-        return Ground.underwater(level.getBlockState(new BlockPos(x, y, z)),
+        return Ground.unfit(level.getBlockState(new BlockPos(x, y, z)),
                 level.getBlockState(new BlockPos(x, y + 1, z))) ? Ground.SKIP : y;
     }
 
@@ -270,7 +270,7 @@ public final class GridSurvey {
      */
     public static int footingOrSkip(ServerLevel level, int x, int z, BlockState ours) {
         int y = footingAt(level, x, z, ours);
-        return Ground.underwater(level.getBlockState(new BlockPos(x, y, z)),
+        return Ground.unfit(level.getBlockState(new BlockPos(x, y, z)),
                 level.getBlockState(new BlockPos(x, y + 1, z))) ? Ground.SKIP : y;
     }
 

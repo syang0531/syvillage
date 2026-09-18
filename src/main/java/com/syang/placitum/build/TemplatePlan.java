@@ -1,7 +1,6 @@
 package com.syang.placitum.build;
 
 import com.syang.placitum.Placitum;
-import com.syang.placitum.config.PlacitumConfig;
 import com.syang.placitum.data.BuildOp;
 import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.Craft;
@@ -31,6 +30,16 @@ import net.minecraft.world.level.block.state.BlockState;
  * never built, the second storey on the roof) went wrong in code that is now written once.
  */
 public final class TemplatePlan {
+
+    /**
+     * How much the ground under a structure's ways in may differ.
+     *
+     * <p>One block, the same one every other column is allowed above the floor and the one a
+     * person can step up. The floor goes to the highest way in and the lower ones get a block
+     * of foundation under them - a step at the foot of the stairs, not a stair to nowhere. At
+     * zero, four of the first eight structures on natural ground waited on exactly this.
+     */
+    private static final int ENTRANCE_STEP = 1;
 
     private final Identifier id;
     private final String templateName;
@@ -180,7 +189,7 @@ public final class TemplatePlan {
                 lowest = lowest == Ground.SKIP ? g : Math.min(lowest, g);
                 highest = highest == Ground.SKIP ? g : Math.max(highest, g);
             }
-            if (highest - lowest > PlacitumConfig.MAX_CELL_SLOPE.get()) {
+            if (highest - lowest > ENTRANCE_STEP) {
                 return "the ways in are not level (" + lowest + " to " + highest + ")";
             }
         }
