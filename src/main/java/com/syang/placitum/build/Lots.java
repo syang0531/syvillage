@@ -35,6 +35,11 @@ public final class Lots {
         TAKEN,
         /** The player forbade it. */
         FORBIDDEN,
+        /**
+         * Nobody has held the village head's table here yet, so the settlement lights its
+         * ground and builds nothing on it. Place the table; a spare villager takes the job.
+         */
+        WAITING_FOR_A_HEAD,
         /** Off the edge of what is loaded; it comes round again when somebody walks over. */
         UNLOADED,
         /** Somebody is standing on it - us, the player, or the village vanilla generated. */
@@ -89,6 +94,9 @@ public final class Lots {
         Verdict onPaper = record(settlement, cell);
         if (onPaper != Verdict.OK) {
             return onPaper;
+        }
+        if (!settlement.headed()) {
+            return Verdict.WAITING_FOR_A_HEAD;
         }
         BlockPos corner = TownPlan.lotCorner(cell, settlement.center());
         if (!level.hasChunkAt(corner)

@@ -45,8 +45,8 @@ public final class SettlementReport {
                 .filter(p -> p.kind() == PlotKind.FARM).count();
         lines.add(Component.literal("  " + settlement.houseCount() + " house(s), " + fields
                 + " field(s), " + settlement.grid().countOf(CellState.ROAD) + " road cell(s)"));
-        lines.add(Component.literal("  builds in " + settlement.craft().getSerializedName()
-                + (settlement.walled() ? ", walled" : "")));
+        lines.add(Component.literal("  " + settlement.stage().getSerializedName()
+                + ", built in the " + settlement.craft().getSerializedName() + " style"));
 
         if (settlement.buildQueue().isEmpty()) {
             lines.add(Component.literal("  building nothing").withStyle(ChatFormatting.GRAY));

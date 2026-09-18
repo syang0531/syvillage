@@ -4,5 +4,7 @@
   "entity.placitum.villager.village_head": "촌장",
   "block.placitum.lords_table": "영주 탁자",
   "entity.placitum.villager.lord": "영주",
-  "block.placitum.guardian_statue": "수호상"
+  "block.placitum.guardian_statue": "수호상",
+  "item.placitum.lords_seal": "영주의 인장",
+  "item.placitum.golem_heart": "골렘의 심장"
 }

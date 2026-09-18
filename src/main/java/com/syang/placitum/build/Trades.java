@@ -1,8 +1,8 @@
 package com.syang.placitum.build;
 
 import com.syang.placitum.config.PlacitumConfig;
-import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.Stage;
 import com.syang.placitum.registry.ModVillagers;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
@@ -11,7 +11,7 @@ import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.phys.AABB;
 
 /**
- * What the villagers of a settlement can do, asked of vanilla.
+ * What the villagers of a settlement entitle it to, asked of vanilla.
  *
  * <p>Professions are decided by workstations and vanilla decides them, so this reads an answer
  * rather than keeping one. The old design had a labour module that assigned jobs, retrained
@@ -23,52 +23,35 @@ public final class Trades {
     private Trades() {}
 
     /**
-     * The standard the village's trades entitle it to.
+     * The stage the village's trades entitle it to.
      *
-     * <p>A mason means the village builds in stone; a village head means stone brick. It is not
-     * the workstation that does it but somebody taking the job at one - which needs a villager
-     * spare, which means there are more villagers than jobs, which is the thing that actually
-     * says a village is getting on.
+     * <p>A village head means streets and houses; a lord means a wall. It is not the workstation
+     * that does it but somebody taking the job at one - which needs a villager spare, which means
+     * there are more villagers than jobs, which is the thing that actually says a village is
+     * getting on.
      *
-     * <p>The best trade in the claim wins, so a head does not have to wait for a mason.
-     *
-     * <p>Only the entitlement. Whether the settlement uses it is
-     * {@link Settlement#craft()}, which never goes down.
+     * <p>The best trade in the claim wins, so a lord does not have to wait for a head to be
+     * counted. Only the entitlement: whether the settlement has it is {@link Settlement#stage()},
+     * which never goes down.
      */
-    public static Craft earned(ServerLevel level, Settlement settlement) {
+    public static Stage earned(ServerLevel level, Settlement settlement) {
         int reach = PlacitumConfig.CLAIM_RADIUS_CHUNKS.get() * 16;
         AABB box = new AABB(settlement.center()).inflate(reach, 32, reach);
-        Craft best = Craft.TIMBER;
+        Stage best = Stage.LIT;
         for (Villager villager : level.getEntitiesOfClass(Villager.class, box)) {
             best = best.or(of(villager.getVillagerData().profession()));
         }
         return best;
     }
 
-    /**
-     * Whether somebody holds the lord's table.
-     *
-     * <p>Kept apart from {@link #earned} because it is a different kind of entitlement. The
-     * craft ladder says what the town is <em>made of</em>; a lord says it may build something it
-     * could not build at all. Folding the second into the first would have made the wall a
-     * material.
-     */
-    public static boolean hasLord(ServerLevel level, Settlement settlement) {
-        int reach = PlacitumConfig.CLAIM_RADIUS_CHUNKS.get() * 16;
-        AABB box = new AABB(settlement.center()).inflate(reach, 32, reach);
-        for (Villager villager : level.getEntitiesOfClass(Villager.class, box)) {
-            if (ModVillagers.isLord(villager.getVillagerData().profession())) {
-                return true;
-            }
+    /** What one villager's trade is worth to the town. Vanilla's own trades are worth nothing. */
+    private static Stage of(Holder<VillagerProfession> profession) {
+        if (ModVillagers.isLord(profession)) {
+            return Stage.WALLED;
         }
-        return false;
-    }
-
-    /** What one villager's trade is worth to the town. */
-    private static Craft of(Holder<VillagerProfession> profession) {
         if (ModVillagers.isVillageHead(profession)) {
-            return Craft.MASONRY;
+            return Stage.HEADED;
         }
-        return profession.is(VillagerProfession.MASON) ? Craft.STONE : Craft.TIMBER;
+        return Stage.LIT;
     }
 }

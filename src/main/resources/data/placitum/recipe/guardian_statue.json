@@ -3,11 +3,11 @@
   "category": "misc",
   "key": {
     "I": "minecraft:iron_block",
-    "P": "minecraft:carved_pumpkin",
+    "H": "placitum:golem_heart",
     "#": "minecraft:stone_bricks"
   },
   "pattern": [
-    " P ",
+    " H ",
     "III",
     "#I#"
   ],

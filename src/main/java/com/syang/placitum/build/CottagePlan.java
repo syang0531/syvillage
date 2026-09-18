@@ -219,7 +219,9 @@ public final class CottagePlan {
         if (course == 2 && !corner && midWall && !isDoorColumn(dx, dz, door)) {
             return WINDOW;
         }
-        return craft.wall();
+        // The foundation block, not the fortification block: cobblestone under a timber roof
+        // is what a vanilla village house looks like, and stone brick is for the rampart.
+        return craft.foundation();
     }
 
     /** The doorway is cut by {@link #doorway}; the wall pass must leave it alone. */
@@ -268,7 +270,7 @@ public final class CottagePlan {
                 new BuildOp(new BlockPos(at.getX(), floor + 1, at.getZ()), lower),
                 new BuildOp(new BlockPos(at.getX(), floor + 2, at.getZ()),
                         lower.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER)),
-                new BuildOp(new BlockPos(at.getX(), floor + 3, at.getZ()), craft.wall()));
+                new BuildOp(new BlockPos(at.getX(), floor + 3, at.getZ()), craft.foundation()));
     }
 
     /**

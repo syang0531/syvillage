@@ -3,11 +3,11 @@
   "category": "misc",
   "key": {
     "#": "minecraft:stone_bricks",
-    "T": "placitum:village_head_table",
+    "S": "placitum:lords_seal",
     "G": "minecraft:gold_ingot"
   },
   "pattern": [
-    "GTG",
+    "GSG",
     "###",
     "###"
   ],

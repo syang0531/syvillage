@@ -10,6 +10,7 @@ import com.syang.placitum.data.Plot;
 import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.PlotKind;
 import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.Stage;
 import com.syang.placitum.data.SettlementId;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,11 +63,11 @@ public final class SettlementFixture {
 
         return new Settlement(identity(),
                 new PlotGrid(new BlockPos(112, 68, -304), 9, cells),
-                plots, List.of(), Craft.STONE, true, chronicle);
+                plots, List.of(), Craft.PLAINS, Stage.WALLED, chronicle);
     }
 
     /** A settlement that has only just been registered: a bell and unread ground. */
     public static Settlement founded() {
-        return Settlement.founding(identity());
+        return Settlement.founding(identity(), Craft.PLAINS);
     }
 }

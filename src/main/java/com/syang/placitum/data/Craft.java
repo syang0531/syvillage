@@ -1,58 +1,79 @@
 package com.syang.placitum.data;
 
 import com.mojang.serialization.Codec;
+import net.minecraft.core.Holder;
 import net.minecraft.resources.Identifier;
+import net.minecraft.tags.BiomeTags;
 import net.minecraft.util.StringRepresentable;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * What the village knows how to build with.
+ * What the village builds with: a palette, chosen once by the biome the bell stands in.
  *
- * <p>A village builds in stone because somebody in it works stone. That is the whole rule: the
- * standard is read off the trades its villagers have taken, which vanilla decides from the
- * workstations the player put down. Nothing here is counted or simulated - placing a stonecutter
- * and a spare villager taking the job is the player's move, and the paving changing colour is
- * the village's answer to it.
+ * <p>This used to be a ladder - timber, then cobblestone when a mason moved in, then stone brick
+ * when a village head did - and the ladder betrayed itself at the top. A walled town was stone
+ * brick from the road to the roof, and the thing put in as evidence of growth became, at the
+ * end of growth, a town nobody would want to live in. Growth is now the stages in {@link Stage},
+ * which are things a town can do; this is only what it looks like doing them.
  *
- * <p>Deliberately not the population. Population is something a player waits for rather than
- * something they do, and it goes down when a zombie gets in; a trade is one object placed and
- * one obvious consequence.
+ * <p>Streets and fortifications only. Houses will bring their own materials with the vanilla
+ * templates they are built from, so there is no house palette here to be thrown away then; the
+ * cottage that stands in until that day reads {@link #foundation()} for its walls, which is the
+ * cobblestone-under-a-timber-roof look of a vanilla village house.
  *
- * <p>It never falls. A settlement keeps the best standard it has ever reached, so losing the
- * mason to a creeper does not turn the high street back into mud.
+ * <p>The last three constants are not palettes anybody chooses. They are the rungs of the old
+ * ladder, kept because saved settlements and queued recipes still name them, and a save that
+ * names a palette that does not exist is a save that does not load.
  */
 public enum Craft implements StringRepresentable {
 
-    /** Where every village starts. Dirt tracks and oak. */
+    PLAINS("plains",
+            Blocks.DIRT_PATH.defaultBlockState(),
+            Blocks.STONE_BRICKS.defaultBlockState(),
+            Blocks.OAK_PLANKS.defaultBlockState(),
+            Blocks.COBBLESTONE.defaultBlockState()),
+
+    TAIGA("taiga",
+            Blocks.COBBLESTONE.defaultBlockState(),
+            Blocks.STONE_BRICKS.defaultBlockState(),
+            Blocks.SPRUCE_PLANKS.defaultBlockState(),
+            Blocks.COBBLESTONE.defaultBlockState()),
+
+    SNOWY("snowy",
+            Blocks.COBBLESTONE.defaultBlockState(),
+            Blocks.STONE_BRICKS.defaultBlockState(),
+            Blocks.SPRUCE_PLANKS.defaultBlockState(),
+            Blocks.COBBLESTONE.defaultBlockState()),
+
+    SAVANNA("savanna",
+            Blocks.DIRT_PATH.defaultBlockState(),
+            Blocks.STONE_BRICKS.defaultBlockState(),
+            Blocks.ACACIA_PLANKS.defaultBlockState(),
+            Blocks.COBBLESTONE.defaultBlockState()),
+
+    DESERT("desert",
+            Blocks.SMOOTH_SANDSTONE.defaultBlockState(),
+            Blocks.CUT_SANDSTONE.defaultBlockState(),
+            Blocks.SANDSTONE_SLAB.defaultBlockState(),
+            Blocks.SANDSTONE.defaultBlockState()),
+
+    /** Legacy. The bottom rung of the old ladder; only ever read from a save. */
     TIMBER("timber",
             Blocks.DIRT_PATH.defaultBlockState(),
             Blocks.OAK_PLANKS.defaultBlockState(),
             Blocks.OAK_PLANKS.defaultBlockState(),
             Blocks.COBBLESTONE.defaultBlockState()),
 
-    /**
-     * A mason lives here.
-     *
-     * <p>Cobblestone walls under an oak roof, which is what vanilla's own village houses look
-     * like - and the reason this is the middle rung rather than the top. A village that reached
-     * its best standard the moment one villager picked up a stonecutter would not have much of a
-     * story left.
-     */
+    /** Legacy. The mason's rung. */
     STONE("stone",
             Blocks.COBBLESTONE.defaultBlockState(),
             Blocks.COBBLESTONE.defaultBlockState(),
             Blocks.OAK_PLANKS.defaultBlockState(),
             Blocks.STONE_BRICKS.defaultBlockState()),
 
-    /**
-     * A village head keeps the plan here.
-     *
-     * <p>The top of the ladder, and the roof finally stops being timber. Reached by the player
-     * crafting a table and a spare villager taking the job at it, which is the same shape as
-     * every other rung: an object placed, and a village that answers.
-     */
+    /** Legacy. The village head's rung, and the one every test world is saved in. */
     MASONRY("masonry",
             Blocks.STONE_BRICKS.defaultBlockState(),
             Blocks.STONE_BRICKS.defaultBlockState(),
@@ -76,81 +97,91 @@ public enum Craft implements StringRepresentable {
         this.foundation = foundation;
     }
 
+    /**
+     * The palette for a biome, decided the way vanilla decides which village to generate there.
+     *
+     * <p>The {@code has_village_*} tags are exactly that decision, which is why they come first:
+     * a place where vanilla would put a snowy village gets snowy streets. The broader {@code
+     * is_*} tags catch the biomes vanilla has no village for at all, and the rest is plains.
+     */
+    public static Craft of(Holder<Biome> biome) {
+        if (biome.is(BiomeTags.HAS_VILLAGE_DESERT) || biome.is(BiomeTags.IS_BADLANDS)) {
+            return DESERT;
+        }
+        if (biome.is(BiomeTags.HAS_VILLAGE_SNOWY)) {
+            return SNOWY;
+        }
+        if (biome.is(BiomeTags.HAS_VILLAGE_SAVANNA) || biome.is(BiomeTags.IS_SAVANNA)) {
+            return SAVANNA;
+        }
+        if (biome.is(BiomeTags.HAS_VILLAGE_TAIGA) || biome.is(BiomeTags.IS_TAIGA)) {
+            return TAIGA;
+        }
+        return PLAINS;
+    }
+
     /** What the streets are made of. */
     public BlockState paving() {
         return paving;
     }
 
-    /** Walls, and the floor inside them. */
+    /** Fortifications: the rampart, the gatehouses, the towers, the steps up to them. */
     public BlockState wall() {
         return wall;
     }
 
+    /** The floor of a house, which is the same block as what holds it up. */
     public BlockState floor() {
-        return wall;
+        return foundation;
     }
 
-    /** The roof, which stays timber long after the walls stop being it. */
+    /** The roof of a house. */
     public BlockState roof() {
         return roof;
     }
 
-    /** What holds a house up where the ground falls away under it. */
+    /**
+     * What holds a house up where the ground falls away under it - and, until the templates
+     * arrive, what its walls are made of.
+     */
     public BlockState foundation() {
         return foundation;
     }
 
-    /** The better of two standards. Used to keep the high-water mark. */
-    public Craft or(Craft other) {
-        return ordinal() >= other.ordinal() ? this : other;
-    }
-
-    public boolean betterThan(Craft other) {
-        return ordinal() > other.ordinal();
-    }
-
-    /** Whether this block is paving from any standard - ours to replace when we improve. */
-    public static boolean isPaving(BlockState state) {
-        return pavedBy(state) != null;
-    }
-
     /**
-     * Which standard laid this paving, or null if we did not lay it.
+     * Whether this block is paving of any palette, ours to leave alone.
      *
-     * <p>Asked rather than a yes or no, because a street can be better than the one we would
-     * build today. A settlement that was unregistered and registered again starts back at
-     * timber, and "is this our paving, and is it the wrong sort" would have had it take up its
-     * own cobblestone high street and put dirt back down. A town does not make itself worse.
+     * <p>Any palette, the legacy ones included: a town does not take up its own street because
+     * it has since been told it is a plains town, and a queued recipe from the old ladder still
+     * lays what it was frozen with.
      */
-    public static @Nullable Craft pavedBy(BlockState state) {
+    public static boolean isPaving(BlockState state) {
         for (Craft craft : values()) {
             if (state.is(craft.paving().getBlock())) {
-                return craft;
+                return true;
             }
         }
-        return null;
+        return false;
     }
 
     /**
-     * The standard as it is frozen into a build recipe.
+     * The palette as it is frozen into a build recipe.
      *
-     * <p>A recipe carries its standard the way it carries its ground profile: read once, written
-     * down, never looked up again. A street half laid when the mason arrives finishes in the
-     * stone it started in, and expand stays a pure function of its recipe rather than of
-     * whoever happens to live here when it runs.
+     * <p>A recipe carries its palette the way it carries its ground profile: read once, written
+     * down, never looked up again, so that expand stays a pure function of its recipe.
      */
     public Identifier paletteId() {
         return Identifier.fromNamespaceAndPath("placitum", "craft/" + name);
     }
 
-    /** The standard a recipe was frozen with, or timber for anything unrecognised. */
+    /** The palette a recipe was frozen with, or plains for anything unrecognised. */
     public static Craft fromPalette(Identifier palette) {
         for (Craft craft : values()) {
             if (craft.paletteId().equals(palette)) {
                 return craft;
             }
         }
-        return TIMBER;
+        return PLAINS;
     }
 
     @Override

@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
@@ -30,7 +31,7 @@ public record Settlement(
         Map<UUID, Plot> plots,
         List<BuildJob> buildQueue,
         Craft craft,
-        boolean walled,
+        Stage stage,
         Chronicle chronicle) {
 
     public static final Codec<Settlement> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -39,12 +40,31 @@ public record Settlement(
             Codec.unboundedMap(UUIDUtil.STRING_CODEC, Plot.CODEC).fieldOf("plots")
                     .forGetter(Settlement::plots),
             BuildJob.CODEC.listOf().fieldOf("build_queue").forGetter(Settlement::buildQueue),
-            // Optional with a default, because a settlement saved before there were standards
-            // to build to has to load as one that builds in timber rather than not at all.
-            Craft.CODEC.optionalFieldOf("craft", Craft.TIMBER).forGetter(Settlement::craft),
+            // Optional with a default: a settlement saved before there were palettes has to
+            // load as a plains town rather than not at all.
+            Craft.CODEC.optionalFieldOf("craft", Craft.PLAINS).forGetter(Settlement::craft),
+            Stage.CODEC.optionalFieldOf("stage").forGetter(s -> Optional.of(s.stage)),
+            // The flag the stage replaced. Still written, so a save opened by the build before
+            // this one keeps its wall; still read, so a save from that build loads at the right
+            // stage. Drop it one version from now.
             Codec.BOOL.optionalFieldOf("walled", false).forGetter(Settlement::walled),
             Chronicle.CODEC.fieldOf("chronicle").forGetter(Settlement::chronicle)
-    ).apply(i, Settlement::new));
+    ).apply(i, Settlement::load));
+
+    /**
+     * A settlement as read from disk, placed at a stage if the save did not say.
+     *
+     * <p>Older saves have no stage. They have a palette that used to be a ladder and a flag for
+     * the wall, and both say where the town got to: a wall means a lord, and the top rung of the
+     * ladder was only ever reached with a village head. Everything else had rung a bell.
+     */
+    private static Settlement load(SettlementId identity, PlotGrid grid, Map<UUID, Plot> plots,
+            List<BuildJob> buildQueue, Craft craft, Optional<Stage> stage, boolean walled,
+            Chronicle chronicle) {
+        Stage placed = stage.orElse(walled ? Stage.WALLED
+                : craft == Craft.MASONRY ? Stage.HEADED : Stage.LIT);
+        return new Settlement(identity, grid, plots, buildQueue, craft, placed, chronicle);
+    }
 
     /**
      * Normalises iteration order, so plots are walked the same way on every machine.
@@ -68,10 +88,11 @@ public record Settlement(
         return Collections.unmodifiableMap(out);
     }
 
-    public static Settlement founding(SettlementId identity) {
+    /** A bell just rung: unread ground, the biome's palette, and nothing yet allowed. */
+    public static Settlement founding(SettlementId identity, Craft palette) {
         return new Settlement(identity,
                 PlotGrid.empty(identity.center(), PlotGrid.sizeForClaim(identity.claimRadiusChunks())),
-                Map.of(), List.of(), Craft.TIMBER, false, Chronicle.EMPTY);
+                Map.of(), List.of(), palette, Stage.LIT, Chronicle.EMPTY);
     }
 
     public UUID id() {
@@ -103,42 +124,41 @@ public record Settlement(
     // Copy helpers. Callers do not rebuild the record by hand.
 
     public Settlement withGrid(PlotGrid newGrid) {
-        return new Settlement(identity, newGrid, plots, buildQueue, craft, walled, chronicle);
+        return new Settlement(identity, newGrid, plots, buildQueue, craft, stage, chronicle);
     }
 
     public Settlement withPlots(Map<UUID, Plot> newPlots) {
-        return new Settlement(identity, grid, newPlots, buildQueue, craft, walled, chronicle);
+        return new Settlement(identity, grid, newPlots, buildQueue, craft, stage, chronicle);
     }
 
     public Settlement withBuildQueue(List<BuildJob> newQueue) {
-        return new Settlement(identity, grid, plots, newQueue, craft, walled, chronicle);
+        return new Settlement(identity, grid, plots, newQueue, craft, stage, chronicle);
     }
 
     /**
-     * The settlement building to a better standard.
+     * The settlement having got further along.
      *
-     * <p>Only ever better: {@link Craft#or} keeps the high-water mark, so losing the mason to a
-     * creeper does not turn the high street back into mud.
+     * <p>Only ever further: {@link Stage#or} keeps the high-water mark. Every entitlement is
+     * read off a living village, and a head can be eaten; a town does not take its own streets
+     * up because nobody is sitting at the table this afternoon.
      */
-    public Settlement withCraft(Craft newCraft) {
-        return new Settlement(identity, grid, plots, buildQueue, craft.or(newCraft), walled,
+    public Settlement withStage(Stage earned) {
+        return new Settlement(identity, grid, plots, buildQueue, craft, stage.or(earned),
                 chronicle);
     }
 
-    /**
-     * The settlement having earned its wall.
-     *
-     * <p>A ratchet like the craft, and for the same reason: every entitlement is read off a
-     * living village, and a lord can be eaten. A town does not pull its own walls down because
-     * nobody is sitting at the table this afternoon.
-     */
-    public Settlement withWall(boolean earned) {
-        return new Settlement(identity, grid, plots, buildQueue, craft, walled || earned,
-                chronicle);
+    /** Whether somebody has ever held the village head's table here. Streets and houses. */
+    public boolean headed() {
+        return stage.atLeast(Stage.HEADED);
+    }
+
+    /** Whether somebody has ever held the lord's table here. The wall. */
+    public boolean walled() {
+        return stage.atLeast(Stage.WALLED);
     }
 
     public Settlement withChronicle(Chronicle newChronicle) {
-        return new Settlement(identity, grid, plots, buildQueue, craft, walled, newChronicle);
+        return new Settlement(identity, grid, plots, buildQueue, craft, stage, newChronicle);
     }
 
     public Settlement record(EntryType type, String subject, String detail, long gameTime) {

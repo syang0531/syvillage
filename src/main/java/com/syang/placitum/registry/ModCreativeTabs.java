@@ -30,5 +30,11 @@ public final class ModCreativeTabs {
             event.accept(ModBlocks.LORDS_TABLE.get());
             event.accept(ModBlocks.GUARDIAN_STATUE.get());
         }
+        // Ingredients, because that is what they are: each is the one thing a recipe needs that
+        // nobody can craft and a villager sells.
+        if (event.getTabKey().equals(CreativeModeTabs.INGREDIENTS)) {
+            event.accept(ModItems.LORDS_SEAL.get());
+            event.accept(ModItems.GOLEM_HEART.get());
+        }
     }
 }

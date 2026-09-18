@@ -4,5 +4,7 @@
   "entity.placitum.villager.village_head": "Village Head",
   "block.placitum.lords_table": "Lord's Table",
   "entity.placitum.villager.lord": "Lord",
-  "block.placitum.guardian_statue": "Guardian Statue"
+  "block.placitum.guardian_statue": "Guardian Statue",
+  "item.placitum.lords_seal": "Lord's Seal",
+  "item.placitum.golem_heart": "Golem's Heart"
 }

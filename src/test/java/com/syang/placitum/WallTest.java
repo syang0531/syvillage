@@ -12,6 +12,7 @@ import com.syang.placitum.data.BuildRecipe;
 import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.PlotGrid;
 import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.Stage;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,7 +44,8 @@ class WallTest {
     }
 
     private static Settlement town() {
-        return SettlementFixture.founded().withGrid(PlotGrid.empty(BELL, 21)).withWall(true);
+        return SettlementFixture.founded().withGrid(PlotGrid.empty(BELL, 21))
+                .withStage(Stage.WALLED);
     }
 
     @Test
@@ -205,9 +207,9 @@ class WallTest {
     @Test
     @DisplayName("a settlement keeps its wall when it loses its lord")
     void theWallIsARatchet() {
-        Settlement walled = SettlementFixture.founded().withWall(true);
-        assertTrue(walled.craft() == Craft.TIMBER, "a wall is not a material");
-        assertTrue(walled.withWall(false).walled(),
+        Settlement walled = SettlementFixture.founded().withStage(Stage.WALLED);
+        assertTrue(walled.craft() == Craft.PLAINS, "a wall is not a material");
+        assertTrue(walled.withStage(Stage.LIT).walled(),
                 "a town does not pull its own walls down because the lord was eaten");
     }
 
@@ -217,7 +219,10 @@ class WallTest {
         var encoded = Settlement.CODEC.encodeStart(
                 com.mojang.serialization.JsonOps.INSTANCE, SettlementFixture.standard())
                 .getOrThrow().getAsJsonObject();
+        // A save from before there were walls has neither the flag nor the stage that replaced
+        // it - and its palette is a biome's, not the top rung of the old ladder.
         encoded.remove("walled");
+        encoded.remove("stage");
 
         Settlement loaded = Settlement.CODEC.parse(
                 com.mojang.serialization.JsonOps.INSTANCE, encoded).getOrThrow();

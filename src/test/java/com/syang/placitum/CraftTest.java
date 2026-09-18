@@ -2,10 +2,11 @@ package com.syang.placitum;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import com.mojang.serialization.JsonOps;
 import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.Settlement;
 import net.minecraft.SharedConstants;
@@ -17,7 +18,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The standard a village builds to, and the one thing it must never do: get worse.
+ * The palettes: what a town is made of, decided once by where its bell stands.
+ *
+ * <p>Not a ladder any more. What these tests guard is that every palette is whole, that the
+ * three rungs of the old ladder still load by name, and that paving of any of them - old or
+ * new - is recognised as ours, because a town does not take up its own street.
  */
 class CraftTest {
 
@@ -28,122 +33,88 @@ class CraftTest {
     }
 
     @Test
-    @DisplayName("a settlement never builds worse than it once did")
-    void theStandardIsAHighWaterMark() {
-        // Losing the mason to a creeper must not turn the high street back into mud. Every
-        // trigger anyone might use for this - trades, population, anything read off a living
-        // village - can go away again, so the ratchet belongs here rather than in the reading.
-        Settlement stone = SettlementFixture.founded().withCraft(Craft.STONE);
-        assertEquals(Craft.STONE, stone.craft());
-        assertEquals(Craft.STONE, stone.withCraft(Craft.TIMBER).craft(),
-                "the village forgot how to work stone because its mason died");
-
-        assertEquals(Craft.STONE, Craft.TIMBER.or(Craft.STONE));
-        assertEquals(Craft.STONE, Craft.STONE.or(Craft.TIMBER));
-        assertTrue(Craft.STONE.betterThan(Craft.TIMBER));
-        assertFalse(Craft.TIMBER.betterThan(Craft.STONE));
+    @DisplayName("every palette has all four blocks")
+    void everyPaletteIsWhole() {
+        for (Craft craft : Craft.values()) {
+            assertFalse(craft.paving().isAir(), craft + " has no paving");
+            assertFalse(craft.wall().isAir(), craft + " has no wall");
+            assertFalse(craft.roof().isAir(), craft + " has no roof");
+            assertFalse(craft.foundation().isAir(), craft + " has no foundation");
+            assertEquals(craft.foundation(), craft.floor(),
+                    "the floor of a house is the same block as what holds it up");
+        }
     }
 
     @Test
-    @DisplayName("a new settlement starts in timber")
-    void everyVillageStartsInMud() {
-        assertEquals(Craft.TIMBER, SettlementFixture.founded().craft());
-        assertEquals(Blocks.DIRT_PATH, Craft.TIMBER.paving().getBlock());
-        assertEquals(Blocks.COBBLESTONE, Craft.STONE.paving().getBlock());
+    @DisplayName("the cottage wears the foundation block, and the wall block is for the wall")
+    void wallsAndFortificationsAreDifferentBlocks() {
+        // Cobblestone under a timber roof is the vanilla village house; stone brick is what the
+        // rampart, the gates and the towers are made of. The old ladder had both in one slot,
+        // which is how a walled town ended up stone brick from the road to the roof.
+        assertEquals(Blocks.COBBLESTONE, Craft.PLAINS.foundation().getBlock());
+        assertEquals(Blocks.STONE_BRICKS, Craft.PLAINS.wall().getBlock());
+        assertEquals(Blocks.SANDSTONE, Craft.DESERT.foundation().getBlock());
+        assertEquals(Blocks.CUT_SANDSTONE, Craft.DESERT.wall().getBlock());
+        assertEquals(Blocks.SPRUCE_PLANKS, Craft.TAIGA.roof().getBlock());
     }
 
     @Test
-    @DisplayName("paving of any standard is recognised as paving")
-    void everyStandardsPavingIsOurs() {
-        // What lets a street be re-laid rather than left: the road planner asks whether a column
-        // already holds paving of the standard it is building to, and a lower one comes back as
-        // work to do. If a standard's block were not recognised here the upgrade would stall.
+    @DisplayName("paving of any palette, the old ladder's included, is recognised as ours")
+    void pavingIsRecognised() {
         for (Craft craft : Craft.values()) {
             assertTrue(Craft.isPaving(craft.paving()),
-                    craft + " paves in something the mod does not recognise as paving");
+                    craft + "'s paving is not recognised, so a town would take up its own street");
         }
+        // The three rungs, by block: every test world so far is paved in one of these.
+        assertTrue(Craft.isPaving(Blocks.DIRT_PATH.defaultBlockState()));
+        assertTrue(Craft.isPaving(Blocks.COBBLESTONE.defaultBlockState()));
+        assertTrue(Craft.isPaving(Blocks.STONE_BRICKS.defaultBlockState()));
+
         assertFalse(Craft.isPaving(Blocks.GRASS_BLOCK.defaultBlockState()));
         assertFalse(Craft.isPaving(Blocks.OAK_PLANKS.defaultBlockState()));
+        assertFalse(Craft.isPaving(Blocks.GRAVEL.defaultBlockState()),
+                "vanilla's own village paths are not ours to relay");
     }
 
     @Test
-    @DisplayName("a recipe carries its standard, so a half-built house does not change material")
-    void theStandardSurvivesTheTripThroughARecipe() {
-        // A cottage half up when the mason arrives has to finish in the timber it started in.
-        // The alternative is a wall that is oak for three courses and cobble for the fourth.
+    @DisplayName("a recipe carries its palette, so a half-built wall does not change material")
+    void recipesCarryTheirPalette() {
         for (Craft craft : Craft.values()) {
             assertEquals(craft, Craft.fromPalette(craft.paletteId()),
-                    craft + " does not survive being written into a recipe and read back");
+                    craft + " does not survive being frozen into a recipe");
         }
-        assertEquals(Craft.TIMBER,
+        assertEquals(Craft.PLAINS,
                 Craft.fromPalette(Identifier.fromNamespaceAndPath("placitum", "craft/marble")),
-                "a standard this version has never heard of has to build something, not crash");
+                "an unknown palette builds in plains rather than not at all");
     }
 
     @Test
-    @DisplayName("every standard builds a whole house, and the roof stays timber")
-    void everyStandardIsAWholePalette() {
-        for (Craft craft : Craft.values()) {
-            assertNotNull(craft.paving());
-            assertNotNull(craft.wall());
-            assertNotNull(craft.floor());
-            assertNotNull(craft.roof());
-            assertNotNull(craft.foundation());
-        }
-        // Cobblestone walls under an oak roof: what vanilla's own village houses look like, and
-        // the reason stone is the middle rung rather than the top one.
-        assertEquals(Blocks.COBBLESTONE, Craft.STONE.wall().getBlock());
-        assertEquals(Blocks.OAK_PLANKS, Craft.STONE.roof().getBlock());
-        assertEquals(Blocks.OAK_PLANKS, Craft.TIMBER.wall().getBlock());
-
-        // Three rungs, and the roof only stops being timber at the top of them.
-        assertEquals(3, Craft.values().length);
-        assertTrue(Craft.MASONRY.betterThan(Craft.STONE));
-        assertEquals(Blocks.OAK_PLANKS, Craft.TIMBER.roof().getBlock());
-        assertEquals(Blocks.STONE_BRICK_SLAB, Craft.MASONRY.roof().getBlock());
+    @DisplayName("the old rungs still load by name")
+    void theOldLadderStillLoads() {
+        // Kept only because saves and queued recipes name them. A save that names a palette
+        // which does not exist is a save that does not load.
+        assertEquals(Craft.MASONRY,
+                Craft.CODEC.parse(JsonOps.INSTANCE, new JsonPrimitive("masonry")).getOrThrow());
+        assertEquals(Craft.TIMBER,
+                Craft.CODEC.parse(JsonOps.INSTANCE, new JsonPrimitive("timber")).getOrThrow());
+        assertEquals("plains", Craft.CODEC.encodeStart(JsonOps.INSTANCE, Craft.PLAINS)
+                .getOrThrow().getAsString());
     }
 
     @Test
-    @DisplayName("a town never takes up its own paving to lay something worse")
-    void pavingIsOnlyEverImproved() {
-        // A settlement unregistered and registered again starts back at timber with its stone
-        // brick streets still in the ground. Asking "is this our paving, and is it the wrong
-        // sort" would have had it take up a stone brick high street and put dirt back down.
-        for (Craft craft : Craft.values()) {
-            assertEquals(craft, Craft.pavedBy(craft.paving()),
-                    craft + " does not recognise its own paving");
-        }
-        assertNull(Craft.pavedBy(Blocks.GRASS_BLOCK.defaultBlockState()));
-        assertNull(Craft.pavedBy(Blocks.GRAVEL.defaultBlockState()),
-                "gravel is not ours, so a gravel path is somebody else's to keep");
-
-        // The rule the planner applies: take it up only to improve it.
-        assertTrue(Craft.MASONRY.betterThan(Craft.pavedBy(Craft.TIMBER.paving())),
-                "a dirt track in a stone brick town is work to do");
-        assertFalse(Craft.TIMBER.betterThan(Craft.pavedBy(Craft.MASONRY.paving())),
-                "stone brick in a timber town is left exactly where it is");
-        assertFalse(Craft.STONE.betterThan(Craft.pavedBy(Craft.STONE.paving())),
-                "and a street of the standard we build to now is already done");
-    }
-
-    @Test
-    @DisplayName("a settlement saved before standards existed loads as one that builds in timber")
-    void oldSavesLoadAsTimber() {
+    @DisplayName("a settlement saved before palettes existed loads as a plains town")
+    void oldSavesLoadAsPlains() {
         // The rule from CLAUDE.md: a required field added to a stored shape is how a roster
         // gets silently emptied. optionalFieldOf with a default is the only safe way to add one.
         Settlement settlement = SettlementFixture.standard();
-        var encoded = Settlement.CODEC.encodeStart(
-                com.mojang.serialization.JsonOps.INSTANCE, settlement)
-                .getOrThrow();
-        com.google.gson.JsonObject json = encoded.getAsJsonObject();
+        JsonObject json = Settlement.CODEC.encodeStart(JsonOps.INSTANCE, settlement)
+                .getOrThrow().getAsJsonObject();
         json.remove("craft");
 
-        Settlement loaded = Settlement.CODEC.parse(
-                com.mojang.serialization.JsonOps.INSTANCE, json).getOrThrow();
+        Settlement loaded = Settlement.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
 
-        assertEquals(Craft.TIMBER, loaded.craft(),
-                "a save with no standard in it has to load, not fail");
+        assertEquals(Craft.PLAINS, loaded.craft(), "a save with no palette has to load, not fail");
         assertEquals(settlement.plots().size(), loaded.plots().size(),
-                "and it must not lose anything else on the way through");
+                "and everything else in it survives");
     }
 }

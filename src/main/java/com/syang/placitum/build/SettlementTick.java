@@ -12,6 +12,7 @@ import com.syang.placitum.data.EntryType;
 import com.syang.placitum.data.Plot;
 import com.syang.placitum.data.PlotKind;
 import com.syang.placitum.data.Settlement;
+import com.syang.placitum.data.Stage;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,17 +72,13 @@ public final class SettlementTick {
             return settlement;
         }
         Settlement out = forgetCleared(level, settlement)
-                .withCraft(Trades.earned(level, settlement))
-                .withWall(Trades.hasLord(level, settlement));
-        if (out.craft() != settlement.craft()) {
-            Placitum.LOGGER.info("'{}' now builds in {}", out.name(),
-                    out.craft().getSerializedName());
-            out = out.record(EntryType.BUILD, out.name(),
-                    "now builds in " + out.craft().getSerializedName(), level.getGameTime());
-        }
-        if (out.walled() && !settlement.walled()) {
-            Placitum.LOGGER.info("'{}' has a lord, and may wall itself", out.name());
-            out = out.record(EntryType.BUILD, out.name(), "began its wall", level.getGameTime());
+                .withStage(Trades.earned(level, settlement));
+        if (out.stage() != settlement.stage()) {
+            String what = out.stage() == Stage.WALLED
+                    ? "has a lord, and may wall itself"
+                    : "has a head, and may lay its streets";
+            Placitum.LOGGER.info("'{}' {}", out.name(), what);
+            out = out.record(EntryType.BUILD, out.name(), what, level.getGameTime());
         }
         settlement = out;
 
@@ -149,12 +146,18 @@ public final class SettlementTick {
 
         Optional<BuildRecipe> next = Optional.empty();
         int phase = 0;
+        // Streets and lots wait for a village head; light does not. A street is a construction
+        // and light is a utility: the grid of roads is the one visible sign that somebody is
+        // organising this place, and monsters do not ask whether anybody is.
+        boolean headed = settlement.headed();
         for (; phase <= TownPlan.outerPhase(settlement) && next.isEmpty(); phase++) {
-            next = RoadPlan.plan(level, settlement, phase, reach);
+            if (headed) {
+                next = RoadPlan.plan(level, settlement, phase, reach);
+            }
             if (next.isEmpty()) {
                 next = LampPlan.plan(level, settlement, phase, reach);
             }
-            if (next.isEmpty() && TownPlan.housing(settlement, phase)) {
+            if (next.isEmpty() && headed && TownPlan.housing(settlement, phase)) {
                 next = building(level, settlement, phase, reach);
             }
         }

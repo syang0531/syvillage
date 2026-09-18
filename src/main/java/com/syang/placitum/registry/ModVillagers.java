@@ -3,6 +3,7 @@ package com.syang.placitum.registry;
 import com.google.common.collect.ImmutableSet;
 import com.syang.placitum.Placitum;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -11,7 +12,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.ai.village.poi.PoiType;
 import net.minecraft.world.entity.npc.villager.VillagerProfession;
-import net.minecraft.world.item.trading.TradeSets;
+import net.minecraft.world.item.trading.TradeSet;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -72,17 +73,10 @@ public final class ModVillagers {
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 SoundEvents.VILLAGER_WORK_MASON,
-                // Vanilla's mason trades, for now. A profession with nothing to sell opens an
-                // empty screen, which reads as a broken mod rather than as a design decision;
-                // the village head dealing in stone is at least the right subject. Trades of its
-                // own are JSON in 26.2 - a trade_set registry - and are worth doing properly
-                // once there is something only a village head should sell.
-                Int2ObjectMap.ofEntries(
-                        Int2ObjectMap.entry(1, TradeSets.MASON_LEVEL_1),
-                        Int2ObjectMap.entry(2, TradeSets.MASON_LEVEL_2),
-                        Int2ObjectMap.entry(3, TradeSets.MASON_LEVEL_3),
-                        Int2ObjectMap.entry(4, TradeSets.MASON_LEVEL_4),
-                        Int2ObjectMap.entry(5, TradeSets.MASON_LEVEL_5))));
+                // Data, in data/placitum/trade_set. The one thing only a village head sells
+                // is the lord's seal, at the second level: the first is there to be levelled
+                // through, and the ones after so that a master has something new to say.
+                trades("village_head")));
 
         POI_TYPES.register("lord", () -> new PoiType(
                 ImmutableSet.copyOf(ModBlocks.LORDS_TABLE.get()
@@ -95,16 +89,28 @@ public final class ModVillagers {
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 SoundEvents.VILLAGER_WORK_MASON,
-                // Borrowed, like the village head's, and marked as debt in docs/roadmap.md.
-                Int2ObjectMap.ofEntries(
-                        Int2ObjectMap.entry(1, TradeSets.MASON_LEVEL_1),
-                        Int2ObjectMap.entry(2, TradeSets.MASON_LEVEL_2),
-                        Int2ObjectMap.entry(3, TradeSets.MASON_LEVEL_3),
-                        Int2ObjectMap.entry(4, TradeSets.MASON_LEVEL_4),
-                        Int2ObjectMap.entry(5, TradeSets.MASON_LEVEL_5))));
+                // Likewise. The golem's heart is at the second level.
+                trades("lord")));
     }
 
     private ModVillagers() {}
+
+    /**
+     * A profession's five levels of trades, as keys into the trade_set registry.
+     *
+     * <p>All five, even where the upper ones are one filler trade each: the lookup is a plain
+     * map get, and a villager who levels into a missing entry is not something to find out
+     * about in a crash report.
+     */
+    private static Int2ObjectMap<ResourceKey<TradeSet>> trades(String profession) {
+        Int2ObjectMap<ResourceKey<TradeSet>> out = new Int2ObjectOpenHashMap<>();
+        for (int level = 1; level <= 5; level++) {
+            out.put(level, ResourceKey.create(Registries.TRADE_SET,
+                    Identifier.fromNamespaceAndPath(Placitum.MODID,
+                            profession + "/level_" + level)));
+        }
+        return out;
+    }
 
     /** Whether this is the job we added. Asked of a villager, not of a block. */
     public static boolean isVillageHead(Holder<VillagerProfession> profession) {

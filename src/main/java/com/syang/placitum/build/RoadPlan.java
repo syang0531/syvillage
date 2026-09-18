@@ -83,21 +83,15 @@ public final class RoadPlan {
                     // almost every column reaches, and the settlement asks it of the whole
                     // phase every time it looks for work.
                     //
-                    // Paved to the standard the settlement has now: a street laid in dirt by a
-                    // village that has since gained a mason comes back as work to do, and that
-                    // is the whole of the upgrade. Nothing here has to know it is an upgrade.
                     BlockState top = level.getBlockState(
                             new BlockPos(pos.getX(), ground, pos.getZ()));
-                    Craft laid = Craft.pavedBy(top);
-                    if (laid != null) {
-                        // Ours already. Take it up only to improve it, never to make it worse:
-                        // a settlement re-registered after an unregister starts back at timber,
-                        // and the old test would have had it replace its own cobblestone high
-                        // street with dirt.
-                        if (!settlement.craft().betterThan(laid)) {
-                            continue;
-                        }
-                    } else if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
+                    if (Craft.isPaving(top)) {
+                        // Ours already, in whatever palette laid it. Streets used to be taken
+                        // up and relaid when the town's standard rose; there is no standard to
+                        // rise now, and a town does not take up its own street.
+                        continue;
+                    }
+                    if (GridSurvey.builtOn(level, pos.getX(), pos.getZ())) {
                         continue;   // somebody else's: the street goes round
                     }
                     // With the clearance: a street runs under a tree otherwise, because the

@@ -362,6 +362,13 @@ public final class GridSurvey {
                 || state.is(Blocks.COBBLESTONE)
                 || state.is(Blocks.STONE_BRICKS)
                 || state.is(Blocks.STONE_BRICK_SLAB)
+                // The desert palette. Sandstone does generate on the surface, so this is looser
+                // there than elsewhere - but the alternative is a desert wall that cannot tell it
+                // is standing and gets planned again for ever.
+                || state.is(Blocks.SANDSTONE)
+                || state.is(Blocks.CUT_SANDSTONE)
+                || state.is(Blocks.SMOOTH_SANDSTONE)
+                || state.is(Blocks.SANDSTONE_SLAB)
                 || state.is(Blocks.GLASS)
                 || state.is(Blocks.GLASS_PANE)
                 || state.is(Blocks.TORCH)

@@ -3,6 +3,7 @@ package com.syang.placitum.settlement;
 import com.syang.placitum.Placitum;
 import com.syang.placitum.build.GridSurvey;
 import com.syang.placitum.config.PlacitumConfig;
+import com.syang.placitum.data.Craft;
 import com.syang.placitum.data.Settlement;
 import com.syang.placitum.data.SettlementId;
 import com.syang.placitum.store.SettlementManager;
@@ -54,13 +55,17 @@ public final class Registration {
         SettlementId identity = new SettlementId(id, NameGenerator.settlementName(rng),
                 level.dimension(), bellPos, PlacitumConfig.CLAIM_RADIUS_CHUNKS.get());
 
-        Settlement settlement = Settlement.founding(identity);
+        // The palette is the biome's, read once here and never again. A town does not change
+        // what it is made of; it changes what it is allowed to build.
+        Craft palette = Craft.of(level.getBiome(bellPos));
+        Settlement settlement = Settlement.founding(identity, palette);
         // Surveyed now rather than on the next tick: the player is standing here, so the chunks
         // are loaded and this is the cheapest moment it will ever be.
         settlement = settlement.withGrid(GridSurvey.run(level, settlement).grid());
         manager.put(settlement);
 
-        Placitum.LOGGER.info("Registered '{}' at {}", identity.name(), bellPos.toShortString());
+        Placitum.LOGGER.info("Registered '{}' at {}, built in the {} style", identity.name(),
+                bellPos.toShortString(), palette.getSerializedName());
         return new Result.Success(settlement);
     }
 }
