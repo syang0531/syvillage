@@ -39,38 +39,38 @@ public enum Craft implements StringRepresentable {
     // and were the only grey streets in the game.
     PLAINS("plains", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.OAK_PLANKS, Blocks.COBBLESTONE,
             Blocks.STONE_BRICK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
-            Blocks.STRIPPED_OAK_WOOD, Blocks.OAK_FENCE),
+            Blocks.STONE_BRICK_WALL, Blocks.OAK_FENCE),
 
     TAIGA("taiga", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS, Blocks.COBBLESTONE,
             Blocks.STONE_BRICK_STAIRS, Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE,
-            Blocks.STRIPPED_SPRUCE_WOOD, Blocks.SPRUCE_FENCE),
+            Blocks.STONE_BRICK_WALL, Blocks.SPRUCE_FENCE),
 
     SNOWY("snowy", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS, Blocks.COBBLESTONE,
             Blocks.STONE_BRICK_STAIRS, Blocks.SPRUCE_FENCE, Blocks.SPRUCE_FENCE_GATE,
-            Blocks.STRIPPED_SPRUCE_WOOD, Blocks.SPRUCE_FENCE),
+            Blocks.STONE_BRICK_WALL, Blocks.SPRUCE_FENCE),
 
     SAVANNA("savanna", Blocks.DIRT_PATH, Blocks.STONE_BRICKS, Blocks.ACACIA_PLANKS, Blocks.COBBLESTONE,
             Blocks.STONE_BRICK_STAIRS, Blocks.ACACIA_FENCE, Blocks.ACACIA_FENCE_GATE,
-            Blocks.STRIPPED_ACACIA_WOOD, Blocks.ACACIA_FENCE),
+            Blocks.STONE_BRICK_WALL, Blocks.ACACIA_FENCE),
 
     DESERT("desert", Blocks.SMOOTH_SANDSTONE, Blocks.CUT_SANDSTONE, Blocks.SANDSTONE_SLAB,
             Blocks.SANDSTONE, Blocks.SANDSTONE_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
-            Blocks.CUT_SANDSTONE, Blocks.SANDSTONE_WALL),
+            Blocks.SANDSTONE_WALL, Blocks.BIRCH_FENCE),
 
     /** Legacy. The bottom rung of the old ladder; only ever read from a save. */
     TIMBER("timber", Blocks.DIRT_PATH, Blocks.OAK_PLANKS, Blocks.OAK_PLANKS, Blocks.COBBLESTONE,
             Blocks.OAK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
-            Blocks.STRIPPED_OAK_WOOD, Blocks.OAK_FENCE),
+            Blocks.STONE_BRICK_WALL, Blocks.OAK_FENCE),
 
     /** Legacy. The mason's rung. */
     STONE("stone", Blocks.COBBLESTONE, Blocks.COBBLESTONE, Blocks.OAK_PLANKS, Blocks.STONE_BRICKS,
             Blocks.COBBLESTONE_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
-            Blocks.STRIPPED_OAK_WOOD, Blocks.OAK_FENCE),
+            Blocks.STONE_BRICK_WALL, Blocks.OAK_FENCE),
 
     /** Legacy. The village head's rung, and the one every test world is saved in. */
     MASONRY("masonry", Blocks.STONE_BRICKS, Blocks.STONE_BRICKS, Blocks.STONE_BRICK_SLAB,
             Blocks.STONE_BRICKS, Blocks.STONE_BRICK_STAIRS, Blocks.OAK_FENCE, Blocks.OAK_FENCE_GATE,
-            Blocks.STRIPPED_OAK_WOOD, Blocks.OAK_FENCE);
+            Blocks.STONE_BRICK_WALL, Blocks.OAK_FENCE);
 
     public static final Codec<Craft> CODEC = StringRepresentable.fromEnum(Craft::values);
 
@@ -148,14 +148,19 @@ public enum Craft implements StringRepresentable {
     }
 
     /**
-     * The block a street lamp stands on: a stripped log of the palette's wood, as vanilla's
-     * plains lamp has, or cut sandstone in the desert. A post of nothing but fence was a stick.
+     * The foot of a street lamp: a wall block, stone brick everywhere but the desert, where it
+     * is sandstone. A post of nothing but fence was a stick; a wall block under it gives the
+     * post a foot without being a full block in the margin.
      */
     public BlockState lampBase() {
         return lampBase;
     }
 
-    /** The post above that base, which the lantern sits on - a fence, or a wall in the desert. */
+    /**
+     * The post on that foot, which the lantern sits on: a fence of the palette's wood. Birch
+     * in the desert - the pale wood that reads against sandstone - since the desert has no
+     * wood of its own and the templates' oak fence looks like what it is, a stand-in.
+     */
     public BlockState lampPost() {
         return lampPost;
     }

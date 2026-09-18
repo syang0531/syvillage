@@ -182,9 +182,9 @@ public final class LampPlan {
      *
      * <p>Not a torch on the ground: anything walking into one knocks it off, and a village that
      * relights itself every morning was dark all night. The post also lifts the light a block,
-     * which is what keeps the ground beside it from spawning. The block under the post is what
-     * vanilla's plains lamp has and what two fence posts and a lantern lacked: something to
-     * read as a lamp rather than a stick.
+     * which is what keeps the ground beside it from spawning. The wall block under the post is
+     * what two fence posts and a lantern lacked: a foot, something to read as a lamp rather
+     * than a stick.
      */
     public static List<BuildOp> expand(BuildRecipe recipe) {
         List<Spans> posts = Spans.decode(recipe.gates());

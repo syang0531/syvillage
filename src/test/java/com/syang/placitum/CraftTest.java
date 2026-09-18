@@ -80,14 +80,14 @@ class CraftTest {
         }
         assertEquals(Blocks.SMOOTH_SANDSTONE, Craft.DESERT.paving().getBlock());
 
-        assertEquals(Blocks.STRIPPED_OAK_WOOD, Craft.PLAINS.lampBase().getBlock());
-        assertEquals(Blocks.OAK_FENCE, Craft.PLAINS.lampPost().getBlock());
-        assertEquals(Blocks.STRIPPED_SPRUCE_WOOD, Craft.SNOWY.lampBase().getBlock());
-        assertEquals(Blocks.SPRUCE_FENCE, Craft.TAIGA.lampPost().getBlock());
-        assertEquals(Blocks.ACACIA_FENCE, Craft.SAVANNA.lampPost().getBlock());
-        // No wood in the desert: a cut sandstone block and a sandstone wall for the post.
-        assertEquals(Blocks.CUT_SANDSTONE, Craft.DESERT.lampBase().getBlock());
-        assertEquals(Blocks.SANDSTONE_WALL, Craft.DESERT.lampPost().getBlock());
+        // A stone brick wall for a foot, the palette's fence on it, the lantern on that.
+        for (Craft craft : new Craft[] {Craft.PLAINS, Craft.TAIGA, Craft.SNOWY, Craft.SAVANNA}) {
+            assertEquals(Blocks.STONE_BRICK_WALL, craft.lampBase().getBlock(), craft + " foot");
+            assertEquals(craft.fence().getBlock(), craft.lampPost().getBlock(), craft + " post");
+        }
+        // No wood in the desert: a sandstone wall, and birch for the post.
+        assertEquals(Blocks.SANDSTONE_WALL, Craft.DESERT.lampBase().getBlock());
+        assertEquals(Blocks.BIRCH_FENCE, Craft.DESERT.lampPost().getBlock());
         assertTrue(Craft.isPaving(Blocks.STONE_BRICKS.defaultBlockState()));
 
         assertFalse(Craft.isPaving(Blocks.GRASS_BLOCK.defaultBlockState()));
