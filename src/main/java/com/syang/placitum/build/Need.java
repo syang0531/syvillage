@@ -40,7 +40,8 @@ public final class Need {
             return Kind.HOUSE;
         }
         // Enough beds for now. One field per three houses keeps a village fed without turning
-        // the whole plan into farmland.
+        // the whole plan into farmland - and a field is the only thing besides a dwelling a
+        // lot ever gets, since 0.1.1: a pen or a smithy on a lot is a lot nobody sleeps on.
         int farms = countPlots(settlement, PlotKind.FARM);
         int houses = countPlots(settlement, PlotKind.HOUSE);
         return farms == 0 || houses >= farms * 3 ? Kind.FARM : Kind.HOUSE;

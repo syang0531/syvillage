@@ -39,9 +39,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Vanilla village buildings on our lots: that all forty-one load, that each one lands inside
- * its lot with its door on the street, and that what it writes is what a structure block would
- * have placed - jigsaws resolved, floor at ground level.
+ * Vanilla village buildings on our lots: that all thirty load, that each one lands inside its
+ * lot with its door on the street, and that what it writes is what a structure block would
+ * have placed - jigsaws resolved, doorstep where the street meets it.
  */
 class HouseTest {
 
@@ -93,9 +93,9 @@ class HouseTest {
     }
 
     @Test
-    @DisplayName("all forty-one buildings load, fit a lot, and say which way they face")
+    @DisplayName("all thirty dwellings load, fit a lot, and say which way they face")
     void theCatalogueLoads() {
-        assertEquals(41, Houses.all().size());
+        assertEquals(30, Houses.all().size());
         int beds = 0;
         for (Identifier id : Houses.all()) {
             Template t = Template.of(id);
@@ -110,10 +110,9 @@ class HouseTest {
                 beds++;
             }
         }
-        assertEquals(30, beds, "thirty of them are dwellings");
+        assertEquals(30, beds, "every one of them has a bed: a lot with no bed grows nothing");
         for (Craft craft : Craft.values()) {
             assertFalse(Houses.dwellings(craft).isEmpty(), craft + " has nowhere to live");
-            assertFalse(Houses.others(craft).isEmpty(), craft + " has nothing but houses");
         }
     }
 
@@ -217,27 +216,22 @@ class HouseTest {
     }
 
     @Test
-    @DisplayName("the same lot gets the same building every time, and fields take their turn")
+    @DisplayName("the same lot gets the same dwelling every time, and a farm lot is a field")
     void thePickIsTheLots() {
         CellPos cell = new CellPos(3, -2);
         assertEquals(Houses.pick(Craft.PLAINS, Need.Kind.HOUSE, cell),
                 Houses.pick(Craft.PLAINS, Need.Kind.HOUSE, cell));
-        boolean field = false;
-        boolean other = false;
-        for (int gx = -5; gx <= 5 && !(field && other); gx++) {
+        for (int gx = -5; gx <= 5; gx++) {
             for (int gz = -5; gz <= 5; gz++) {
-                var pick = Houses.pick(Craft.DESERT, Need.Kind.FARM, new CellPos(gx, gz));
-                field |= pick.isEmpty();
-                other |= pick.isPresent();
+                assertTrue(Houses.pick(Craft.DESERT, Need.Kind.FARM, new CellPos(gx, gz)).isEmpty(),
+                        "a farm lot got a building instead of a field");
+                assertTrue(Houses.pick(Craft.TAIGA, Need.Kind.HOUSE, new CellPos(gx, gz))
+                        .map(id -> Template.of(id).bedCount() > 0).orElse(false),
+                        "a house lot got something without a bed");
             }
         }
-        assertTrue(field && other, "a village of nothing but wheat is a farm");
         assertEquals(PlotKind.HOUSE, Houses.kindOf(
                 Identifier.withDefaultNamespace("village/plains/houses/plains_small_house_1")));
-        assertEquals(PlotKind.WORKSHOP, Houses.kindOf(
-                Identifier.withDefaultNamespace("village/desert/houses/desert_armorer_1")));
-        assertEquals(PlotKind.FARM, Houses.kindOf(
-                Identifier.withDefaultNamespace("village/plains/houses/plains_animal_pen_1")));
     }
 
     @Test
