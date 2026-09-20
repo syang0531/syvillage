@@ -9,7 +9,7 @@ pixels - a statue of a golem, not a golem. Spare corners hold plain side swatche
 head side). `guardian_statue_plinth`: top = iron ring inlay, rows 13-15 = the
 plinth's side strip (light lip, riveted iron band, dark foot).
 
-Output: src/main/resources/assets/placitum/textures/block/<name>.png (16x16 RGBA)
+Output: src/main/resources/assets/syvillage/textures/block/<name>.png (16x16 RGBA)
 Run:    python tools/gen_guardian_statue.py
 
 Textures are drawn as 16 rows of 16 characters; each character is a key into
@@ -70,7 +70,7 @@ TEXTURES = {
 }
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "src", "main", "resources", "assets", "placitum", "textures", "block")
+OUT = os.path.join(ROOT, "src", "main", "resources", "assets", "syvillage", "textures", "block")
 
 
 def draw(rows):

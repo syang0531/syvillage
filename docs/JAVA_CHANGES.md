@@ -1,4 +1,4 @@
-# 자바 변경 안내 — Placitum 블록 3종 텍스처/모델
+# 자바 변경 안내 — SY Village 블록 3종 텍스처/모델
 
 > **적용 완료** (2026-09-18, 커밋 `347a3ef`). "필수" 절은 `block/FacingTable.java`로 들어갔다. "참고 · 수호상 2칸" 절은 채택하지 않았고, 나중을 위한 메모로만 남긴다.
 
@@ -12,7 +12,7 @@
 | `lords_table` | 같음 | 같음 |
 | `guardian_statue` | 기존 7요소 모델 유지, 텍스처와 UV만 교체 | 없음 (`.noOcclusion()` 이미 있음) |
 
-파티클 텍스처가 바닐라 참조에서 `placitum:block/*_side` / `guardian_statue_plinth`로 바뀐다. 코드 영향 없음.
+파티클 텍스처가 바닐라 참조에서 `syvillage:block/*_side` / `guardian_statue_plinth`로 바뀐다. 코드 영향 없음.
 리소스 파일을 넣고 자바를 아직 안 고치면 `facing=north` 등 변형을 못 찾아 탁자가 보라·검정 오류 모델로 뜬다 — 리소스와 자바를 같은 커밋에 넣을 것.
 
 ---
@@ -48,7 +48,7 @@
    - `getTicker` → LOWER만
    - `getRenderShape` → 그대로 MODEL
 2. `registry/ModBlocks.java` — BlockEntityType의 valid blocks는 그대로 (같은 Block 인스턴스)
-3. 루트테이블 `data/placitum/loot_table/blocks/guardian_statue.json` — `HALF == LOWER` 조건 추가 (안 하면 2개 드롭)
+3. 루트테이블 `data/syvillage/loot_table/blocks/guardian_statue.json` — `HALF == LOWER` 조건 추가 (안 하면 2개 드롭)
 4. POI — 수호상은 직업 블록이 아니므로 무관
 5. 리소스 — `out/options/statue_2block/`의 blockstates / models / items로 덮어쓰기
 6. **텍스처 추가 작업** — 제시된 2칸 모델은 1칸 아틀라스를 세로 2배로 늘려 쓴다. 채택하면 `gen_guardian_statue.py`에 32행 높이용 아틀라스 2장(`guardian_statue_upper`, `_lower`)을 추가로 그려야 한다. 미리보기 시트에 그려진 형태가 비율 기준.

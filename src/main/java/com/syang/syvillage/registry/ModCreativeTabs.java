@@ -1,0 +1,44 @@
+package com.syang.syvillage.registry;
+
+import com.syang.syvillage.SyVillage;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+
+/**
+ * Putting the mod's blocks somewhere a player can find them.
+ *
+ * <p>Registering a block gets it into the game; it does not get it into the creative menu, and
+ * the creative search only knows about items that are in some tab. Both workstations were
+ * invisible in creative and unfindable by search, which reads as "the mod did not load" rather
+ * than as a missing eight lines.
+ */
+public final class ModCreativeTabs {
+
+    private ModCreativeTabs() {}
+
+    /** Listens on the mod bus, alongside the registers, rather than by annotation. */
+    public static void register(IEventBus modBus) {
+        modBus.addListener(ModCreativeTabs::onBuildContents);
+    }
+
+    private static void onBuildContents(BuildCreativeModeTabContentsEvent event) {
+        // Functional blocks, next to the vanilla workstations, because that is what they are:
+        // a villager claims one and takes the job.
+        if (event.getTabKey().equals(CreativeModeTabs.FUNCTIONAL_BLOCKS)) {
+            event.accept(ModBlocks.VILLAGE_HEAD_TABLE.get());
+            event.accept(ModBlocks.LORDS_TABLE.get());
+            event.accept(ModBlocks.GUARDIAN_STATUE.get());
+        }
+        // Ingredients, because that is what they are: each is the one thing a recipe needs that
+        // nobody can craft and a villager sells.
+        if (event.getTabKey().equals(CreativeModeTabs.INGREDIENTS)) {
+            event.accept(ModItems.LORDS_SEAL.get());
+            event.accept(ModItems.GOLEM_HEART.get());
+        }
+        // The charter is a spawn egg with a different picture on it, so it goes with those.
+        if (event.getTabKey().equals(CreativeModeTabs.SPAWN_EGGS)) {
+            event.accept(ModItems.FREEMANS_CHARTER.get());
+        }
+    }
+}

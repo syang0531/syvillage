@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "syvillage:block/village_head_table_bottom",
+    "up": "syvillage:block/village_head_table_top",
+    "north": "syvillage:block/village_head_table_front",
+    "south": "syvillage:block/village_head_table_side",
+    "east": "syvillage:block/village_head_table_side",
+    "west": "syvillage:block/village_head_table_side",
+    "particle": "syvillage:block/village_head_table_side"
+  }
+}

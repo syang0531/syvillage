@@ -69,4 +69,4 @@ jobs:
         with:
           generate_release_notes: true
           body: ${{ steps.changelog.outputs.body }}
-          files: build/libs/placitum-${{ steps.version.outputs.version }}.jar
+          files: build/libs/syvillage-${{ steps.version.outputs.version }}.jar

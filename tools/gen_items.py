@@ -10,7 +10,7 @@ when M6 gets round to making things pretty.
 import os
 from PIL import Image
 
-OUT = os.path.join('src', 'main', 'resources', 'assets', 'placitum', 'textures', 'item')
+OUT = os.path.join('src', 'main', 'resources', 'assets', 'syvillage', 'textures', 'item')
 
 
 def canvas():

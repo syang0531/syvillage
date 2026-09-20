@@ -3,7 +3,7 @@
 Output: docs/curseforge/logo.png (512x512, CurseForge requires at least 400x400).
 Run:    python tools/gen_logo.py
 
-Placitum has no item textures to compose from, so the logo is drawn from
+SyVillage has no item textures to compose from, so the logo is drawn from
 primitives. The bell is the hero: ringing it is how the player registers a
 village and how the village raises the alarm. Beneath it sits the palisade the
 village builds for itself, lit from within - the mod in one picture.

@@ -1,8 +1,8 @@
-# Placitum
+# SY Village
 
 마인크래프트 자바 에디션 모드. **종으로 지정한 마을이 스스로 인프라를 짓는다.**
 
-> *placitum* — 카롤링거 시대의 공개 집회. 영주와 자유민이 모여 안건을 다루던 자리.
+> 옛 이름은 *Placitum* — 카롤링거 시대의 공개 집회, 영주와 자유민이 모여 안건을 다루던 자리. 0.2.0에서 Stan Yang의 모드 가족(`sy…`)에 맞춰 **SY Village**(modid `syvillage`)가 됐다. 자유민의 증서는 그 이름의 흔적이다.
 
 ## 해결하려는 문제
 
@@ -19,8 +19,8 @@
 | Minecraft | 26.2 (Java Edition) |
 | 모드로더 | NeoForge 26.2.0.88 |
 | Java | 25 |
-| modid | `placitum` |
-| 패키지 루트 | `com.syang.placitum` |
+| modid | `syvillage` |
+| 패키지 루트 | `com.syang.syvillage` |
 | 빌드 | `./gradlew build` / 실행 `./gradlew runClient` |
 | 배포 | CurseForge. `PUBLISHING.md` |
 
@@ -139,7 +139,7 @@ LOD 없음. promote/demote 없음. replay 없음. 안 가본 마을은 자라지
 
 ### 12. 아무것도 안 할 때는 왜 안 하는지 말한다
 
-`Lots.Verdict`가 부지마다 이유를 하나 낸다. boolean을 돌려주는 함수를 새로 만들지 말 것. 유휴 마을은 30초마다 집계를 로그에 남기고, `/placitum build`와 종 시프트+우클릭이 같은 것을 보여준다.
+`Lots.Verdict`가 부지마다 이유를 하나 낸다. boolean을 돌려주는 함수를 새로 만들지 말 것. 유휴 마을은 30초마다 집계를 로그에 남기고, `/syvillage build`와 종 시프트+우클릭이 같은 것을 보여준다.
 
 ## 절대 금지
 
@@ -154,7 +154,7 @@ LOD 없음. promote/demote 없음. replay 없음. 안 가본 마을은 자라지
 
 ### 13. 모양은 플레이어가 짓고, 코드는 자리만 안다
 
-성문·초소는 **템플릿**이다 — 크리에이티브에서 손으로 짓고 구조물 블록으로 저장한 `.nbt`가 `data/placitum/structure/`에 들어 있다. `Template`이 게임 없이 읽고, `TemplatePlan`이 어디에 놓을지·섰는지·무슨 블록인지를 한 곳에서 정한다. 성벽 단면(폭 5)도 같은 방법으로 받은 샘플을 규칙으로 옮긴 것이다.
+성문·초소는 **템플릿**이다 — 크리에이티브에서 손으로 짓고 구조물 블록으로 저장한 `.nbt`가 `data/syvillage/structure/`에 들어 있다. `Template`이 게임 없이 읽고, `TemplatePlan`이 어디에 놓을지·섰는지·무슨 블록인지를 한 곳에서 정한다. 성벽 단면(폭 5)도 같은 방법으로 받은 샘플을 규칙으로 옮긴 것이다.
 
 규칙으로 짓던 시절의 버그는 전부 **같은 모양을 세 곳에서 세 가지로 읽어서** 났다 (바닥은 엉뚱한 사각형에서, 서 있는지는 안 짓는 칸에서). 템플릿은 한 가지로만 읽힌다. 모양을 바꾸고 싶으면 **코드가 아니라 월드에서** 바꾼다 — `tools/dump_structure.py`로 층별로 확인할 수 있다.
 
@@ -164,14 +164,14 @@ LOD 없음. promote/demote 없음. replay 없음. 안 가본 마을은 자라지
 
 - 상태 객체는 **불변 record + Codec**
 - 식별자·주석·커밋 메시지는 영어. 설계 문서는 한국어
-- 밸런스 숫자는 전부 `PlacitumConfig`로
-- 로깅은 `Placitum.LOGGER`
+- 밸런스 숫자는 전부 `SyVillageConfig`로
+- 로깅은 `SyVillage.LOGGER`
 
 ## 패키지 구조
 
 ```
-com.syang.placitum
-├─ Placitum.java      @Mod 진입점
+com.syang.syvillage
+├─ SyVillage.java      @Mod 진입점
 ├─ block/             블록과 블록 엔티티 (수호상)
 ├─ item/              아이템 (자유민의 증서)
 ├─ data/              record + Codec
@@ -180,7 +180,7 @@ com.syang.placitum
 ├─ settlement/        등록, 이름
 ├─ command/           명령어, 리포트
 ├─ event/             종 상호작용, 서버 틱
-└─ config/            PlacitumConfig
+└─ config/            SyVillageConfig
 ```
 
 ## 작업 방식

@@ -33,3 +33,4 @@ desktop.ini
 *.log
 *.hprof
 local.properties
+__pycache__/

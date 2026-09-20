@@ -1,4 +1,4 @@
-# Placitum 배포 가이드 (CurseForge)
+# SY Village 배포 가이드 (CurseForge)
 
 `yame`·`sian`과 동일한 구조입니다. **한 번만 준비(A)** 해두면 이후에는 **태그만 push하면 자동 배포(B)** 됩니다.
 
@@ -13,7 +13,7 @@
 폼에 넣을 내용은 [`docs/curseforge/등록정보.md`](docs/curseforge/등록정보.md)에 필드별로 정리되어 있습니다. 로고는 [`docs/curseforge/logo.png`](docs/curseforge/logo.png).
 
 1. https://console.curseforge.com → **Create Project**
-2. **Game**: Minecraft / **Project Type**: Mods / **Name**: Placitum
+2. **Game**: Minecraft / **Project Type**: Mods / **Name**: SY Village
 3. **License**: MIT (`LICENSE`, `gradle.properties`의 `mod_license`와 일치시킬 것)
 4. Summary·Description·카테고리는 등록정보 문서에서 복붙
 5. 생성 후 운영진 **승인 대기** 상태가 됩니다 (몇 시간~며칠). 승인 전에도 아래 단계는 진행 가능하므로 **지금 신청해두는 편이 낫습니다**
@@ -32,7 +32,7 @@ mod_homepage=https://www.curseforge.com/minecraft/mc-mods/<실제-slug>
 https://console.curseforge.com → 계정 메뉴 → **API Tokens** → 새 토큰 생성 후 값 복사 (한 번만 보여줍니다).
 
 ### A-4. GitHub Secret 등록
-`syang0531/placitum` → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+`syang0531/syvillage` → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 
 - **Name**: `CURSEFORGE_TOKEN`
 - **Secret**: A-3의 토큰 값

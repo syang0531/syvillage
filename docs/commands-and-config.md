@@ -28,30 +28,30 @@
 
 ## 명령어
 
-전부 `/placitum` 하위.
+전부 `/syvillage` 하위.
 
 | 명령어 | 권한 | 설명 |
 |---|---|---|
-| `/placitum register` | OP | 32블록 안의 가장 가까운 종으로 등록 |
-| `/placitum unregister <id>` | OP | 등록 해제. **지어진 것은 그대로 남는다** |
-| `/placitum list` | 전체 | 등록된 마을 (짧은 id, 이름, 좌표) |
-| `/placitum info <id>` | 전체 | 종 시프트+우클릭과 같은 내용 |
-| `/placitum build <id>` | 전체 | 지금 짓는 것, 또는 **왜 안 짓는지** |
-| `/placitum light <id>` | 전체 | 아직 몹이 스폰될 수 있는 자리 |
-| `/placitum plot show <id>` | 전체 | 부지 지도 |
-| `/placitum plot survey <id>` | OP | 지금 측량 |
-| `/placitum plot block <id> <gx> <gz>` | OP | 그 부지에 짓지 말 것 (플레이어 거부권) |
+| `/syvillage register` | OP | 32블록 안의 가장 가까운 종으로 등록 |
+| `/syvillage unregister <id>` | OP | 등록 해제. **지어진 것은 그대로 남는다** |
+| `/syvillage list` | 전체 | 등록된 마을 (짧은 id, 이름, 좌표) |
+| `/syvillage info <id>` | 전체 | 종 시프트+우클릭과 같은 내용 |
+| `/syvillage build <id>` | 전체 | 지금 짓는 것, 또는 **왜 안 짓는지** |
+| `/syvillage light <id>` | 전체 | 아직 몹이 스폰될 수 있는 자리 |
+| `/syvillage plot show <id>` | 전체 | 부지 지도 |
+| `/syvillage plot survey <id>` | OP | 지금 측량 |
+| `/syvillage plot block <id> <gx> <gz>` | OP | 그 부지에 짓지 말 것 (플레이어 거부권) |
 
 ### 아무것도 안 지을 때 물어볼 것
 
-`/placitum build`가 이 모드에서 가장 중요한 명령어다. "아무 일도 안 일어난다"는 관측에는 늘 설명이 둘 이상 있고, 이게 그중 어느 것인지 말해준다.
+`/syvillage build`가 이 모드에서 가장 중요한 명령어다. "아무 일도 안 일어난다"는 관측에는 늘 설명이 둘 이상 있고, 이게 그중 어느 것인지 말해준다.
 
 ```
 Steinerstead is not building anything
   lots out to phase 3, street to 99 blocks: 251 steep, 3 ok, 1 taken, 1 water
 ```
 
-부지마다 이유가 하나씩 붙는다. 명령어 출력과 종 리포트는 전부 번역 키(`placitum.command.*`, `placitum.report.*`, `placitum.verdict.*`)라 한국어 클라이언트에서는 한국어로 나온다 — 아래 표의 코드 이름은 영어 키다.
+부지마다 이유가 하나씩 붙는다. 명령어 출력과 종 리포트는 전부 번역 키(`syvillage.command.*`, `syvillage.report.*`, `syvillage.verdict.*`)라 한국어 클라이언트에서는 한국어로 나온다 — 아래 표의 코드 이름은 영어 키다.
 
 | | 뜻 | 플레이어가 할 수 있는 것 |
 |---|---|---|
@@ -90,7 +90,7 @@ Steinerstead is not building anything
 
 ## 설정
 
-`config/placitum-common.toml`. 키는 **16개뿐이고, 전부 실제로 읽힌다.**
+`config/syvillage-common.toml`. 키는 **16개뿐이고, 전부 실제로 읽힌다.**
 
 예전에는 70개였고 그중 14개만 읽혔다. 나머지는 삭제된 시뮬레이션의 설정이 남은 것이었는데, 플레이어가 편집하는 파일에서 죽은 키는 **거짓말**이다 — `raidChancePerStep`을 보면 습격 빈도를 조절할 수 있다고 믿게 된다. 여기 있는 키는 전부 돌리면 게임이 바뀐다는 약속이다.
 
@@ -115,7 +115,7 @@ Steinerstead is not building anything
 
 | 키 | 기본값 | |
 |---|---|---|
-| `minLightLevel` | 8 | `/placitum light`가 어둡다고 보고하는 기준 |
+| `minLightLevel` | 8 | `/syvillage light`가 어둡다고 보고하는 기준 |
 | `lampBlocksBeyondStreet` | 1 | 마지막 도로에서 몇 블록 더 밝힐지 |
 
 `minLightLevel`은 **보고 기준이지 배치 기준이 아니다.** 가로등 자리는 계획이 정한다. 밝다고 건너뛰게 했더니 도로 양쪽 기둥이 4블록 간격이라 한쪽이 다른 쪽을 밝혀서, 블록마다 있다 없다 하는 배치가 됐다.

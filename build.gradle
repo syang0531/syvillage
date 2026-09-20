@@ -86,7 +86,7 @@ dependencies {
 
 // The round-trip and catch-up equivalence tests (docs/testing.md) run as plain
 // JUnit against the record layer. They need Bootstrap.bootStrap() for the
-// registry-backed codecs; see PlacitumTestBootstrap.
+// registry-backed codecs; see SyVillageTestBootstrap.
 tasks.named('test', Test) {
     useJUnitPlatform()
     testLogging { events 'passed', 'skipped', 'failed' }
