@@ -1,6 +1,8 @@
 package com.syang.syvillage.registry;
 
 import com.syang.syvillage.SyVillage;
+import com.syang.syvillage.block.DraftingTable;
+import com.syang.syvillage.block.DraftingTableEntity;
 import com.syang.syvillage.block.FacingTable;
 import com.syang.syvillage.block.GuardianBlockEntity;
 import com.syang.syvillage.block.GuardianStatue;
@@ -52,10 +54,14 @@ public final class ModBlocks {
             FacingTable::new);
 
     /**
-     * The lord's table: the workstation that lets a settlement wall itself.
+     * The architect's table: a workstation a villager claims, and a drawing board a player uses.
      *
-     * <p>Stone rather than wood, because what it unlocks is masonry on a different scale, and
-     * because a village that can afford one has a mason already.
+     * <p>Stone rather than wood, because what gets drawn on it is masonry on a different scale.
+     *
+     * <p>Registered as {@code lords_table} still, because that is what it is called in every
+     * world that already has one and renaming it is part of replacing the lord with the
+     * architect - trades, profession and point of interest together, in one change rather than
+     * in half of one.
      */
     public static final DeferredBlock<Block> LORDS_TABLE = register("lords_table",
             BlockBehaviour.Properties.of()
@@ -63,7 +69,7 @@ public final class ModBlocks {
                     .strength(3.5F)
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.STONE),
-            FacingTable::new);
+            DraftingTable::new);
 
     /**
      * The guardian statue: an iron golem that comes back.
@@ -81,6 +87,11 @@ public final class ModBlocks {
                     // drawn. Without this the statue is a silhouette with holes in it.
                     .noOcclusion(),
             GuardianStatue::new);
+
+    /** What remembers which drawing is pinned to which table, and where it says to build. */
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DraftingTableEntity>>
+            DRAFTING_TABLE_ENTITY = BLOCK_ENTITIES.register("drafting_table",
+                    () -> new BlockEntityType<>(DraftingTableEntity::new, LORDS_TABLE.get()));
 
     /** What remembers which golem belongs to which statue. */
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GuardianBlockEntity>>

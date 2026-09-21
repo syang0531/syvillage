@@ -33,7 +33,9 @@ public final class SyVillageConfig {
 
     // [blueprint] - putting a structure down, and looking at it first
     public static final ModConfigSpec.IntValue RAISE_BLOCKS_PER_TICK;
-    public static final ModConfigSpec.IntValue PREVIEW_SECONDS;
+    public static final ModConfigSpec.IntValue MAX_DRAWING_OFFSET;
+    public static final ModConfigSpec.IntValue DRAWING_REFRESH_TICKS;
+    public static final ModConfigSpec.IntValue DRAWING_WATCH_RANGE;
 
     // [guardian] - the statue that keeps a golem
     public static final ModConfigSpec.IntValue GUARD_CHECK_TICKS;
@@ -60,15 +62,23 @@ public final class SyVillageConfig {
                         "and if the server stops the rest appear at once. 40 puts a tower up",
                         "over about two seconds. 20000 is instant.")
                 .defineInRange("raiseBlocksPerTick", 40, 1, 20000);
-        PREVIEW_SECONDS = b.comment("How long a preview stays good for. Clicking the same spot",
-                        "again inside this window is the confirmation that builds; after it,",
-                        "the click is a fresh preview instead, and says so.",
+        MAX_DRAWING_OFFSET = b.comment("How far from its table a drawing may be pushed, in",
+                        "blocks on each axis. Far enough to lay a house out across the stream;",
+                        "not so far that the table is surveying chunks nobody has loaded, which",
+                        "comes back as a refusal the player cannot see the cause of.")
+                .defineInRange("maxDrawingOffset", 64, 1, 256);
+        DRAWING_REFRESH_TICKS = b.comment("How often a table re-reads the ground under its",
+                        "drawing. 20 is once a second.",
                         "",
-                        "Ten was the first value and it was too short - walking round an",
-                        "outline to look at it from the other side spent most of it. Thirty",
-                        "still keeps the point, which is that a stale outline must not turn a",
-                        "stray click into two thousand blocks.")
-                .defineInRange("previewSeconds", 30, 1, 120);
+                        "This is what turns the outline green after the player mines the block",
+                        "that was in the way. It runs only for tables with their outline",
+                        "switched on and a player nearby, and it decides nothing - it re-reads",
+                        "an answer already on screen.")
+                .defineInRange("drawingRefreshTicks", 20, 1, 1200);
+        DRAWING_WATCH_RANGE = b.comment("How close a player has to be for a table to bother",
+                        "re-reading. Beyond this the outline is still drawn from what the table",
+                        "last worked out; it simply stops checking.")
+                .defineInRange("drawingWatchRange", 48, 8, 256);
         b.pop();
 
         b.comment("The guardian statue.").push("guardian");

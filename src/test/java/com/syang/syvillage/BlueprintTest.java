@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.syang.syvillage.build.Outline;
 import com.syang.syvillage.build.Placement;
 import com.syang.syvillage.build.Raise;
+import com.syang.syvillage.build.Site;
 import com.syang.syvillage.build.Template;
 import com.syang.syvillage.data.BuildOp;
 import com.syang.syvillage.data.Craft;
@@ -92,8 +94,8 @@ class BlueprintTest {
     }
 
     @Test
-    @DisplayName("layer 0 lands on the floor the player clicked, and nothing is below it")
-    void layerZeroSitsOnTheClickedFace() {
+    @DisplayName("layer 0 lands on the floor the table names, and nothing is below it")
+    void layerZeroSitsOnTheFloor() {
         int floor = 71;
         List<BuildOp> ops = Raise.expand(at(new BlockPos(0, floor, 0), Rotation.NONE,
                 Craft.PLAINS));
@@ -101,7 +103,7 @@ class BlueprintTest {
         for (BuildOp op : ops) {
             lowest = Math.min(lowest, op.pos().getY());
         }
-        assertEquals(floor, lowest, "the structure must start at the clicked face, not below it");
+        assertEquals(floor, lowest, "the structure must start at its floor, not below it");
     }
 
     @Test
@@ -140,24 +142,31 @@ class BlueprintTest {
     }
 
     @Test
-    @DisplayName("the box grows away from the player, so it cannot close over them")
-    void theBoxGrowsAwayFromThePlayer() {
-        BlockPos at = new BlockPos(0, 64, 0);
-        int w = 17;
-        int d = 9;
-        // Yaw 0 is south (+z), 90 is west (-x), 180 north (-z), 270 east (+x).
-        assertEquals(new BlockPos(0, 64, 0), Placement.corner(at, 0f, w, d), "facing south");
-        assertEquals(new BlockPos(-16, 64, 0), Placement.corner(at, 90f, w, d), "facing west");
-        assertEquals(new BlockPos(-16, 64, -8), Placement.corner(at, 180f, w, d), "facing north");
-        assertEquals(new BlockPos(0, 64, -8), Placement.corner(at, 270f, w, d), "facing east");
+    @DisplayName("an outline carries the shape and nothing else, and packs it whole")
+    void outlineCarriesTheShape() {
+        Placement placement = at(new BlockPos(-30, 68, 12), Rotation.CLOCKWISE_90, Craft.PLAINS);
+        Template tower = Template.of(TOWER);
+        Outline outline = Outline.of(placement, new Site.Survey(placement,
+                List.of(new BlockPos(-30, 69, 12)), 1, 0));
 
-        // Whatever the quarter, the clicked block is a corner of the box and never inside it.
-        for (float yaw = 0f; yaw < 360f; yaw += 15f) {
-            BlockPos corner = Placement.corner(at, yaw, w, d);
-            boolean onX = corner.getX() == at.getX() || corner.getX() + w - 1 == at.getX();
-            boolean onZ = corner.getZ() == at.getZ() || corner.getZ() + d - 1 == at.getZ();
-            assertTrue(onX && onZ, "yaw " + yaw + " put the click off the corner");
+        assertEquals(tower.columns().size(), outline.columns().length, "one entry per column");
+        assertEquals(outline.columns().length, outline.spans().length, "a span for each");
+        assertEquals(3, outline.blocked().length, "three ints for one blocked position");
+        assertFalse(outline.buildable());
+        assertEquals(tower.turnedWidth(Rotation.CLOCKWISE_90), outline.width());
+
+        // Packed into a byte each way, which is what bounds a template to 256 on a side.
+        for (int packed : outline.columns()) {
+            assertTrue((packed >> 8) < outline.width() && (packed >> 8) >= 0, "x out of the box");
+            assertTrue((packed & 0xFF) < outline.depth(), "z out of the box");
         }
+        for (int span : outline.spans()) {
+            assertTrue((span >> 8) <= (span & 0xFF), "a column whose bottom is above its top");
+        }
+        // Arrays, so identity equality would make every refresh look like a change and the
+        // table would send an update packet every second for ever.
+        assertEquals(outline, Outline.of(placement, new Site.Survey(placement,
+                List.of(new BlockPos(-30, 69, 12)), 1, 0)));
     }
 
     @Test
