@@ -1,5 +1,6 @@
 package com.syang.syvillage;
 
+import com.syang.syvillage.config.SyVillageClientConfig;
 import com.syang.syvillage.config.SyVillageConfig;
 import com.syang.syvillage.registry.ModBlocks;
 import com.syang.syvillage.registry.ModCreativeTabs;
@@ -30,6 +31,8 @@ public class SyVillage {
 
     public SyVillage(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.COMMON, SyVillageConfig.SPEC);
+        // How heavily a preview is painted is one player's taste, not a server's rule.
+        container.registerConfig(ModConfig.Type.CLIENT, SyVillageClientConfig.SPEC);
         ModBlocks.register(modBus);
         ModItems.register(modBus);
         ModVillagers.register(modBus);

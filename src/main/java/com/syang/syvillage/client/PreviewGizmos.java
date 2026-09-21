@@ -4,6 +4,7 @@ import com.syang.syvillage.SyVillage;
 import com.syang.syvillage.block.DraftingBoards;
 import com.syang.syvillage.block.DraftingTableEntity;
 import com.syang.syvillage.build.Outline;
+import com.syang.syvillage.config.SyVillageClientConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gizmos.GizmoStyle;
@@ -23,19 +24,26 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  * player is being asked to judge. That was tried in a real world, which is the condition
  * CLAUDE.md put on opening a client package at all.
  *
- * <p>Three shapes, and each answers a different question.
+ * <p>Four shapes, and each answers a different question.
  *
  * <ul>
  *   <li><b>The white box</b> - how much room the drawing needs.
  *   <li><b>The border</b>, green or red, round the columns that get blocks - where it sits, and
- *       whether it can.
+ *       whether it can go there.
  *   <li><b>The massing</b>, one translucent bar per column from its lowest block to its highest -
  *       <em>what</em> is going to be there. A border on the ground tells somebody who has seen
- *       the building where it goes; it tells somebody who has not seen it nothing at all, and
- *       that was the complaint. One bar per column is two hundred and twenty-one shapes rather
- *       than the twelve hundred a block-by-block ghost would be, and the silhouette is the part
- *       that carries the answer.
+ *       this building where it goes and tells somebody who has not seen it nothing at all, which
+ *       was the complaint. 221 bars rather than the 1209 boxes a block-by-block ghost would be;
+ *       the silhouette is the part that carries the answer.
+ *   <li><b>The marks</b> - a red cube where something already stands in the way, an amber one
+ *       where there is a hole under the floor.
  * </ul>
+ *
+ * <p><b>Colour goes on the marks, not on the massing.</b> Washing the whole silhouette red
+ * filled the screen with it and from inside the footprint it was a wall. The handful of blocks
+ * that carry a problem are each somewhere to walk to; the two thousand that are merely going to
+ * be there do not each need to shout. How far you see through either is
+ * {@link SyVillageClientConfig}, which the board's own sliders write.
  */
 @EventBusSubscriber(modid = SyVillage.MODID, value = Dist.CLIENT)
 public final class PreviewGizmos {
@@ -43,28 +51,21 @@ public final class PreviewGizmos {
     private PreviewGizmos() {}
 
     /** White, and the same whether the site is good or bad: the box is geometry, not a verdict. */
-    private static final int BOX = 0xFFE8EDF2;
-    private static final int READY = 0xFF4CC26A;
-    private static final int BLOCKED = 0xFFD9483B;
-    /**
-     * The massing. Faint, because there is a lot of it and the player is looking <em>through</em>
-     * it at the ground - a seventeen by seventeen tower at a third opacity fills the screen, and
-     * from inside the footprint it is a wall of colour. This is the one shape whose job is to be
-     * noticed and then seen past.
-     */
-    private static final int MASS_READY = 0x1A48C46A;
-    private static final int MASS_BLOCKED = 0x1AD9483B;
-
-    /**
-     * A block that is actually in the way, filled rather than outlined.
-     *
-     * <p>The opposite reading of the same trade: there are a handful of these and each one is
-     * somewhere the player has to walk to. Solid enough to pick out of the massing around it.
-     */
-    private static final int IN_THE_WAY = 0x99D9483B;
+    private static final int BOX = 0xE8EDF2;
+    private static final int READY = 0x4CC26A;
+    private static final int BLOCKED = 0xD9483B;
+    private static final int UNSUPPORTED = 0xE0A83B;
 
     private static final float BOX_WIDTH = 2.0f;
     private static final float BORDER_WIDTH = 3.5f;
+
+    /** Leaving a world: nothing loaded there is loaded any more. */
+    @SubscribeEvent
+    public static void onLevelUnload(net.neoforged.neoforge.event.level.LevelEvent.Unload event) {
+        if (event.getLevel().isClientSide()) {
+            DraftingBoards.clear();
+        }
+    }
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -72,6 +73,12 @@ public final class PreviewGizmos {
             return;
         }
         for (DraftingTableEntity board : DraftingBoards.loaded()) {
+            // A broken table's block entity is removed, and a removed one draws nothing. Asked
+            // here as well as on removal because an outline that outlives its table is the one
+            // failure a player cannot clear by any means at all.
+            if (board.isRemoved()) {
+                continue;
+            }
             Outline outline = board.outline();
             if (!outline.empty()) {
                 draw(outline);
@@ -84,16 +91,28 @@ public final class PreviewGizmos {
         Gizmos.cuboid(new AABB(corner.getX(), corner.getY(), corner.getZ(),
                         corner.getX() + outline.width(), corner.getY() + outline.height(),
                         corner.getZ() + outline.depth()),
-                GizmoStyle.stroke(BOX, BOX_WIDTH)).setAlwaysOnTop();
+                GizmoStyle.stroke(opaque(BOX), BOX_WIDTH)).setAlwaysOnTop();
 
-        boolean ok = outline.buildable();
-        massAndBorder(outline, ok);
+        massAndBorder(outline);
 
-        int[] blocked = outline.blocked();
-        GizmoStyle inTheWay = GizmoStyle.strokeAndFill(BLOCKED, BOX_WIDTH, IN_THE_WAY);
-        for (int i = 0; i + 2 < blocked.length; i += 3) {
-            Gizmos.cuboid(new AABB(new BlockPos(blocked[i], blocked[i + 1], blocked[i + 2])),
-                    inTheWay).setAlwaysOnTop();
+        int marks = SyVillageClientConfig.MARK_OPACITY.get();
+        marks(outline.blocked(), BLOCKED, marks);
+        marks(outline.unsupported(), UNSUPPORTED, marks);
+    }
+
+    /**
+     * The blocks that have something to say, one cube each.
+     *
+     * <p>Red is something standing where the building goes; amber is a hole under its floor.
+     * Both are a handful of blocks the player can walk to, which is why they are filled and the
+     * massing is not.
+     */
+    private static void marks(int[] positions, int colour, int alpha) {
+        GizmoStyle style = GizmoStyle.strokeAndFill(opaque(colour), BOX_WIDTH,
+                tint(colour, alpha));
+        for (int i = 0; i + 2 < positions.length; i += 3) {
+            Gizmos.cuboid(new AABB(new BlockPos(positions[i], positions[i + 1],
+                    positions[i + 2])), style).setAlwaysOnTop();
         }
     }
 
@@ -101,24 +120,27 @@ public final class PreviewGizmos {
      * One pass over the columns: a translucent bar for each, and a line along every side whose
      * neighbour is empty.
      *
+     * <p>The massing is the building, so it wears the building's colour whether the ground suits
+     * it or not. Only the border carries the verdict, because the border answers "can this go
+     * here" and the silhouette answers "what is this".
+     *
      * <p>The border is the edge of the occupied set, not of the box, which is what makes a
      * gatehouse read as a gatehouse rather than as a twenty-five by nine rectangle. Same
      * distinction as a footprint not being a bounding box.
      */
-    private static void massAndBorder(Outline outline, boolean ok) {
+    private static void massAndBorder(Outline outline) {
         int width = outline.width();
         int depth = outline.depth();
         boolean[][] filled = new boolean[width][depth];
         int[][] spans = new int[width][depth];
         for (int i = 0; i < outline.columns().length; i++) {
             int packed = outline.columns()[i];
-            int dx = packed >> 8;
-            int dz = packed & 0xFF;
-            filled[dx][dz] = true;
-            spans[dx][dz] = outline.spans()[i];
+            filled[packed >> 8][packed & 0xFF] = true;
+            spans[packed >> 8][packed & 0xFF] = outline.spans()[i];
         }
-        int border = ok ? READY : BLOCKED;
-        GizmoStyle mass = GizmoStyle.fill(ok ? MASS_READY : MASS_BLOCKED);
+        int border = opaque(outline.buildable() ? READY : BLOCKED);
+        int alpha = SyVillageClientConfig.MASS_OPACITY.get();
+        GizmoStyle mass = GizmoStyle.fill(tint(READY, alpha));
         double y = outline.corner().getY();
 
         for (int dx = 0; dx < width; dx++) {
@@ -128,10 +150,11 @@ public final class PreviewGizmos {
                 }
                 double x = outline.corner().getX() + dx;
                 double z = outline.corner().getZ() + dz;
-                int bottom = spans[dx][dz] >> 8;
-                int top = spans[dx][dz] & 0xFF;
-                Gizmos.cuboid(new AABB(x, y + bottom, z, x + 1, y + top + 1, z + 1), mass);
-
+                if (alpha > 0) {
+                    int bottom = spans[dx][dz] >> 8;
+                    int top = spans[dx][dz] & 0xFF;
+                    Gizmos.cuboid(new AABB(x, y + bottom, z, x + 1, y + top + 1, z + 1), mass);
+                }
                 if (!at(filled, dx, dz - 1)) {
                     line(x, y, z, x + 1, y, z, border);
                 }
@@ -156,5 +179,13 @@ public final class PreviewGizmos {
             int colour) {
         Gizmos.line(new Vec3(x0, y0 + 0.02, z0), new Vec3(x1, y1 + 0.02, z1), colour,
                 BORDER_WIDTH).setAlwaysOnTop();
+    }
+
+    private static int opaque(int rgb) {
+        return 0xFF000000 | rgb;
+    }
+
+    private static int tint(int rgb, int alpha) {
+        return (Math.clamp(alpha, 0, 255) << 24) | rgb;
     }
 }

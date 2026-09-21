@@ -128,9 +128,18 @@ public class DraftingTableEntity extends BlockEntity implements Container, MenuP
         return Container.stillValidBlockEntity(this, player);
     }
 
+    /**
+     * Anything at all changed here - so work the outline out again.
+     *
+     * <p>Hung on {@code setChanged} rather than on the methods that mutate, because the menu
+     * does not always come through them: a shift-click moves the stack in place and then calls
+     * {@code slot.setChanged()}, so taking the drawing out that way left the outline standing
+     * over nothing. Every path a container can be altered by ends here.
+     */
     @Override
     public void setChanged() {
         super.setChanged();
+        refreshOutline();
     }
 
     @Override
@@ -264,9 +273,13 @@ public class DraftingTableEntity extends BlockEntity implements Container, MenuP
         refresh();
     }
 
-    /** Work the outline out again, and tell anybody watching only if it actually changed. */
+    /** Say that something changed; {@link #setChanged} does the rest. */
     public void refresh() {
         setChanged();
+    }
+
+    /** Work the outline out again, and tell anybody watching only if it actually changed. */
+    private void refreshOutline() {
         if (!(level instanceof ServerLevel server)) {
             return;
         }
@@ -334,7 +347,9 @@ public class DraftingTableEntity extends BlockEntity implements Container, MenuP
     @Override
     public void setRemoved() {
         super.setRemoved();
+        // Both sides. On the client this is what takes a broken table's outline off the screen.
         DraftingBoards.remove(this);
+        outline = Outline.none();
     }
 
     @Override

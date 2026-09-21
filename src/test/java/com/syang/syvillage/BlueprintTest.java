@@ -147,11 +147,12 @@ class BlueprintTest {
         Placement placement = at(new BlockPos(-30, 68, 12), Rotation.CLOCKWISE_90, Craft.PLAINS);
         Template tower = Template.of(TOWER);
         Outline outline = Outline.of(placement, new Site.Survey(placement,
-                List.of(new BlockPos(-30, 69, 12)), 1, 0));
+                List.of(new BlockPos(-30, 69, 12)), 1, List.of(new BlockPos(-30, 67, 12))));
 
         assertEquals(tower.columns().size(), outline.columns().length, "one entry per column");
         assertEquals(outline.columns().length, outline.spans().length, "a span for each");
         assertEquals(3, outline.blocked().length, "three ints for one blocked position");
+        assertEquals(3, outline.unsupported().length, "and for one hole under the floor");
         assertFalse(outline.buildable());
         assertEquals(tower.turnedWidth(Rotation.CLOCKWISE_90), outline.width());
 
@@ -166,7 +167,8 @@ class BlueprintTest {
         // Arrays, so identity equality would make every refresh look like a change and the
         // table would send an update packet every second for ever.
         assertEquals(outline, Outline.of(placement, new Site.Survey(placement,
-                List.of(new BlockPos(-30, 69, 12)), 1, 0)));
+                List.of(new BlockPos(-30, 69, 12)), 1,
+                List.of(new BlockPos(-30, 67, 12)))));
     }
 
     @Test

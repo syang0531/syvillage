@@ -20,5 +20,7 @@
   "syvillage.drafting.showing": "Outline: shown",
   "syvillage.drafting.hidden": "Outline: hidden",
   "syvillage.drafting.build": "Build",
-  "syvillage.drafting.in_the_way": "%s block(s) are in the way."
+  "syvillage.drafting.in_the_way": "%s block(s) are in the way.",
+  "syvillage.drafting.mass_opacity": "Shape %s%%",
+  "syvillage.drafting.mark_opacity": "Marks %s%%"
 }

@@ -34,4 +34,9 @@ public final class DraftingBoards {
     public static Set<DraftingTableEntity> loaded() {
         return Collections.unmodifiableSet(LOADED);
     }
+
+    /** Leaving a world. Everything in here belonged to it. */
+    public static void clear() {
+        LOADED.clear();
+    }
 }

@@ -20,13 +20,14 @@ import net.minecraft.world.level.storage.ValueOutput;
  *
  * @param columns occupied columns, {@code (dx << 8) | dz} from the corner
  * @param spans   the same columns' vertical extent, {@code (bottom << 8) | top}, for the massing
- * @param blocked positions something already stands in, three ints each
+ * @param blocked     positions something already stands in, three ints each
+ * @param unsupported holes under the structure's own floor, three ints each
  */
 public record Outline(BlockPos corner, int width, int height, int depth,
-        int[] columns, int[] spans, int[] blocked, boolean buildable) {
+        int[] columns, int[] spans, int[] blocked, int[] unsupported, boolean buildable) {
 
     private static final Outline NONE = new Outline(BlockPos.ZERO, 0, 0, 0,
-            new int[0], new int[0], new int[0], false);
+            new int[0], new int[0], new int[0], new int[0], false);
 
     public static Outline none() {
         return NONE;
@@ -50,16 +51,20 @@ public record Outline(BlockPos corner, int width, int height, int depth,
             spans[i] = (template.bottomOf(column[0], column[1]) << 8)
                     | Math.min(template.topOf(column[0], column[1]), 255);
         }
-        int[] blocked = new int[survey.blocked().size() * 3];
-        for (int i = 0; i < survey.blocked().size(); i++) {
-            BlockPos pos = survey.blocked().get(i);
-            blocked[i * 3] = pos.getX();
-            blocked[i * 3 + 1] = pos.getY();
-            blocked[i * 3 + 2] = pos.getZ();
-        }
         return new Outline(placement.origin(), template.turnedWidth(rotation),
-                template.sizeY(), template.turnedDepth(rotation),
-                columns, spans, blocked, survey.buildable());
+                template.sizeY(), template.turnedDepth(rotation), columns, spans,
+                pack(survey.blocked()), pack(survey.unsupported()), survey.buildable());
+    }
+
+    /** Positions as three ints each, because an int array is what a block entity can carry. */
+    private static int[] pack(List<BlockPos> positions) {
+        int[] out = new int[positions.size() * 3];
+        for (int i = 0; i < positions.size(); i++) {
+            out[i * 3] = positions.get(i).getX();
+            out[i * 3 + 1] = positions.get(i).getY();
+            out[i * 3 + 2] = positions.get(i).getZ();
+        }
+        return out;
     }
 
     // ---- riding the block entity's sync
@@ -71,6 +76,7 @@ public record Outline(BlockPos corner, int width, int height, int depth,
     private static final String COLUMNS = "outline_columns";
     private static final String SPANS = "outline_spans";
     private static final String BLOCKED = "outline_blocked";
+    private static final String UNSUPPORTED = "outline_unsupported";
     private static final String BUILDABLE = "outline_ok";
 
     public void store(ValueOutput output) {
@@ -82,6 +88,7 @@ public record Outline(BlockPos corner, int width, int height, int depth,
         output.putIntArray(COLUMNS, columns);
         output.putIntArray(SPANS, spans);
         output.putIntArray(BLOCKED, blocked);
+        output.putIntArray(UNSUPPORTED, unsupported);
         output.putBoolean(BUILDABLE, buildable);
     }
 
@@ -94,6 +101,7 @@ public record Outline(BlockPos corner, int width, int height, int depth,
                 input.getIntArray(COLUMNS).orElse(new int[0]),
                 input.getIntArray(SPANS).orElse(new int[0]),
                 input.getIntArray(BLOCKED).orElse(new int[0]),
+                input.getIntArray(UNSUPPORTED).orElse(new int[0]),
                 input.getBooleanOr(BUILDABLE, false));
     }
 
@@ -106,7 +114,8 @@ public record Outline(BlockPos corner, int width, int height, int depth,
                 && corner.equals(o.corner) && width == o.width && height == o.height
                 && depth == o.depth && buildable == o.buildable
                 && Arrays.equals(columns, o.columns) && Arrays.equals(spans, o.spans)
-                && Arrays.equals(blocked, o.blocked);
+                && Arrays.equals(blocked, o.blocked)
+                && Arrays.equals(unsupported, o.unsupported);
     }
 
     @Override
