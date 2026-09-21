@@ -140,6 +140,27 @@ class BlueprintTest {
     }
 
     @Test
+    @DisplayName("the box grows away from the player, so it cannot close over them")
+    void theBoxGrowsAwayFromThePlayer() {
+        BlockPos at = new BlockPos(0, 64, 0);
+        int w = 17;
+        int d = 9;
+        // Yaw 0 is south (+z), 90 is west (-x), 180 north (-z), 270 east (+x).
+        assertEquals(new BlockPos(0, 64, 0), Placement.corner(at, 0f, w, d), "facing south");
+        assertEquals(new BlockPos(-16, 64, 0), Placement.corner(at, 90f, w, d), "facing west");
+        assertEquals(new BlockPos(-16, 64, -8), Placement.corner(at, 180f, w, d), "facing north");
+        assertEquals(new BlockPos(0, 64, -8), Placement.corner(at, 270f, w, d), "facing east");
+
+        // Whatever the quarter, the clicked block is a corner of the box and never inside it.
+        for (float yaw = 0f; yaw < 360f; yaw += 15f) {
+            BlockPos corner = Placement.corner(at, yaw, w, d);
+            boolean onX = corner.getX() == at.getX() || corner.getX() + w - 1 == at.getX();
+            boolean onZ = corner.getZ() == at.getZ() || corner.getZ() + d - 1 == at.getZ();
+            assertTrue(onX && onZ, "yaw " + yaw + " put the click off the corner");
+        }
+    }
+
+    @Test
     @DisplayName("the palette is the biome it is put down in, not the one it was drawn in")
     void materialsFollowThePlacement() {
         Placement desert = at(new BlockPos(0, 64, 0), Rotation.NONE, Craft.DESERT);

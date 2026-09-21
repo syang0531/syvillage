@@ -24,6 +24,24 @@ import net.minecraft.world.level.block.Rotation;
 public record Placement(Identifier templateId, BlockPos origin, Rotation rotation, Craft palette,
         int floor) {
 
+    /**
+     * The corner of a box that puts the clicked block nearest the player.
+     *
+     * <p>The clicked block used to be the middle, which is the obvious way to aim something and
+     * the wrong way to stand beside it: a seventeen-wide tower centred on the block at your feet
+     * closes over your head. A corner cannot, and which corner is decided by where the player is
+     * looking - the box fills the quarter of the world in front of them.
+     *
+     * <p>What comes back is always the lowest x and z of the box, whichever quarter that was, so
+     * everything downstream keeps treating the origin as the north-west corner.
+     */
+    public static BlockPos corner(BlockPos at, float yaw, int width, int depth) {
+        double radians = Math.toRadians(yaw);
+        double lookX = -Math.sin(radians);
+        double lookZ = Math.cos(radians);
+        return at.offset(lookX >= 0 ? 0 : -(width - 1), 0, lookZ >= 0 ? 0 : -(depth - 1));
+    }
+
     /** The shape itself. Static content, read from a jar once and cached, so this stays pure. */
     public Template template() {
         return Template.of(templateId);

@@ -27,9 +27,9 @@ import net.minecraft.world.level.gameevent.GameEvent;
  * thousand and follows the same ones.
  *
  * <p>The one thing a block does not have is the step in between. The first click shows the
- * outline and says what is wrong with it; the second click, on the same spot inside a few
- * seconds, builds. That step is what makes the difference between this and "one block out,
- * knock it down and start again".
+ * outline and says what is wrong with it; the second click, on the same block inside a few
+ * seconds, builds. Sneaking turns it a quarter and never builds. That step is what makes the
+ * difference between this and "one block out, knock it down and start again".
  *
  * <p>What the village supplies is the labour and the materials, and what it charges is the
  * drawing - bought from an architect with emeralds. It does not charge stone, because hauling
@@ -57,39 +57,36 @@ public final class Blueprint extends Item {
                 || !(context.getPlayer() instanceof ServerPlayer player)) {
             return InteractionResult.SUCCESS;
         }
-        Template template = Template.of(TEMPLATE);
-
-        // Where a block would have gone: against the face that was clicked. The structure is
-        // centred on that column rather than cornered at it, because a player aiming a
-        // seventeen-wide tower is aiming at its middle.
+        // Where a block would have gone: against the face that was clicked.
         BlockPos at = context.getClickedPos().relative(context.getClickedFace());
-        Rotation rotation = turn(player, context);
-        BlockPos origin = new BlockPos(
-                at.getX() - template.turnedWidth(rotation) / 2, at.getY(),
-                at.getZ() - template.turnedDepth(rotation) / 2);
-        Placement placement = new Placement(TEMPLATE, origin, rotation,
-                Craft.of(level.getBiome(at)), at.getY());
+        boolean sneaking = context.isSecondaryUseActive();
 
-        if (Previews.confirms(player, placement)) {
-            int blocks = Raise.begin(level, placement);
+        Placement confirmed = Previews.confirms(player, at, sneaking);
+        if (confirmed != null) {
+            int blocks = Raise.begin(level, confirmed);
             Previews.forget(player);
             context.getItemInHand().consume(1, player);
             level.gameEvent(player, GameEvent.BLOCK_PLACE, at);
             player.sendSystemMessage(Component
-                    .translatable("syvillage.blueprint.raised", template.name(), blocks)
+                    .translatable("syvillage.blueprint.raised",
+                            confirmed.template().name(), blocks)
                     .withStyle(ChatFormatting.GREEN));
             return InteractionResult.SUCCESS;
         }
 
-        Site.Survey survey = Previews.show(player, placement, Site.read(level, placement));
+        Template template = Template.of(TEMPLATE);
+        Rotation rotation = sneaking
+                ? Previews.turnOf(player, Rotation.NONE).getRotated(Rotation.CLOCKWISE_90)
+                : Previews.turnOf(player, Rotation.NONE);
+        Placement placement = new Placement(TEMPLATE,
+                Placement.corner(at, player.getYRot(), template.turnedWidth(rotation),
+                        template.turnedDepth(rotation)),
+                rotation, Craft.of(level.getBiome(at)), at.getY());
+
+        Site.Survey survey = Site.read(level, placement);
+        Previews.show(player, at, placement, survey);
         player.sendSystemMessage(describe(template, survey));
         return InteractionResult.SUCCESS;
-    }
-
-    /** Sneaking turns it a quarter before looking. Otherwise it keeps the turn it had. */
-    private static Rotation turn(ServerPlayer player, UseOnContext context) {
-        Rotation held = Previews.turnOf(player, Rotation.NONE);
-        return context.isSecondaryUseActive() ? held.getRotated(Rotation.CLOCKWISE_90) : held;
     }
 
     /**
