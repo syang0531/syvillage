@@ -14,7 +14,7 @@
   "syvillage.facing.south": "south",
   "syvillage.facing.west": "west",
   "syvillage.drafting.title": "Drawing Board",
-  "syvillage.drafting.offset": "Offset from the table (X / Y / Z)",
+  "syvillage.drafting.offset": "Offset from the table (X / Y / Z) - shift steps a whole building",
   "syvillage.drafting.empty": "Slot empty",
   "syvillage.drafting.turn": "Facing: %s",
   "syvillage.drafting.showing": "Outline: shown",

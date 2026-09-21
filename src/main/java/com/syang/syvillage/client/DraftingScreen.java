@@ -1,11 +1,15 @@
 package com.syang.syvillage.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.syang.syvillage.block.DraftingMenu;
 import com.syang.syvillage.block.DraftingTableEntity;
 import com.syang.syvillage.config.SyVillageClientConfig;
+import com.syang.syvillage.data.Drawing;
+import com.syang.syvillage.item.Blueprint;
 import com.syang.syvillage.net.DraftingCommand;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -115,9 +119,9 @@ public class DraftingScreen extends AbstractContainerScreen<DraftingMenu> {
         addWidget(box);
         needsDrawing.add(box);
 
-        gated(Button.builder(Component.literal("-"), b -> nudge(index, -1))
+        gated(Button.builder(Component.literal("-"), b -> nudge(index, -step(index)))
                 .bounds(left, topPos + OFFSET_Y + 20, 24, 18).build());
-        gated(Button.builder(Component.literal("+"), b -> nudge(index, 1))
+        gated(Button.builder(Component.literal("+"), b -> nudge(index, step(index)))
                 .bounds(left + 26, topPos + OFFSET_Y + 20, 24, 18).build());
         return box;
     }
@@ -148,6 +152,46 @@ public class DraftingScreen extends AbstractContainerScreen<DraftingMenu> {
                 setting.set((int) Math.round(value * 255));
             }
         };
+    }
+
+    /**
+     * One block, or the whole building with shift held.
+     *
+     * <p>A wall is a run of eight-block segments and a straight line of them is twenty presses
+     * at one block each - a hundred and sixty. Shift steps by exactly the building's own length
+     * on that axis, so the next segment lands against the last one with a single click.
+     *
+     * <p>The turned length, not the drawn one: a segment laid east-west is eight along x, and
+     * the same segment turned is eight along z.
+     */
+    private int step(int index) {
+        if (!shiftHeld()) {
+            return 1;
+        }
+        DraftingTableEntity board = board();
+        Drawing drawing = board == null ? null : Blueprint.drawingOf(board.drawing());
+        if (drawing == null) {
+            return 1;
+        }
+        boolean quarterTurned = board.rotation() == Rotation.CLOCKWISE_90
+                || board.rotation() == Rotation.COUNTERCLOCKWISE_90;
+        return switch (index) {
+            case 0 -> quarterTurned ? drawing.depth() : drawing.width();
+            case 1 -> drawing.height();
+            default -> quarterTurned ? drawing.width() : drawing.depth();
+        };
+    }
+
+    /**
+     * Whether shift is down, asked of the window.
+     *
+     * <p>A button's handler is given the button and nothing else - 26.2 moved the modifiers on
+     * to the input event, which never reaches here - so the window is the one thing left to ask.
+     */
+    private static boolean shiftHeld() {
+        var window = Minecraft.getInstance().getWindow();
+        return InputConstants.isKeyDown(window, InputConstants.KEY_LSHIFT)
+                || InputConstants.isKeyDown(window, InputConstants.KEY_RSHIFT);
     }
 
     private void nudge(int index, int by) {

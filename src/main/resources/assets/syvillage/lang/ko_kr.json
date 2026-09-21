@@ -14,7 +14,7 @@
   "syvillage.facing.south": "남",
   "syvillage.facing.west": "서",
   "syvillage.drafting.title": "제도판",
-  "syvillage.drafting.offset": "탁자에서의 상대 좌표 (X / Y / Z)",
+  "syvillage.drafting.offset": "탁자에서의 상대 좌표 (X / Y / Z) — 시프트를 누르면 건물 크기만큼",
   "syvillage.drafting.empty": "비어 있음",
   "syvillage.drafting.turn": "방향: %s",
   "syvillage.drafting.showing": "윤곽: 켜짐",
