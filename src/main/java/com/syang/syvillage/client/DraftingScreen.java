@@ -81,12 +81,12 @@ public class DraftingScreen extends AbstractContainerScreen<DraftingMenu> {
                 .bounds(leftPos + 8, topPos + 84, 78, 20).build());
         show = gated(Button.builder(Component.empty(), b -> send(DraftingCommand.SHOW))
                 .bounds(leftPos + 90, topPos + 84, 78, 20).build());
+        // Stays open. With a stack in the slot the next thing a player does is move the
+        // offset along and press it again, and a board that shut after every segment would
+        // make a twenty-piece wall twenty openings.
         build = addRenderableWidget(Button.builder(
                         Component.translatable("syvillage.drafting.build"),
-                        b -> {
-                            send(DraftingCommand.BUILD);
-                            onClose();
-                        })
+                        b -> send(DraftingCommand.BUILD))
                 .bounds(leftPos + 8, topPos + 106, 160, 20).build());
 
         addRenderableWidget(opacity(leftPos + 8, topPos + 128, 78,

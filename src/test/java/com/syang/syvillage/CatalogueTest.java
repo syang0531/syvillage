@@ -49,22 +49,26 @@ class CatalogueTest {
             "src/main/resources/data/syvillage/blueprint_catalogue.json";
 
     /**
-     * The shipped catalogue, found from wherever the test happens to be running.
+     * The shipped catalogue, and the project it lives in, found from wherever the test happens
+     * to be running.
      *
      * <p>Not simply a relative path: the test JVM's working directory is somewhere under
      * {@code build/}, so a relative path quietly wrote the file there and the check passed
      * against a copy nobody ships. Walk up until the project appears.
      */
     private static Path catalogue() {
+        return project().resolve(CATALOGUE_PATH);
+    }
+
+    private static Path project() {
         Path at = Path.of("").toAbsolutePath();
         while (at != null) {
-            Path candidate = at.resolve(CATALOGUE_PATH);
-            if (Files.isDirectory(candidate.getParent().getParent().getParent())) {
-                return candidate;
+            if (Files.isDirectory(at.resolve("src/main/resources/data/syvillage/structure"))) {
+                return at;
             }
             at = at.getParent();
         }
-        throw new IllegalStateException("no src/main/resources above " + Path.of("").toAbsolutePath());
+        throw new IllegalStateException("no project above " + Path.of("").toAbsolutePath());
     }
 
     @BeforeAll
@@ -89,9 +93,16 @@ class CatalogueTest {
         return null;
     }
 
-    /** Every village building in the jar, in a fixed order. */
+    /**
+     * Everything an architect can draw: ours first, then the game's villages.
+     *
+     * <p>Ours came last once and were simply absent - the generator only ever looked in the
+     * game's jar, so a hundred and sixty-eight houses arrived and the gatehouse, tower and
+     * rampart quietly left the creative menu. Anything shipped in our structure folder is a
+     * drawing, which is the rule that cannot forget one.
+     */
     private static List<Identifier> buildings(Path jar) throws Exception {
-        List<Identifier> out = new ArrayList<>();
+        List<Identifier> out = new ArrayList<>(ours());
         try (ZipFile zip = new ZipFile(jar.toFile())) {
             for (Enumeration<? extends ZipEntry> e = zip.entries(); e.hasMoreElements();) {
                 String name = e.nextElement().getName();
@@ -107,7 +118,23 @@ class CatalogueTest {
                 }
             }
         }
-        out.sort(Comparator.comparing(Identifier::toString));
+        // Ours keep their place at the front; the game's are sorted among themselves.
+        List<Identifier> ours = ours();
+        out.subList(ours.size(), out.size()).sort(Comparator.comparing(Identifier::toString));
+        return out;
+    }
+
+    /** Our own templates, by the files we ship. */
+    private static List<Identifier> ours() throws Exception {
+        Path dir = project().resolve("src/main/resources/data/syvillage/structure");
+        List<Identifier> out = new ArrayList<>();
+        try (var files = Files.list(dir)) {
+            files.filter(f -> f.toString().endsWith(".nbt"))
+                    .map(f -> f.getFileName().toString().replace(".nbt", ""))
+                    .sorted()
+                    .forEach(name -> out.add(
+                            Identifier.fromNamespaceAndPath("syvillage", name)));
+        }
         return out;
     }
 
@@ -120,7 +147,8 @@ class CatalogueTest {
      * typing it.
      */
     private static String entry(Path jar, Identifier id) {
-        Template template = Template.loadFromJar(jar, id);
+        Template template = id.getNamespace().equals("syvillage")
+                ? Template.of(id) : Template.loadFromJar(jar, id);
         return String.format(
                 "  {\"id\": \"%s\", \"w\": %d, \"h\": %d, \"d\": %d, \"beds\": %d, \"job\": %s}",
                 id, template.sizeX(), template.sizeY(), template.sizeZ(),
@@ -133,7 +161,7 @@ class CatalogueTest {
         Path jar = gameJar();
         assertNotNull(jar, "no minecraft jar on the test classpath");
         List<Identifier> ids = buildings(jar);
-        assertTrue(ids.size() > 150, "only " + ids.size() + " village buildings found");
+        assertTrue(ids.size() > 150, "only " + ids.size() + " buildings found");
 
         List<String> lines = new ArrayList<>();
         for (Identifier id : ids) {
@@ -174,9 +202,11 @@ class CatalogueTest {
         Path jar = gameJar();
         assertNotNull(jar, "no minecraft jar on the test classpath");
         for (Identifier id : buildings(jar)) {
-            Template template = Template.loadFromJar(jar, id);
+            Template template = id.getNamespace().equals("syvillage")
+                    ? Template.of(id) : Template.loadFromJar(jar, id);
             assertFalse(template.columns().isEmpty(), id + " has no blocks in it");
             assertFalse(id.getPath().contains("/streets/"), id + " is a road");
+            assertTrue(template.sizeX() > 0, id + " has no size");
             assertFalse(id.getPath().contains("/zombie/"), id + " is a ruin");
         }
     }

@@ -261,7 +261,7 @@ public class DraftingTableEntity extends BlockEntity implements Container, MenuP
             return -1;
         }
         int blocks = Raise.begin(server, placement);
-        drawing = ItemStack.EMPTY;   // the drawing is what the building costs
+        drawing.shrink(1);   // one drawing, one building; the rest of the stack stays pinned
         refresh();
         return blocks;
     }

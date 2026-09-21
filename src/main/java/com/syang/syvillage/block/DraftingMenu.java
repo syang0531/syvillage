@@ -52,9 +52,16 @@ public class DraftingMenu extends AbstractContainerMenu {
                 return board.canPlaceItem(0, stack);
             }
 
+            /**
+             * A stack, not a single sheet.
+             *
+             * <p>One drawing is still one building - Build takes one off the top. But a wall is
+             * twenty segments, and a slot that held one sheet meant twenty walks back to the
+             * table. A furnace holds a stack of coal for the same reason.
+             */
             @Override
             public int getMaxStackSize() {
-                return 1;   // one drawing, one building
+                return 64;
             }
         });
         addStandardInventorySlots(inventory, 8, INVENTORY_Y);

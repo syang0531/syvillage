@@ -1,4 +1,7 @@
 [
+  {"id": "syvillage:gatehouse", "w": 25, "h": 10, "d": 9, "beds": 0, "job": false},
+  {"id": "syvillage:rampart", "w": 2, "h": 6, "d": 5, "beds": 0, "job": false},
+  {"id": "syvillage:tower", "w": 17, "h": 10, "d": 17, "beds": 0, "job": false},
   {"id": "minecraft:village/desert/houses/desert_animal_pen_1", "w": 10, "h": 6, "d": 7, "beds": 0, "job": false},
   {"id": "minecraft:village/desert/houses/desert_animal_pen_2", "w": 10, "h": 6, "d": 8, "beds": 0, "job": false},
   {"id": "minecraft:village/desert/houses/desert_armorer_1", "w": 7, "h": 7, "d": 7, "beds": 0, "job": true},
