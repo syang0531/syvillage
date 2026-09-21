@@ -236,8 +236,51 @@ class CatalogueTest {
         return path.substring(path.lastIndexOf('/') + 1);
     }
 
+    /**
+     * Where an architect has to be standing to draw this building.
+     *
+     * <p>A desert village's architect draws desert houses, which is what makes a village look
+     * like the place it is in rather than like a catalogue, and what gives somebody a reason to
+     * go and find a taiga one.
+     *
+     * <p>Plains is the fallback, and it says so by being the one with no biome of its own: it is
+     * sold wherever none of the other four applies - a plains village, a jungle, a mushroom
+     * island, anywhere a player founded a settlement of their own. That is the same rule
+     * {@code Craft} already uses for materials, and it needs no list of every biome that is not
+     * one of four.
+     *
+     * <p>Ours - the wall, the gate, the tower - have no biome. They are built out of whatever
+     * the ground is made of wherever they are put down.
+     */
+    private static List<String> merchantPredicate(Drawing drawing) {
+        if (drawing.template().getNamespace().equals("syvillage")) {
+            return List.of();
+        }
+        String biome = drawing.template().getPath().split("/")[1];
+        if (biome.equals("plains")) {
+            return List.of(
+                    "  \"merchant_predicate\": {",
+                    "    \"condition\": \"minecraft:inverted\",",
+                    "    \"term\": {",
+                    "      \"condition\": \"minecraft:location_check\",",
+                    "      \"predicate\": {\"biomes\": \"#syvillage:has_own_buildings\"}",
+                    "    }",
+                    "  },");
+        }
+        return List.of(
+                "  \"merchant_predicate\": {",
+                "    \"condition\": \"minecraft:location_check\",",
+                "    \"predicate\": {\"biomes\": \"#minecraft:has_structure/village_" + biome
+                        + "\"}",
+                "  },");
+    }
+
     /** A file, one line at a time, ending in a newline the way every other json here does. */
     private static String lines(String... rows) {
+        return String.join("\n", rows) + "\n";
+    }
+
+    private static String lines(List<String> rows) {
         return String.join("\n", rows) + "\n";
     }
 
@@ -258,12 +301,14 @@ class CatalogueTest {
             String name = tradeName(drawing);
             byTier.computeIfAbsent(tier, t -> new ArrayList<>())
                     .add("syvillage:architect/" + tier + "/" + name);
-            files.put("villager_trade/architect/" + tier + "/" + name + ".json", lines(
+            List<String> rows = new ArrayList<>(List.of(
                     "{",
                     "  \"wants\": {",
                     "    \"id\": \"minecraft:emerald\",",
                     "    \"count\": " + price(drawing) + ".0",
-                    "  },",
+                    "  },"));
+            rows.addAll(merchantPredicate(drawing));
+            rows.addAll(List.of(
                     "  \"gives\": {",
                     "    \"id\": \"syvillage:blueprint\",",
                     "    \"components\": {",
@@ -279,6 +324,7 @@ class CatalogueTest {
                     "  \"reputation_discount\": 0.05,",
                     "  \"xp\": " + (tier * 10) + ".0",
                     "}"));
+            files.put("villager_trade/architect/" + tier + "/" + name + ".json", lines(rows));
         }
         for (Map.Entry<Integer, List<String>> tier : byTier.entrySet()) {
             List<String> out = new ArrayList<>();

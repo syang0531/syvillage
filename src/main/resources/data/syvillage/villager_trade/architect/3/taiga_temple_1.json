@@ -3,6 +3,10 @@
     "id": "minecraft:emerald",
     "count": 23.0
   },
+  "merchant_predicate": {
+    "condition": "minecraft:location_check",
+    "predicate": {"biomes": "#minecraft:has_structure/village_taiga"}
+  },
   "gives": {
     "id": "syvillage:blueprint",
     "components": {
