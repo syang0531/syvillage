@@ -34,3 +34,6 @@ desktop.ini
 *.hprof
 local.properties
 __pycache__/
+
+# Written by a stray run from the project root; the real one is run/config.
+/config/
