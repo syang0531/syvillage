@@ -1,0 +1,15 @@
+{
+  "wants": {
+    "id": "minecraft:emerald",
+    "count": 10.0
+  },
+  "gives": {
+    "id": "syvillage:blueprint",
+    "components": {
+      "syvillage:drawing": {"id": "minecraft:village/taiga/houses/taiga_small_house_5", "w": 9, "h": 7, "d": 7, "beds": 1, "job": false}
+    }
+  },
+  "max_uses": 6.0,
+  "reputation_discount": 0.05,
+  "xp": 10.0
+}

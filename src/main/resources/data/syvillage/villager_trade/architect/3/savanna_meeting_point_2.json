@@ -1,0 +1,15 @@
+{
+  "wants": {
+    "id": "minecraft:emerald",
+    "count": 20.0
+  },
+  "gives": {
+    "id": "syvillage:blueprint",
+    "components": {
+      "syvillage:drawing": {"id": "minecraft:village/savanna/town_centers/savanna_meeting_point_2", "w": 11, "h": 6, "d": 11, "beds": 0, "job": false}
+    }
+  },
+  "max_uses": 6.0,
+  "reputation_discount": 0.05,
+  "xp": 30.0
+}

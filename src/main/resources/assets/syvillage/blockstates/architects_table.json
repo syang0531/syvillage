@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "syvillage:block/architects_table"
+    },
+    "facing=east": {
+      "model": "syvillage:block/architects_table",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "syvillage:block/architects_table",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "syvillage:block/architects_table",
+      "y": 270
+    }
+  }
+}

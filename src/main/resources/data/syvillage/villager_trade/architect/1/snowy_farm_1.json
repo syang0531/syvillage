@@ -1,0 +1,15 @@
+{
+  "wants": {
+    "id": "minecraft:emerald",
+    "count": 7.0
+  },
+  "gives": {
+    "id": "syvillage:blueprint",
+    "components": {
+      "syvillage:drawing": {"id": "minecraft:village/snowy/houses/snowy_farm_1", "w": 6, "h": 6, "d": 7, "beds": 0, "job": true}
+    }
+  },
+  "max_uses": 6.0,
+  "reputation_discount": 0.05,
+  "xp": 10.0
+}

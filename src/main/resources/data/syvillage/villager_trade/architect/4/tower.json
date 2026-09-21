@@ -1,0 +1,15 @@
+{
+  "wants": {
+    "id": "minecraft:emerald",
+    "count": 48.0
+  },
+  "gives": {
+    "id": "syvillage:blueprint",
+    "components": {
+      "syvillage:drawing": {"id": "syvillage:tower", "w": 17, "h": 10, "d": 17, "beds": 0, "job": false}
+    }
+  },
+  "max_uses": 16.0,
+  "reputation_discount": 0.05,
+  "xp": 40.0
+}

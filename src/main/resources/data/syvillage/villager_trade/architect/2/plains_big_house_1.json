@@ -1,0 +1,15 @@
+{
+  "wants": {
+    "id": "minecraft:emerald",
+    "count": 12.0
+  },
+  "gives": {
+    "id": "syvillage:blueprint",
+    "components": {
+      "syvillage:drawing": {"id": "minecraft:village/plains/houses/plains_big_house_1", "w": 7, "h": 11, "d": 11, "beds": 4, "job": false}
+    }
+  },
+  "max_uses": 6.0,
+  "reputation_discount": 0.05,
+  "xp": 20.0
+}

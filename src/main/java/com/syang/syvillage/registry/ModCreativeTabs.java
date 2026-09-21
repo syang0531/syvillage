@@ -30,16 +30,14 @@ public final class ModCreativeTabs {
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB = TABS.register(
             "syvillage", () -> CreativeModeTab.builder()
                     .title(Component.translatable("syvillage.title"))
-                    .icon(() -> new ItemStack(ModBlocks.LORDS_TABLE.get()))
+                    .icon(() -> new ItemStack(ModBlocks.ARCHITECTS_TABLE.get()))
                     .withTabsBefore(ResourceKey.create(Registries.CREATIVE_MODE_TAB,
                             Identifier.withDefaultNamespace("spawn_eggs")))
                     .displayItems((parameters, output) -> {
                         output.accept(ModBlocks.VILLAGE_HEAD_TABLE.get());
-                        output.accept(ModBlocks.LORDS_TABLE.get());
+                        output.accept(ModBlocks.ARCHITECTS_TABLE.get());
                         output.accept(ModBlocks.GUARDIAN_STATUE.get());
                         output.accept(ModItems.FREEMANS_CHARTER.get());
-                        output.accept(ModItems.LORDS_SEAL.get());
-                        output.accept(ModItems.GOLEM_HEART.get());
                         Blueprint.everything().forEach(output::accept);
                     })
                     .build());

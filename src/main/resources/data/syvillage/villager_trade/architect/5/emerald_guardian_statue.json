@@ -1,0 +1,12 @@
+{
+  "wants": {
+    "id": "minecraft:emerald",
+    "count": 48.0
+  },
+  "gives": {
+    "id": "syvillage:guardian_statue"
+  },
+  "max_uses": 1.0,
+  "reputation_discount": 0.05,
+  "xp": 30.0
+}

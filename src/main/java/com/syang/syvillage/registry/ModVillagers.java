@@ -42,13 +42,13 @@ public final class ModVillagers {
             Registries.VILLAGER_PROFESSION,
             Identifier.fromNamespaceAndPath(SyVillage.MODID, "village_head"));
 
-    public static final ResourceKey<PoiType> LORD_POI = ResourceKey.create(
+    public static final ResourceKey<PoiType> ARCHITECT_POI = ResourceKey.create(
             Registries.POINT_OF_INTEREST_TYPE,
-            Identifier.fromNamespaceAndPath(SyVillage.MODID, "lord"));
+            Identifier.fromNamespaceAndPath(SyVillage.MODID, "architect"));
 
-    public static final ResourceKey<VillagerProfession> LORD = ResourceKey.create(
+    public static final ResourceKey<VillagerProfession> ARCHITECT = ResourceKey.create(
             Registries.VILLAGER_PROFESSION,
-            Identifier.fromNamespaceAndPath(SyVillage.MODID, "lord"));
+            Identifier.fromNamespaceAndPath(SyVillage.MODID, "architect"));
 
     /**
      * One ticket, because the table seats one.
@@ -73,24 +73,26 @@ public final class ModVillagers {
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 SoundEvents.VILLAGER_WORK_MASON,
-                // Data, in data/syvillage/trade_set. The one thing only a village head sells
-                // is the lord's seal, at the second level: the first is there to be levelled
-                // through, and the ones after so that a master has something new to say.
+                // Data, in data/syvillage/trade_set. The village head deals in people and
+                // places: a map to the next village, a bell to found one with, and a charter
+                // that is a family willing to move.
                 trades("village_head")));
 
-        POI_TYPES.register("lord", () -> new PoiType(
-                ImmutableSet.copyOf(ModBlocks.LORDS_TABLE.get()
+        POI_TYPES.register("architect", () -> new PoiType(
+                ImmutableSet.copyOf(ModBlocks.ARCHITECTS_TABLE.get()
                         .getStateDefinition().getPossibleStates()),
                 SEATS, WALKING_DISTANCE));
-        PROFESSIONS.register("lord", () -> new VillagerProfession(
-                Component.translatable("entity.syvillage.villager.lord"),
-                held -> held.is(LORD_POI),
-                acquirable -> acquirable.is(LORD_POI),
+        PROFESSIONS.register("architect", () -> new VillagerProfession(
+                Component.translatable("entity.syvillage.villager.architect"),
+                held -> held.is(ARCHITECT_POI),
+                acquirable -> acquirable.is(ARCHITECT_POI),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 SoundEvents.VILLAGER_WORK_MASON,
-                // Likewise. The golem's heart is at the second level.
-                trades("lord")));
+                // Likewise, and this is where the mod's progression actually lives: which
+                // buildings an architect will draw for you is their trade level, which is
+                // vanilla's own ratchet rather than anything we count.
+                trades("architect")));
     }
 
     private ModVillagers() {}
@@ -117,8 +119,8 @@ public final class ModVillagers {
         return profession.is(VILLAGE_HEAD);
     }
 
-    public static boolean isLord(Holder<VillagerProfession> profession) {
-        return profession.is(LORD);
+    public static boolean isArchitect(Holder<VillagerProfession> profession) {
+        return profession.is(ARCHITECT);
     }
 
     public static void register(IEventBus modBus) {

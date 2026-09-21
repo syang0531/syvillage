@@ -58,12 +58,11 @@ public final class ModBlocks {
      *
      * <p>Stone rather than wood, because what gets drawn on it is masonry on a different scale.
      *
-     * <p>Registered as {@code lords_table} still, because that is what it is called in every
-     * world that already has one and renaming it is part of replacing the lord with the
-     * architect - trades, profession and point of interest together, in one change rather than
-     * in half of one.
+     * <p>It was the lord's table, and the lord did nothing a table could not: he unlocked a wall
+     * the settlement built by itself, and the settlement no longer builds anything by itself.
+     * The architect draws, which is a job, and this is where the drawing goes.
      */
-    public static final DeferredBlock<Block> LORDS_TABLE = register("lords_table",
+    public static final DeferredBlock<Block> ARCHITECTS_TABLE = register("architects_table",
             BlockBehaviour.Properties.of()
                     .mapColor(MapColor.STONE)
                     .strength(3.5F)
@@ -91,7 +90,7 @@ public final class ModBlocks {
     /** What remembers which drawing is pinned to which table, and where it says to build. */
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DraftingTableEntity>>
             DRAFTING_TABLE_ENTITY = BLOCK_ENTITIES.register("drafting_table",
-                    () -> new BlockEntityType<>(DraftingTableEntity::new, LORDS_TABLE.get()));
+                    () -> new BlockEntityType<>(DraftingTableEntity::new, ARCHITECTS_TABLE.get()));
 
     /** What remembers which golem belongs to which statue. */
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GuardianBlockEntity>>

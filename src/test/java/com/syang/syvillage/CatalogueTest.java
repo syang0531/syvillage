@@ -13,7 +13,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import net.minecraft.SharedConstants;
@@ -194,6 +197,119 @@ class CatalogueTest {
         // The two numbers a village actually grows on: somewhere to sleep, somewhere to work.
         assertTrue(all.stream().anyMatch(d -> d.beds() > 0), "no building has a bed in it");
         assertTrue(all.stream().anyMatch(Drawing::workstation), "no building has a job block");
+    }
+
+    // ---- what an architect will draw for you
+    //
+    // One trade per building, because that is the shape villager trades come in, and the level
+    // it sits at is how the mod gates a hundred and seventy of them without counting anything
+    // itself. Vanilla offers a couple of a level's trades at random, so two architects draw
+    // different buildings - which is a reason to keep more than one, and a village that looks
+    // like somebody's choices rather than a catalogue.
+
+    /** Which level a building is sold at. Ours last, the game's by how much room they take. */
+    private static int tier(Drawing drawing) {
+        if (drawing.template().getNamespace().equals("syvillage")) {
+            return 4;   // walls, gates and towers: the things a village builds after it is a village
+        }
+        int area = drawing.width() * drawing.depth();
+        return area <= 64 ? 1 : area <= 120 ? 2 : 3;
+    }
+
+    /** Emeralds, by how much building you get. Nothing else about a drawing costs anything. */
+    private static int price(Drawing drawing) {
+        return Math.clamp(drawing.width() * drawing.depth() / 6, 4, 48);
+    }
+
+    /**
+     * How many of one drawing an architect keeps in stock.
+     *
+     * <p>Six of a house, because nobody wants ten of the same cottage. Sixteen of ours, because
+     * a wall is a run of segments and a restock in the middle of one is a walk home.
+     */
+    private static int uses(Drawing drawing) {
+        return drawing.template().getNamespace().equals("syvillage") ? 16 : 6;
+    }
+
+    private static String tradeName(Drawing drawing) {
+        String path = drawing.template().getPath();
+        return path.substring(path.lastIndexOf('/') + 1);
+    }
+
+    /** A file, one line at a time, ending in a newline the way every other json here does. */
+    private static String lines(String... rows) {
+        return String.join("\n", rows) + "\n";
+    }
+
+    /** Git hands these back with carriage returns on Windows; the generator never writes one. */
+    private static String unix(String text) {
+        return text.replace("\r", "");
+    }
+
+    @Test
+    @DisplayName("every building is something an architect sells, at a level and a price")
+    void everyBuildingIsForSale() throws Exception {
+        Path dir = project().resolve("src/main/resources/data/syvillage");
+        Map<Integer, List<String>> byTier = new TreeMap<>();
+        Map<String, String> files = new LinkedHashMap<>();
+
+        for (Drawing drawing : Catalogue.all()) {
+            int tier = tier(drawing);
+            String name = tradeName(drawing);
+            byTier.computeIfAbsent(tier, t -> new ArrayList<>())
+                    .add("syvillage:architect/" + tier + "/" + name);
+            files.put("villager_trade/architect/" + tier + "/" + name + ".json", lines(
+                    "{",
+                    "  \"wants\": {",
+                    "    \"id\": \"minecraft:emerald\",",
+                    "    \"count\": " + price(drawing) + ".0",
+                    "  },",
+                    "  \"gives\": {",
+                    "    \"id\": \"syvillage:blueprint\",",
+                    "    \"components\": {",
+                    "      \"syvillage:drawing\": {\"id\": \"" + drawing.template()
+                            + "\", \"w\": " + drawing.width()
+                            + ", \"h\": " + drawing.height()
+                            + ", \"d\": " + drawing.depth()
+                            + ", \"beds\": " + drawing.beds()
+                            + ", \"job\": " + drawing.workstation() + "}",
+                    "    }",
+                    "  },",
+                    "  \"max_uses\": " + uses(drawing) + ".0,",
+                    "  \"reputation_discount\": 0.05,",
+                    "  \"xp\": " + (tier * 10) + ".0",
+                    "}"));
+        }
+        for (Map.Entry<Integer, List<String>> tier : byTier.entrySet()) {
+            List<String> out = new ArrayList<>();
+            out.add("{");
+            out.add("  \"values\": [");
+            for (int i = 0; i < tier.getValue().size(); i++) {
+                out.add("    \"" + tier.getValue().get(i) + "\""
+                        + (i + 1 < tier.getValue().size() ? "," : ""));
+            }
+            out.add("  ]");
+            out.add("}");
+            files.put("tags/villager_trade/architect/blueprints_" + tier.getKey() + ".json",
+                    lines(out.toArray(new String[0])));
+        }
+
+        if (Boolean.getBoolean("syvillage.writeCatalogue")) {
+            for (Map.Entry<String, String> file : files.entrySet()) {
+                Path at = dir.resolve(file.getKey());
+                Files.createDirectories(at.getParent());
+                Files.writeString(at, file.getValue());
+            }
+            System.out.println("wrote " + files.size() + " trade files");
+            return;
+        }
+        for (Map.Entry<String, String> file : files.entrySet()) {
+            Path at = dir.resolve(file.getKey());
+            assertTrue(Files.exists(at), at + " is missing; run ./gradlew test"
+                    + " -Psyvillage.writeCatalogue");
+            assertTrue(unix(Files.readString(at)).equals(file.getValue()),
+                    at + " is out of date; run ./gradlew test -Psyvillage.writeCatalogue");
+        }
     }
 
     @Test

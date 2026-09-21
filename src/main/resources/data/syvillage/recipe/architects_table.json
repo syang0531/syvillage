@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "#": "minecraft:stone_bricks",
+    "P": "minecraft:paper",
+    "G": "minecraft:gold_ingot"
+  },
+  "pattern": [
+    "GPG",
+    "###",
+    "###"
+  ],
+  "result": {
+    "id": "syvillage:architects_table"
+  }
+}

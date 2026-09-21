@@ -15,26 +15,20 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 /**
  * The items only a villager sells.
  *
- * <p>Two lock the two tables. Neither can be crafted: each is the one ingredient of a recipe
- * that only a villager sells - the seal by a village head, the heart by a lord - so the lord's
- * table cannot be reached without a village head, and the guardian statue cannot be reached
- * without a lord. That is the whole of the mod's progression, and it runs on vanilla's own
- * trading rather than on anything we count.
+ * <p>There were two more, and both were tokens: a seal that proved you had met a village head
+ * and a heart that proved you had met a lord, each the one ingredient of a recipe. They said
+ * "you are allowed to have this" and nothing else, which is the kind of thing this project keeps
+ * deleting. What gates a building now is that an architect sells the drawing of it - vanilla's
+ * own trade levels, which we do not count.
  *
- * <p>Items rather than the tables themselves, for one reason: what happens when the villager
- * dies. An item can be kept in a chest. A table would mean raising another head first.
- *
- * <p>The third is a villager on paper, for founding the next village: {@link FreemansCharter}.
+ * <p>What is left is a villager on paper, for founding the next village: {@link FreemansCharter},
+ * and the drawings themselves.
  */
 public final class ModItems {
 
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(SyVillage.MODID);
 
-    /** Sold by the village head. The lord's table needs one. */
-    public static final DeferredItem<Item> LORDS_SEAL = register("lords_seal");
 
-    /** Sold by the lord. The guardian statue needs one, in place of the carved pumpkin. */
-    public static final DeferredItem<Item> GOLEM_HEART = register("golem_heart");
 
     /** Sold by the village head. Used on the ground it is a villager. */
     public static final DeferredItem<Item> FREEMANS_CHARTER = register("freemans_charter",
