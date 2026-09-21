@@ -7,10 +7,10 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.tags.PoiTypeTags;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.level.LightLayer;
-import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Where a monster can still stand up in this village.
@@ -29,8 +29,14 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>Bounded by <b>the village vanilla already knows about</b>: beds, job sites and meeting
  * points. We do not declare how far a village reaches, we ask. Where there is no village yet -
- * somebody's first bell on empty ground - the walk's own radius stands in, because a place with
+ * somebody's first bell on empty ground - a plain radius stands in, because a place with
  * nothing in it still has ground a mob can stand on.
+ *
+ * <p><b>Not filtered by whether anybody could walk there.</b> That was the first version and it
+ * was the wrong question asked well: {@code Reach} answers "could a villager get here", which is
+ * what a road needs to know. A mob on a ledge above the village does not walk in, it drops in,
+ * and a torch on the far bank of a stream is still a torch worth placing. Light is about where
+ * something can stand up, not about where somebody could have come from.
  */
 public final class Dark {
 
@@ -41,7 +47,7 @@ public final class Dark {
      *
      * @param marks          where to draw, capped at {@link #REPORTED}
      * @param count          how many there actually are, which is the number that is reported
-     * @param walked         how much ground was looked at, so "none" can be told from "nowhere"
+     * @param walked         how many columns were examined, so "none" is told from "nowhere"
      * @param aroundVillage  whether vanilla knew of a village here to bound the answer with
      */
     public record Survey(List<BlockPos> marks, int count, int walked, boolean aroundVillage) {
@@ -60,29 +66,31 @@ public final class Dark {
      * @param centre what the walk starts from - a bell, or a statue
      */
     public static Survey read(ServerLevel level, BlockPos centre) {
-        int radius = SyVillageConfig.DARK_SURVEY_RADIUS.get();
         int minLight = SyVillageConfig.MIN_LIGHT_LEVEL.get();
-        Reach reach = Reach.from(level, centre, radius);
-        Set<Long> village = villageColumns(level, centre, radius);
+        Set<Long> columns = villageColumns(level, centre);
+        boolean aroundVillage = !columns.isEmpty();
+        if (!aroundVillage) {
+            columns = square(centre, SyVillageConfig.DARK_SURVEY_RADIUS.get());
+        }
 
         List<BlockPos> dark = new ArrayList<>();
         int count = 0;
         int walked = 0;
-        for (long column : reach.columns()) {
-            if (!village.isEmpty() && !village.contains(column)) {
-                continue;
+        for (long column : columns) {
+            int x = keyX(column);
+            int z = keyZ(column);
+            if (!level.hasChunkAt(new BlockPos(x, level.getMinY(), z))) {
+                continue;   // nobody has loaded it, so nothing is spawning there either
             }
             walked++;
-            int x = Reach.keyX(column);
-            int z = Reach.keyZ(column);
             BlockPos on = new BlockPos(x, Terrain.groundAt(level, x, z) + 1, z);
             if (level.getBrightness(LightLayer.BLOCK, on) >= minLight) {
                 continue;
             }
             // Vanilla's own question, asked of vanilla's own block: a mob needs somewhere its
-            // feet will hold. Slabs, leaves and farmland answer this for us.
-            BlockState floor = level.getBlockState(on.below());
-            if (!floor.isValidSpawn(level, on.below(), net.minecraft.world.entity.EntityTypes.ZOMBIE)) {
+            // feet will hold. Slabs, leaves, farmland and water all answer this for us.
+            if (!level.getBlockState(on.below()).isValidSpawn(level, on.below(),
+                    EntityTypes.ZOMBIE)) {
                 continue;
             }
             count++;
@@ -90,7 +98,32 @@ public final class Dark {
                 dark.add(on);   // beyond this they are counted but not drawn
             }
         }
-        return new Survey(List.copyOf(dark), count, walked, !village.isEmpty());
+        return new Survey(List.copyOf(dark), count, walked, aroundVillage);
+    }
+
+    /** Everything within {@code radius} of here, for a place that is not a village yet. */
+    private static Set<Long> square(BlockPos centre, int radius) {
+        Set<Long> out = new HashSet<>();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                out.add(key(centre.getX() + dx, centre.getZ() + dz));
+            }
+        }
+        return out;
+    }
+
+    // A column as one number, so a set of them is cheap. Was Reach's, which this no longer uses.
+
+    private static long key(int x, int z) {
+        return ((long) x << 32) ^ (z & 0xFFFFFFFFL);
+    }
+
+    private static int keyX(long key) {
+        return (int) (key >> 32);
+    }
+
+    private static int keyZ(long key) {
+        return (int) key;
     }
 
     /**
@@ -100,7 +133,8 @@ public final class Dark {
      * the walk reached". A bell on empty ground is somebody founding a place, and they want the
      * same answer about the ground they are standing on.
      */
-    private static Set<Long> villageColumns(ServerLevel level, BlockPos centre, int radius) {
+    private static Set<Long> villageColumns(ServerLevel level, BlockPos centre) {
+        int radius = SyVillageConfig.DARK_SURVEY_RADIUS.get();
         int around = SyVillageConfig.DARK_AROUND_POI.get();
         PoiManager pois = level.getPoiManager();
         Set<Long> out = new HashSet<>();
@@ -109,7 +143,7 @@ public final class Dark {
                     BlockPos at = record.getPos();
                     for (int dx = -around; dx <= around; dx++) {
                         for (int dz = -around; dz <= around; dz++) {
-                            out.add(Reach.key(at.getX() + dx, at.getZ() + dz));
+                            out.add(key(at.getX() + dx, at.getZ() + dz));
                         }
                     }
                 });
