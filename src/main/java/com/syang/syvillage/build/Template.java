@@ -251,7 +251,7 @@ public final class Template {
     /** Whether the building comes with a workstation a villager could take a job at. */
     public boolean hasJobBlock() {
         for (Piece piece : pieces) {
-            if (GridSurvey.isJobSite(piece.state())) {
+            if (Terrain.isJobSite(piece.state())) {
                 return true;
             }
         }

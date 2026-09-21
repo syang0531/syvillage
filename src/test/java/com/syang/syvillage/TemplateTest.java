@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.syang.syvillage.build.Template;
-import com.syang.syvillage.build.TownPlan;
 import com.syang.syvillage.data.Craft;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.Direction;
@@ -33,26 +32,26 @@ class TemplateTest {
     }
 
     @Test
-    @DisplayName("the three templates load, and are the size the plan believes")
+    @DisplayName("the three templates load at the size the code expects")
     void theyLoadAtTheSizeThePlanBelieves() {
         Template gate = Template.of("gatehouse");
-        assertEquals(TownPlan.GATE_WIDE, gate.sizeX(), "the plan's idea of a gatehouse's width");
-        assertEquals(TownPlan.GATE_DEEP, gate.sizeZ(), "and its depth");
+        assertEquals(25, gate.sizeX(), "a gatehouse is twenty-five wide");
+        assertEquals(9, gate.sizeZ(), "and nine deep");
         assertEquals(10, gate.sizeY());
 
         Template tower = Template.of("tower");
-        assertEquals(TownPlan.TOWER_FRAME, tower.sizeX());
-        assertEquals(TownPlan.TOWER_FRAME, tower.sizeZ());
+        assertEquals(17, tower.sizeX());
+        assertEquals(17, tower.sizeZ());
 
         // The sample was saved in a box one layer taller than the wall, so the height is read
         // from the highest block, not the box.
         Template rampart = Template.of("rampart");
-        assertEquals(TownPlan.WALL, rampart.sizeZ(), "five wide: parapet, three of walkway, parapet");
+        assertEquals(5, rampart.sizeZ(), "five wide: parapet, three of walkway, parapet");
         int highest = -1;
         for (int[] column : rampart.columns()) {
             highest = Math.max(highest, rampart.topOf(column[0], column[1]));
         }
-        assertEquals(TownPlan.WALL_HEIGHT, highest + 1, "body, parapet, merlon");
+        assertEquals(5, highest + 1, "body, parapet, merlon");
     }
 
     @Test

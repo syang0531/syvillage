@@ -44,7 +44,7 @@ public final class Clearance {
         int ceiling = ground + SyVillageConfig.CLEAR_HEIGHT.get();
         int top = ground;
         for (int y = ground + 1; y <= ceiling; y++) {
-            if (GridSurvey.isCuttable(level.getBlockState(new BlockPos(x, y, z)))) {
+            if (Terrain.isCuttable(level.getBlockState(new BlockPos(x, y, z)))) {
                 top = y;
             }
         }
@@ -67,7 +67,7 @@ public final class Clearance {
     public static List<Spans> spans(ServerLevel level, List<BlockPos> columns) {
         List<Integer> grounds = new ArrayList<>(columns.size());
         for (BlockPos column : columns) {
-            grounds.add(GridSurvey.groundOrSkip(level, column.getX(), column.getZ()));
+            grounds.add(Terrain.groundOrSkip(level, column.getX(), column.getZ()));
         }
         return spans(level, columns, grounds);
     }

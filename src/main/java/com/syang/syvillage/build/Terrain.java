@@ -1,13 +1,6 @@
 package com.syang.syvillage.build;
 
-import com.syang.syvillage.SyVillage;
 import com.syang.syvillage.config.SyVillageConfig;
-import com.syang.syvillage.data.CellPos;
-import com.syang.syvillage.data.CellState;
-import com.syang.syvillage.data.PlotGrid;
-import com.syang.syvillage.data.Settlement;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
@@ -16,204 +9,19 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
- * Works out what is already on each cell of the plot grid.
+ * What a column of the world is: how high its ground is, whether somebody built there, and
+ * what is merely growing on it.
  *
- * <p>The grid is laid over a village vanilla generated, so most of what it covers is not empty.
- * Reading the world is the only way to know which cells are: {@code CellState} is stored and
- * never rescanned during simulation, because rescanning would need loaded chunks and principle 2
- * forbids the virtual side from touching the world at all.
+ * <p>Every reading the mod takes of the terrain comes through here, and that is the point.
+ * Two callers that decided where the ground was by different rules would disagree about the
+ * height of the same block - which is how a flight of steps once arrived four blocks above
+ * the wall it was meant to land on.
  *
- * <p>So this runs at the edge - registration, and the anchor refresh - and everything downstream
- * reads the stored answer. See docs/construction.md.
+ * <p>Was GridSurvey, which also held the plot grid. The grid is gone; these readings are not.
  */
-public final class GridSurvey {
+public final class Terrain {
 
-    /**
-     * Every other block, in both axes.
-     *
-     * <p>This is the map, not the decision. What actually gates a building is
-     * {@link Lots#verdict}, which reads every column of the lot - the survey is for the player's
-     * benefit and for narrowing where to look.
-     */
-    private static final int SAMPLE_STRIDE = 2;
-
-    /** Slope thresholds the report costs out, so tuning is a measurement and not an argument. */
-    public static final int[] SLOPE_LADDER = {2, 3, 4, 5, 6, 8};
-
-    /**
-     * What the survey found, including what it could not look at and why it said no.
-     *
-     * <p>A single blocked count is the mistake this milestone keeps relearning: it conflates
-     * water with gradient, and gradient with the threshold gradient is measured against. Three
-     * different fixes, one indistinguishable symptom.
-     *
-     * <p>{@code freeAtSlope} costs out {@link #SLOPE_LADDER} against the terrain actually
-     * surveyed - what the free count would have been at each threshold. maxCellSlope is a config
-     * number, and this is how it gets chosen from evidence rather than taste.
-     */
-    public record Result(PlotGrid grid, int scanned, int skipped, int forbidden,
-            int blockedWet, int blockedSlope, int[] freeAtSlope) {
-
-        public boolean complete() {
-            return skipped == 0;
-        }
-    }
-
-    private GridSurvey() {}
-
-    /**
-     * Classifies every cell in the grid.
-     *
-     * <p>Cells in unloaded chunks are left exactly as they were and counted in {@code skipped}.
-     * Defaulting them to FREE would be worse than leaving them unknown - the settlement would
-     * plan a house onto ground nobody has looked at - and reporting the count is what stops a
-     * half-surveyed grid from being read as a fully-surveyed empty one.
-     */
-    public static Result run(ServerLevel level, Settlement settlement) {
-        // Settlements registered before the grid was sized from the claim carry a grid that
-        // covers a fraction of it. Growing here rather than in a migration keeps every cell
-        // they already have and needs no separate upgrade path.
-        PlotGrid grid = settlement.grid().grownTo(
-                PlotGrid.sizeForClaim(settlement.identity().claimRadiusChunks()));
-        int radius = (grid.size() - 1) / 2;
-        int maxSlope = SyVillageConfig.MAX_CELL_SLOPE.get();
-        int scanHeight = SyVillageConfig.SURVEY_SCAN_HEIGHT.get();
-
-        Map<CellPos, CellState> cells = new LinkedHashMap<>(grid.cells());
-        int scanned = 0;
-        int skipped = 0;
-        int skippedForbidden = 0;
-        int blockedWet = 0;
-        int blockedSlope = 0;
-        int[] freeAtSlope = new int[SLOPE_LADDER.length];
-
-        for (int gz = -radius; gz <= radius; gz++) {
-            for (int gx = -radius; gx <= radius; gx++) {
-                CellPos cell = new CellPos(gx, gz);
-                BlockPos nw = TownPlan.lotCorner(cell, grid.origin());
-                int east = nw.getX() + TownPlan.LOT - 1;
-                int south = nw.getZ() + TownPlan.LOT - 1;
-
-                if (!level.hasChunksAt(nw.getX(), nw.getZ(), east, south)) {
-                    skipped++;
-                    continue;
-                }
-                // A cell the player has forbidden stays forbidden. That is the escape hatch
-                // for everything this heuristic gets wrong, and an override the next refresh
-                // undoes is not one.
-                //
-                // Only FORBIDDEN, never BLOCKED. BLOCKED is this survey's own verdict and has
-                // to be re-winnable: skipping it made the second survey of a village silently
-                // re-report the first, identical down to the character, while claiming to have
-                // scanned 441 cells.
-                if (isFrozen(grid.stateAt(cell))) {
-                    skippedForbidden++;
-                    continue;
-                }
-                Reading read = read(level, nw, scanHeight);
-                cells.put(cell, read.verdict(maxSlope));
-                scanned++;
-
-                if (read.blocksAt(maxSlope)) {
-                    if (read.wet()) {
-                        blockedWet++;
-                    } else {
-                        blockedSlope++;
-                    }
-                }
-                for (int i = 0; i < SLOPE_LADDER.length; i++) {
-                    if (read.verdict(SLOPE_LADDER[i]) == CellState.FREE) {
-                        freeAtSlope[i]++;
-                    }
-                }
-            }
-        }
-
-        PlotGrid surveyed = new PlotGrid(grid.origin(), grid.size(), cells);
-        SyVillage.LOGGER.debug("Surveyed '{}': {} free, {} built, {} road, {} blocked"
-                        + " ({} cell(s) scanned, {} unloaded)", settlement.name(),
-                surveyed.countOf(CellState.FREE), surveyed.countOf(CellState.BUILT),
-                surveyed.countOf(CellState.ROAD), surveyed.countOf(CellState.BLOCKED),
-                scanned, skipped);
-        return new Result(surveyed, scanned, skipped, skippedForbidden, blockedWet,
-                blockedSlope, freeAtSlope);
-    }
-
-    /**
-     * Whether a cell is the survey to leave alone.
-     *
-     * <p>Exactly one state qualifies, and the reason it is a named function rather than an
-     * inline comparison is that getting it wrong is invisible. When this also covered BLOCKED,
-     * a second survey re-reported the first one character for character while claiming to have
-     * scanned every cell - the output of a survey that skipped a third of the grid looks
-     * precisely like the output of one that did not.
-     */
-    public static boolean isFrozen(CellState state) {
-        return state == CellState.FORBIDDEN;
-    }
-
-    /**
-     * What one cell is, separated from what to make of it.
-     *
-     * <p>Reading the world and judging it are split so the judgement can be re-run at other
-     * thresholds without touching a chunk again. That is the whole trick behind costing out a
-     * slope ladder: 441 cells read once, judged six times.
-     */
-    private record Reading(int relief, boolean wet, boolean built, boolean road) {
-
-        /**
-         * Order matters: something built on it beats a path across it, and either beats the
-         * terrain underneath. A cell with a house on a slope is occupied, not unbuildable, and
-         * calling it BLOCKED would mean the settlement forgets the house is there.
-         */
-        CellState verdict(int maxSlope) {
-            if (built) {
-                return CellState.BUILT;
-            }
-            if (road) {
-                return CellState.ROAD;
-            }
-            return blocksAt(maxSlope) ? CellState.BLOCKED : CellState.FREE;
-        }
-
-        boolean blocksAt(int maxSlope) {
-            return !built && !road && (wet || relief > maxSlope);
-        }
-    }
-
-    private static Reading read(ServerLevel level, BlockPos nw, int scanHeight) {
-        int lowest = Integer.MAX_VALUE;
-        int highest = Integer.MIN_VALUE;
-        boolean wet = false;
-        boolean built = false;
-        boolean road = false;
-
-        for (int dx = 0; dx < TownPlan.LOT; dx += SAMPLE_STRIDE) {
-            for (int dz = 0; dz < TownPlan.LOT; dz += SAMPLE_STRIDE) {
-                int x = nw.getX() + dx;
-                int z = nw.getZ() + dz;
-                int surface = groundAt(level, x, z);
-                lowest = Math.min(lowest, surface);
-                highest = Math.max(highest, surface);
-
-                BlockState top = level.getBlockState(new BlockPos(x, surface, z));
-                if (!top.getFluidState().isEmpty()) {
-                    wet = true;
-                }
-                if (top.is(Blocks.DIRT_PATH)) {
-                    road = true;
-                }
-                for (int dy = 0; dy <= scanHeight && !built; dy++) {
-                    if (isBuilt(level.getBlockState(new BlockPos(x, surface + dy, z)))) {
-                        built = true;
-                    }
-                }
-            }
-        }
-
-        return new Reading(highest - lowest, wet, built, road);
-    }
-
+    private Terrain() {}
     /**
      * The ground, with whatever is growing on it discounted.
      *

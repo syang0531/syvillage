@@ -1,3 +1,5 @@
+> **폐기됨 (2026-09-21).** 격자 도시계획 · 단계 · 자동 건축 서술은 더 이상 유효하지 않다. 현재 설계는 `docs/concept-0.3.md`. 이 문서는 기록으로만 남긴다.
+
 # 설계 (V1 재정의)
 
 이 문서는 2026-09-17에 기존 설계를 대체한다. 이전 문서들(`population.md`, `defense.md`, `simulation.md`, `architecture.md`)은 **더 이상 유효하지 않다.** 왜 갈아엎었는지는 `docs/why-the-reset.md`.
