@@ -251,7 +251,7 @@ public final class Template {
     /** Whether the building comes with a workstation a villager could take a job at. */
     public boolean hasJobBlock() {
         for (Piece piece : pieces) {
-            if (Terrain.isJobSite(piece.state())) {
+            if (isJobSite(piece.state())) {
                 return true;
             }
         }
@@ -367,6 +367,22 @@ public final class Template {
                     origin.getZ() + v[1]), remap(piece.state().rotate(rotation), craft)));
         }
         return ops;
+    }
+
+    /** Villager job sites. Their presence is the strongest signal of all: someone works here. */
+    /** Whether a villager could take a job at this block. */
+    public static boolean isJobSite(BlockState state) {
+        return isWorkstation(state);
+    }
+
+    private static boolean isWorkstation(BlockState state) {
+        return state.is(Blocks.COMPOSTER) || state.is(Blocks.BARREL)
+                || state.is(Blocks.SMOKER) || state.is(Blocks.BLAST_FURNACE)
+                || state.is(Blocks.CAULDRON) || state.is(Blocks.BREWING_STAND)
+                || state.is(Blocks.FLETCHING_TABLE) || state.is(Blocks.SMITHING_TABLE)
+                || state.is(Blocks.CARTOGRAPHY_TABLE) || state.is(Blocks.LOOM)
+                || state.is(Blocks.STONECUTTER) || state.is(Blocks.GRINDSTONE)
+                || state.is(Blocks.LECTERN);
     }
 
     /**

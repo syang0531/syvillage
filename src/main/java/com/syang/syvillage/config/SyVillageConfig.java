@@ -18,18 +18,14 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  * its live form cost a day: an interval and a batch size that both had to agree, where a config
  * file left over from an earlier world quietly cancelled a tenfold speed-up.
  *
- * <p>Eleven more went with the grid in 0.3: the claim, the phase ceiling, the slope and climb
- * limits, the street lamps, the survey and plan intervals, and the four batch sizes of a build
- * queue that no longer exists. What is left is what something still reads today. The dark
- * survey's own keys arrive with the survey, not before it.
+ * <p>Eleven went with the grid in 0.3 - the claim, the phase ceiling, the slope and climb
+ * limits, the street lamps, the intervals, the batch sizes of a queue that no longer exists -
+ * and five more with the dark survey, which came out because a player at night can see the
+ * dark without being told. <b>What is left is what something reads today.</b>
  */
 public final class SyVillageConfig {
 
     public static final ModConfigSpec SPEC;
-
-    // [building] - reading the ground
-    public static final ModConfigSpec.IntValue SURVEY_SCAN_HEIGHT;
-    public static final ModConfigSpec.IntValue CLEAR_HEIGHT;
 
     // [blueprint] - putting a structure down, and looking at it first
     public static final ModConfigSpec.IntValue RAISE_BLOCKS_PER_TICK;
@@ -37,29 +33,11 @@ public final class SyVillageConfig {
     public static final ModConfigSpec.IntValue DRAWING_REFRESH_TICKS;
     public static final ModConfigSpec.IntValue DRAWING_WATCH_RANGE;
 
-    // [dark] - the question the mod exists to answer
-    public static final ModConfigSpec.IntValue MIN_LIGHT_LEVEL;
-    public static final ModConfigSpec.IntValue DARK_SURVEY_RADIUS;
-    public static final ModConfigSpec.IntValue DARK_AROUND_POI;
-    public static final ModConfigSpec.IntValue LIGHT_SOURCE_LEVEL;
-
     // [guardian] - the statue that keeps a golem
     public static final ModConfigSpec.IntValue GUARD_CHECK_TICKS;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
-
-        b.comment("Reading the ground.").push("building");
-        SURVEY_SCAN_HEIGHT = b.comment("How far above the surface a reading looks for existing",
-                        "buildings. Too low and it misses a house's walls while seeing its floor.")
-                .defineInRange("surveyScanHeight", 6, 1, 64);
-        CLEAR_HEIGHT = b.comment("How far above the ground a site is cleared of growth.",
-                        "Only where something is actually being built. Tall enough for an oak,",
-                        "because the ground reading walks down past trunks on purpose - one tree",
-                        "must not make a site unbuildable - and the price of that is felling it",
-                        "before building.")
-                .defineInRange("clearHeight", 16, 0, 64);
-        b.pop();
 
         b.comment("Blueprints: putting a structure down, and looking at it first.")
                 .push("blueprint");
@@ -85,42 +63,6 @@ public final class SyVillageConfig {
                         "re-reading. Beyond this the outline is still drawn from what the table",
                         "last worked out; it simply stops checking.")
                 .defineInRange("drawingWatchRange", 48, 8, 256);
-        b.pop();
-
-        b.comment("Finding the places a monster can still stand up in, which is the question",
-                        "this mod was started to answer.")
-                .push("dark");
-        MIN_LIGHT_LEVEL = b.comment("Block light at or above which a place counts as lit.",
-                        "",
-                        "Hostile mobs need block light 0, so 1 would be the whole truth. A",
-                        "little more is asked for because a torch a creeper takes out should",
-                        "not turn a village that was safe into one that is not, and because a",
-                        "lantern is fifteen and carries fourteen blocks - the headroom is",
-                        "nearly free.")
-                .defineInRange("minLightLevel", 4, 1, 15);
-        DARK_SURVEY_RADIUS = b.comment("How far the survey walks from the bell or statue it was",
-                        "asked at. Walked, not measured: it stops at water, at cliffs and at",
-                        "anything a villager could not walk over either.")
-                .defineInRange("darkSurveyRadius", 48, 8, 128);
-        DARK_AROUND_POI = b.comment("How far from a bed, a job site or a meeting point still",
-                        "counts as the village.",
-                        "",
-                        "The village's own shape, in other words, which vanilla already knows -",
-                        "we ask rather than declaring a radius. Where there is no village yet,",
-                        "somebody's first bell on empty ground, a plain radius is surveyed",
-                        "instead: that ground has mobs on it too.",
-                        "",
-                        "Sixteen was the first value and it answered a question nobody asked -",
-                        "whether the countryside was dark, which it always is. Eight is the",
-                        "village: a house and the ground round it.")
-                .defineInRange("darkAroundPoi", 8, 4, 64);
-        LIGHT_SOURCE_LEVEL = b.comment("How bright the survey assumes a light you place will be,",
-                        "when it works out how many are still needed and where.",
-                        "",
-                        "A lantern and a campfire are 15, a torch is 14. The dimmest of the",
-                        "three is assumed, so the advice works whichever one you carry - and",
-                        "being an optimist about one light only ever costs one more later.")
-                .defineInRange("lightSourceLevel", 14, 2, 15);
         b.pop();
 
         b.comment("The guardian statue.").push("guardian");
