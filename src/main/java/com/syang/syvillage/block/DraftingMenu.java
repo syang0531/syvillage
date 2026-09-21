@@ -25,6 +25,10 @@ import net.minecraft.world.item.ItemStack;
  */
 public class DraftingMenu extends AbstractContainerMenu {
 
+    /** Where the panel draws the drawing's slot, and the player's own. */
+    public static final int SLOT_Y = 18;
+    public static final int INVENTORY_Y = 158;
+
     private final Container board;
     private final BlockPos table;
 
@@ -39,7 +43,10 @@ public class DraftingMenu extends AbstractContainerMenu {
         this.table = table;
         checkContainerSize(board, 1);
 
-        addSlot(new Slot(board, 0, 8, 20) {
+        // These two must match the panel texture. They did not, and the inventory's real
+        // slots sat invisibly over the Build button and the sliders: hovering there lit a slot
+        // highlight and clicking went to a slot nobody could see.
+        addSlot(new Slot(board, 0, 8, DraftingMenu.SLOT_Y) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return board.canPlaceItem(0, stack);
@@ -50,7 +57,7 @@ public class DraftingMenu extends AbstractContainerMenu {
                 return 1;   // one drawing, one building
             }
         });
-        addStandardInventorySlots(inventory, 8, 118);
+        addStandardInventorySlots(inventory, 8, INVENTORY_Y);
     }
 
     public BlockPos table() {

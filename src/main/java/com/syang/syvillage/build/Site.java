@@ -81,11 +81,16 @@ public final class Site {
                     }
                 }
             }
-            // The hole under the structure's own floor, if there is one. Only the block
-            // immediately beneath: a column resting on a ledge with a cave under it is standing
-            // on something, and what the player needs to see is the gap at the edge.
-            BlockPos under = new BlockPos(at.getX(), placement.floor() + bottom - 1, at.getZ());
-            if (level.hasChunkAt(under) && level.getBlockState(under).canBeReplaced()
+            // The hole under the structure's own floor, if there is one.
+            //
+            // Only for columns the template puts something on its lowest layer - a roof eave or
+            // the top of an arch is *drawn* hanging in the air and marking the ground under it
+            // says nothing about this site. And only the block immediately beneath: a column
+            // resting on a ledge with a cave under it is standing on something, and what the
+            // player needs to see is the gap at the edge.
+            BlockPos under = new BlockPos(at.getX(), placement.floor() - 1, at.getZ());
+            if (bottom == 0 && level.hasChunkAt(under)
+                    && level.getBlockState(under).canBeReplaced()
                     && unsupported.size() < REPORTED) {
                 unsupported.add(under);
             }

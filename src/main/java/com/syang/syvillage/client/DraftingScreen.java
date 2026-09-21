@@ -55,7 +55,7 @@ public class DraftingScreen extends AbstractContainerScreen<DraftingMenu> {
     private @Nullable Button build;
 
     public DraftingScreen(DraftingMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title, 176, 236);
+        super(menu, inventory, title, 176, 240);
         inventoryLabelY = imageHeight - 94;
     }
 
@@ -241,7 +241,7 @@ public class DraftingScreen extends AbstractContainerScreen<DraftingMenu> {
                 leftPos + 8, topPos + 34, 0xFF707070);
         if (board != null && !board.drawing().isEmpty() && !board.outline().buildable()) {
             graphics.text(font, Component.translatable("syvillage.drafting.in_the_way",
-                    board.outline().blocked().length / 3), leftPos + 8, topPos + 150,
+                    board.outline().blocked().length / 3), leftPos + 8, topPos + 149,
                     0xFFAA3322);
         }
     }

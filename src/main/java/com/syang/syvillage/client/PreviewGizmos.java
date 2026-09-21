@@ -108,8 +108,10 @@ public final class PreviewGizmos {
      * massing is not.
      */
     private static void marks(int[] positions, int colour, int alpha) {
-        GizmoStyle style = GizmoStyle.strokeAndFill(opaque(colour), BOX_WIDTH,
-                tint(colour, alpha));
+        // Outline and fill on the same slider. An outline that stayed solid while the fill
+        // faded meant the slider never actually turned anything off.
+        GizmoStyle style = GizmoStyle.strokeAndFill(tint(colour, alpha), BOX_WIDTH,
+                tint(colour, alpha / 2));
         for (int i = 0; i + 2 < positions.length; i += 3) {
             Gizmos.cuboid(new AABB(new BlockPos(positions[i], positions[i + 1],
                     positions[i + 2])), style).setAlwaysOnTop();
