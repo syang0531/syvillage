@@ -37,3 +37,6 @@ __pycache__/
 
 # Written by a stray run from the project root; the real one is run/config.
 /config/
+
+# Gradle's jar-in-jar extraction cache; build output, not source.
+/.cache/
