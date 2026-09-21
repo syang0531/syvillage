@@ -25,8 +25,8 @@
   "item.syvillage.blueprint.extent": "%s blocks",
   "item.syvillage.blueprint.beds": "%s bed(s)",
   "item.syvillage.blueprint.workstation": "Has a workstation",
-  "syvillage.dark.found": "%s place(s) a monster could stand up in, of %s walked.",
-  "syvillage.dark.found_here": "%s place(s) a monster could stand up in, of %s walked. No village here yet, so all the ground was looked at.",
-  "syvillage.dark.none": "Nowhere within reach is dark. %s columns walked.",
-  "syvillage.dark.nowhere": "Nothing walkable from here."
+  "syvillage.dark.found": "%s more light(s) would cover it. %s places a monster could stand up in; the marked spots are where they would do most.",
+  "syvillage.dark.found_here": "%s more light(s) would cover it, for %s dark places. No village here yet, so the ground around you was looked at.",
+  "syvillage.dark.none": "Nothing here is dark. %s columns looked at.",
+  "syvillage.dark.nowhere": "Nothing loaded to look at from here."
 }

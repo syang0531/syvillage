@@ -45,7 +45,8 @@ public final class SyVillageNetwork {
                     // Named inside the branch, not at the top of the file: a dedicated server
                     // must never load a class that imports the client.
                     if (FMLEnvironment.getDist().isClient()) {
-                        com.syang.syvillage.client.DarkGizmos.show(payload.marks());
+                        com.syang.syvillage.client.DarkGizmos.show(payload.marks(),
+                                payload.lights());
                     }
                 }));
     }
@@ -59,7 +60,8 @@ public final class SyVillageNetwork {
      */
     public static void survey(ServerPlayer player, BlockPos centre) {
         Dark.Survey survey = Dark.read((ServerLevel) player.level(), centre);
-        PacketDistributor.sendToPlayer(player, new DarkMarks(survey.marks()));
+        PacketDistributor.sendToPlayer(player,
+                new DarkMarks(survey.marks(), survey.lights()));
         player.sendSystemMessage(describe(survey));
     }
 
@@ -72,9 +74,12 @@ public final class SyVillageNetwork {
             return Component.translatable("syvillage.dark.none", survey.walked())
                     .withStyle(ChatFormatting.GREEN);
         }
+        // The number of lights leads, because it is the one somebody can finish. The dark
+        // columns are the scale of it, and on their own they read as hopeless: two thousand
+        // places is nobody's evening, and it is five lanterns.
         return Component.translatable(survey.aroundVillage()
                         ? "syvillage.dark.found" : "syvillage.dark.found_here",
-                        survey.count(), survey.walked())
+                        survey.lights().size(), survey.count())
                 .withStyle(ChatFormatting.LIGHT_PURPLE);
     }
 }

@@ -30,17 +30,21 @@ public final class DarkGizmos {
 
     /** The colour of a place nothing has lit. */
     private static final int DARK = 0x7A5CC8;
+    /** And of a place worth putting a light. Warm, because that is what goes there. */
+    private static final int LIGHT = 0xFFC23B;
 
     /** How long the answer stays up. Long enough to walk to the far side of a village. */
     private static final int TICKS = 30 * 20;
 
     private static List<BlockPos> marks = List.of();
+    private static List<BlockPos> lights = List.of();
     private static int left;
 
     /** Called from the packet handler. A fresh answer replaces the last one. */
-    public static void show(List<BlockPos> shown) {
+    public static void show(List<BlockPos> shown, List<BlockPos> suggested) {
         marks = shown;
-        left = shown.isEmpty() ? 0 : TICKS;
+        lights = suggested;
+        left = shown.isEmpty() && suggested.isEmpty() ? 0 : TICKS;
     }
 
     @SubscribeEvent
@@ -54,6 +58,13 @@ public final class DarkGizmos {
                 (Math.clamp(alpha, 0, 255) << 24) | DARK);
         for (BlockPos pos : marks) {
             Gizmos.cuboid(new AABB(pos), style).setAlwaysOnTop();
+        }
+        // Drawn over the dark and a little bigger, because these are the few places worth
+        // walking to. The dark is the problem; these are the answer.
+        GizmoStyle advice = GizmoStyle.strokeAndFill(0xFF000000 | LIGHT, 3.0f,
+                0xAA000000 | LIGHT);
+        for (BlockPos pos : lights) {
+            Gizmos.cuboid(new AABB(pos).inflate(0.15), advice).setAlwaysOnTop();
         }
     }
 }

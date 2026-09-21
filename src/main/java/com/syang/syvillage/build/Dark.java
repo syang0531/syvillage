@@ -3,6 +3,9 @@ package com.syang.syvillage.build;
 import com.syang.syvillage.config.SyVillageConfig;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
@@ -47,10 +50,12 @@ public final class Dark {
      *
      * @param marks          where to draw, capped at {@link #REPORTED}
      * @param count          how many there actually are, which is the number that is reported
+     * @param lights         where a light would do the most good, most first
      * @param walked         how many columns were examined, so "none" is told from "nowhere"
      * @param aroundVillage  whether vanilla knew of a village here to bound the answer with
      */
-    public record Survey(List<BlockPos> marks, int count, int walked, boolean aroundVillage) {
+    public record Survey(List<BlockPos> marks, List<BlockPos> lights, int count, int walked,
+            boolean aroundVillage) {
 
         public boolean safe() {
             return count == 0;
@@ -98,8 +103,98 @@ public final class Dark {
                 dark.add(on);   // beyond this they are counted but not drawn
             }
         }
-        return new Survey(List.copyOf(dark), count, walked, aroundVillage);
+        return new Survey(List.copyOf(dark), lightsFor(dark), count, walked, aroundVillage);
     }
+
+    /**
+     * Where to put lights so that none of this is dark any more.
+     *
+     * <p><b>Counting dark columns was the wrong unit.</b> Two thousand of them is true, and it
+     * is also useless: nobody lights two thousand places, and nought never arrives. One lantern
+     * covers eleven blocks in every direction, so two thousand columns is five or six lanterns -
+     * and <em>that</em> is a number somebody can act on and finish.
+     *
+     * <p>This is the same mistake as "220 of 221 columns hang over air", which was also correct
+     * and also said nothing. A true number nobody can act on does not satisfy principle nine.
+     *
+     * <p>It suggests; it does not place. Where the light actually goes, and whether it is a
+     * lantern or a campfire or a torch under the eaves, stays the player's - which is the whole
+     * difference between this and the lamp grid that 0.2 laid without asking.
+     *
+     * <p>Greedy over a coarse grid rather than exact: the best cover of a few thousand points
+     * is not worth a server pause, and one light too many is not a wrong answer.
+     */
+    private static List<BlockPos> lightsFor(List<BlockPos> dark) {
+        int reach = Math.max(1, SyVillageConfig.LIGHT_SOURCE_LEVEL.get()
+                - SyVillageConfig.MIN_LIGHT_LEVEL.get());
+        Map<Long, List<BlockPos>> cells = new LinkedHashMap<>();
+        for (BlockPos pos : dark) {
+            cells.computeIfAbsent(key(Math.floorDiv(pos.getX(), reach),
+                    Math.floorDiv(pos.getZ(), reach)), c -> new ArrayList<>()).add(pos);
+        }
+        Set<BlockPos> left = new LinkedHashSet<>(dark);
+        List<BlockPos> lights = new ArrayList<>();
+        while (!left.isEmpty() && lights.size() < MOST_LIGHTS) {
+            BlockPos best = null;
+            int bestCovered = 0;
+            for (List<BlockPos> cell : cells.values()) {
+                BlockPos at = middle(cell);
+                int covered = 0;
+                for (BlockPos pos : left) {
+                    if (covers(at, pos, reach)) {
+                        covered++;
+                    }
+                }
+                if (covered > bestCovered) {
+                    bestCovered = covered;
+                    best = at;
+                }
+            }
+            if (best == null) {
+                break;   // nothing left that a light in any of these cells would reach
+            }
+            lights.add(best);
+            BlockPos chosen = best;
+            left.removeIf(pos -> covers(chosen, pos, reach));
+        }
+        return List.copyOf(lights);
+    }
+
+    /**
+     * Whether a light here would put some brightness there.
+     *
+     * <p>Taxicab, because that is how light spreads: one step in any of six directions costs
+     * one. Through walls it costs more, so this is optimistic - and being optimistic about one
+     * light only ever means the next survey asks for one more, which is a cheap way to be wrong.
+     */
+    private static boolean covers(BlockPos light, BlockPos dark, int reach) {
+        return Math.abs(light.getX() - dark.getX()) + Math.abs(light.getY() - dark.getY())
+                + Math.abs(light.getZ() - dark.getZ()) <= reach;
+    }
+
+    /** The column of a cell nearest its own middle, so the suggestion is somewhere real. */
+    private static BlockPos middle(List<BlockPos> cell) {
+        long x = 0;
+        long y = 0;
+        long z = 0;
+        for (BlockPos pos : cell) {
+            x += pos.getX();
+            y += pos.getY();
+            z += pos.getZ();
+        }
+        BlockPos centre = new BlockPos((int) (x / cell.size()), (int) (y / cell.size()),
+                (int) (z / cell.size()));
+        BlockPos nearest = cell.getFirst();
+        for (BlockPos pos : cell) {
+            if (pos.distSqr(centre) < nearest.distSqr(centre)) {
+                nearest = pos;
+            }
+        }
+        return nearest;
+    }
+
+    /** Enough advice to act on. Past this the answer is "light some of it and ask again". */
+    private static final int MOST_LIGHTS = 24;
 
     /** Everything within {@code radius} of here, for a place that is not a village yet. */
     private static Set<Long> square(BlockPos centre, int radius) {

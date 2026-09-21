@@ -41,6 +41,7 @@ public final class SyVillageConfig {
     public static final ModConfigSpec.IntValue MIN_LIGHT_LEVEL;
     public static final ModConfigSpec.IntValue DARK_SURVEY_RADIUS;
     public static final ModConfigSpec.IntValue DARK_AROUND_POI;
+    public static final ModConfigSpec.IntValue LIGHT_SOURCE_LEVEL;
 
     // [guardian] - the statue that keeps a golem
     public static final ModConfigSpec.IntValue GUARD_CHECK_TICKS;
@@ -106,9 +107,20 @@ public final class SyVillageConfig {
                         "",
                         "The village's own shape, in other words, which vanilla already knows -",
                         "we ask rather than declaring a radius. Where there is no village yet,",
-                        "somebody's first bell on empty ground, the whole walk is surveyed",
-                        "instead: that ground has mobs on it too.")
-                .defineInRange("darkAroundPoi", 16, 4, 64);
+                        "somebody's first bell on empty ground, a plain radius is surveyed",
+                        "instead: that ground has mobs on it too.",
+                        "",
+                        "Sixteen was the first value and it answered a question nobody asked -",
+                        "whether the countryside was dark, which it always is. Eight is the",
+                        "village: a house and the ground round it.")
+                .defineInRange("darkAroundPoi", 8, 4, 64);
+        LIGHT_SOURCE_LEVEL = b.comment("How bright the survey assumes a light you place will be,",
+                        "when it works out how many are still needed and where.",
+                        "",
+                        "A lantern and a campfire are 15, a torch is 14. The dimmest of the",
+                        "three is assumed, so the advice works whichever one you carry - and",
+                        "being an optimist about one light only ever costs one more later.")
+                .defineInRange("lightSourceLevel", 14, 2, 15);
         b.pop();
 
         b.comment("The guardian statue.").push("guardian");
