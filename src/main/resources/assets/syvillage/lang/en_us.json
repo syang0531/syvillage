@@ -12,5 +12,12 @@
   "syvillage.blueprint.ready": "%s will stand here. Click again to raise it.",
   "syvillage.blueprint.floating": "%s will stand here, %s block(s) clear of the ground at the deepest. Click again to raise it.",
   "syvillage.blueprint.blocked": "%s block(s) are in the way, the first at %s, %s, %s.",
-  "syvillage.blueprint.raised": "%s: %s blocks."
+  "syvillage.blueprint.raised": "%s: %s blocks.",
+  "syvillage.blueprint.turned": "Turned to face %s.",
+  "syvillage.blueprint.moved": "Moved here.",
+  "syvillage.blueprint.stale": "That outline had gone stale.",
+  "syvillage.facing.north": "north",
+  "syvillage.facing.east": "east",
+  "syvillage.facing.south": "south",
+  "syvillage.facing.west": "west"
 }

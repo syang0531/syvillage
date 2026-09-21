@@ -12,5 +12,12 @@
   "syvillage.blueprint.ready": "%s을(를) 여기 세웁니다. 다시 누르면 지어집니다.",
   "syvillage.blueprint.floating": "%s을(를) 여기 세웁니다. 가장 깊은 곳이 땅에서 %s칸 떠 있습니다. 다시 누르면 지어집니다.",
   "syvillage.blueprint.blocked": "블록 %s칸이 자리를 차지합니다. 첫 자리는 %s, %s, %s.",
-  "syvillage.blueprint.raised": "%s — 블록 %s개."
+  "syvillage.blueprint.raised": "%s — 블록 %s개.",
+  "syvillage.blueprint.turned": "%s쪽을 보도록 돌렸습니다.",
+  "syvillage.blueprint.moved": "여기로 옮겼습니다.",
+  "syvillage.blueprint.stale": "그 윤곽은 시간이 지났습니다.",
+  "syvillage.facing.north": "북",
+  "syvillage.facing.east": "동",
+  "syvillage.facing.south": "남",
+  "syvillage.facing.west": "서"
 }

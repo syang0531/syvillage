@@ -55,23 +55,60 @@ public final class Previews {
     }
 
     /**
-     * The placement this click confirms, or null if this click is a fresh look instead.
+     * Why this click is not the one that builds - or {@link Refusal#NONE}, meaning it is.
      *
-     * <p>Four things have to agree: the same drawing, the same block, still inside
+     * <p>A reason rather than a boolean, and the reason is the whole point. A click that fails
+     * to confirm draws a fresh outline, and a fresh outline looks exactly like the one that was
+     * already there: the player clicks again, and again, and nothing ever happens. That is this
+     * project's oldest failure wearing new clothes - "nothing is happening" always has more
+     * than one explanation - and it showed up within four seconds of the first play session.
+     *
+     * <p>Four things have to agree: the same drawing, the same spot, still inside
      * {@code previewSeconds}, and an outline that was green. Sneaking never confirms - it is
      * the turn gesture, and a gesture that sometimes builds two thousand blocks instead is not
      * one anybody would trust.
      */
-    public static @Nullable Placement confirms(ServerPlayer player, BlockPos clicked,
-            boolean sneaking) {
-        Shown shown = SHOWN.get(player.getUUID());
-        if (sneaking || shown == null
-                || !shown.clicked().equals(clicked)
-                || !shown.survey().buildable()
-                || player.level().getGameTime() > shown.expires()) {
-            return null;
+    public enum Refusal {
+        /** Nothing is wrong: this click builds. */
+        NONE,
+        /** No outline to confirm. This click draws one. */
+        NOTHING_SHOWN,
+        /** Sneaking is the turn gesture and never builds. */
+        SNEAKING,
+        /** The outline was somewhere else. This click moves it. */
+        ELSEWHERE,
+        /** The outline was red. */
+        BLOCKED,
+        /** The outline was too old to trust. */
+        STALE
+    }
+
+    /** The reason, and the placement to build when there is none. */
+    public record Answer(Refusal refusal, @Nullable Placement placement) {
+
+        public boolean builds() {
+            return refusal == Refusal.NONE;
         }
-        return shown.placement();
+    }
+
+    public static Answer confirms(ServerPlayer player, BlockPos clicked, boolean sneaking) {
+        Shown shown = SHOWN.get(player.getUUID());
+        if (shown == null) {
+            return new Answer(Refusal.NOTHING_SHOWN, null);
+        }
+        if (sneaking) {
+            return new Answer(Refusal.SNEAKING, null);
+        }
+        if (!shown.clicked().equals(clicked)) {
+            return new Answer(Refusal.ELSEWHERE, null);
+        }
+        if (player.level().getGameTime() > shown.expires()) {
+            return new Answer(Refusal.STALE, null);
+        }
+        if (!shown.survey().buildable()) {
+            return new Answer(Refusal.BLOCKED, null);
+        }
+        return new Answer(Refusal.NONE, shown.placement());
     }
 
     public static void forget(ServerPlayer player) {

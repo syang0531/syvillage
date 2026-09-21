@@ -62,9 +62,13 @@ public final class SyVillageConfig {
                 .defineInRange("raiseBlocksPerTick", 40, 1, 20000);
         PREVIEW_SECONDS = b.comment("How long a preview stays good for. Clicking the same spot",
                         "again inside this window is the confirmation that builds; after it,",
-                        "the click is a fresh preview instead. Short on purpose: a stale",
-                        "outline must not turn a stray click into two thousand blocks.")
-                .defineInRange("previewSeconds", 10, 1, 120);
+                        "the click is a fresh preview instead, and says so.",
+                        "",
+                        "Ten was the first value and it was too short - walking round an",
+                        "outline to look at it from the other side spent most of it. Thirty",
+                        "still keeps the point, which is that a stale outline must not turn a",
+                        "stray click into two thousand blocks.")
+                .defineInRange("previewSeconds", 30, 1, 120);
         b.pop();
 
         b.comment("The guardian statue.").push("guardian");

@@ -61,8 +61,9 @@ public final class Blueprint extends Item {
         BlockPos at = context.getClickedPos().relative(context.getClickedFace());
         boolean sneaking = context.isSecondaryUseActive();
 
-        Placement confirmed = Previews.confirms(player, at, sneaking);
-        if (confirmed != null) {
+        Previews.Answer answer = Previews.confirms(player, at, sneaking);
+        if (answer.builds()) {
+            Placement confirmed = answer.placement();
             int blocks = Raise.begin(level, confirmed);
             Previews.forget(player);
             context.getItemInHand().consume(1, player);
@@ -85,7 +86,7 @@ public final class Blueprint extends Item {
 
         Site.Survey survey = Site.read(level, placement);
         Previews.show(player, at, placement, survey);
-        player.sendSystemMessage(describe(template, survey));
+        player.sendSystemMessage(describe(template, survey, answer.refusal(), rotation));
         return InteractionResult.SUCCESS;
     }
 
@@ -95,8 +96,41 @@ public final class Blueprint extends Item {
      * <p>Principle twelve, at the only scale left: this used to be a tally of two hundred and
      * fifty lots and a reason for each. One drawing, one click, one sentence, and a coordinate
      * to walk to.
+     *
+     * <p>It also has to say why a click that looked like a confirmation was not one. Four clicks
+     * on the same spot in the first play session all drew a fresh outline and none of them built,
+     * and there was no way to tell which of the four reasons it was: every refusal looked exactly
+     * like "here is your outline again". A tower is square, so even a quarter turn looks
+     * identical. Silence about a refusal is the oldest bug in this project.
      */
-    private static Component describe(Template template, Site.Survey survey) {
+    private static Component describe(Template template, Site.Survey survey,
+            Previews.Refusal refusal, Rotation rotation) {
+        Component reason = switch (refusal) {
+            case SNEAKING -> Component.translatable("syvillage.blueprint.turned",
+                            Component.translatable("syvillage.facing." + facing(rotation)))
+                    .withStyle(ChatFormatting.AQUA);
+            case ELSEWHERE -> Component.translatable("syvillage.blueprint.moved")
+                    .withStyle(ChatFormatting.GRAY);
+            case STALE -> Component.translatable("syvillage.blueprint.stale")
+                    .withStyle(ChatFormatting.GRAY);
+            case NONE, NOTHING_SHOWN, BLOCKED -> null;
+        };
+        Component about = about(template, survey);
+        return reason == null ? about
+                : Component.empty().append(reason).append(Component.literal(" ")).append(about);
+    }
+
+    /** Which way round the drawing is now, in words, because a square box cannot show it. */
+    private static String facing(Rotation rotation) {
+        return switch (rotation) {
+            case NONE -> "north";
+            case CLOCKWISE_90 -> "east";
+            case CLOCKWISE_180 -> "south";
+            case COUNTERCLOCKWISE_90 -> "west";
+        };
+    }
+
+    private static Component about(Template template, Site.Survey survey) {
         if (!survey.buildable()) {
             BlockPos first = survey.first();
             return Component.translatable("syvillage.blueprint.blocked", survey.blockedCount(),
