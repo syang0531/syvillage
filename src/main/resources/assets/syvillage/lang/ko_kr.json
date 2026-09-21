@@ -22,5 +22,9 @@
   "syvillage.drafting.build": "짓기",
   "syvillage.drafting.in_the_way": "블록 %s칸이 자리를 차지합니다.",
   "syvillage.drafting.mass_opacity": "실루엣 %s%%",
-  "syvillage.drafting.mark_opacity": "표시 %s%%"
+  "syvillage.drafting.mark_opacity": "표시 %s%%",
+  "item.syvillage.blueprint.of": "도면: %s",
+  "item.syvillage.blueprint.extent": "%s 칸",
+  "item.syvillage.blueprint.beds": "침대 %s개",
+  "item.syvillage.blueprint.workstation": "작업 블록 있음"
 }

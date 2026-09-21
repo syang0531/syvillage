@@ -22,5 +22,9 @@
   "syvillage.drafting.build": "Build",
   "syvillage.drafting.in_the_way": "%s block(s) are in the way.",
   "syvillage.drafting.mass_opacity": "Shape %s%%",
-  "syvillage.drafting.mark_opacity": "Marks %s%%"
+  "syvillage.drafting.mark_opacity": "Marks %s%%",
+  "item.syvillage.blueprint.of": "Blueprint: %s",
+  "item.syvillage.blueprint.extent": "%s blocks",
+  "item.syvillage.blueprint.beds": "%s bed(s)",
+  "item.syvillage.blueprint.workstation": "Has a workstation"
 }

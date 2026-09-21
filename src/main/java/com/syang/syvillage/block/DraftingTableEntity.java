@@ -3,13 +3,16 @@ package com.syang.syvillage.block;
 import com.syang.syvillage.build.Outline;
 import com.syang.syvillage.build.Placement;
 import com.syang.syvillage.build.Raise;
+import com.syang.syvillage.SyVillage;
 import com.syang.syvillage.build.Site;
+import com.syang.syvillage.build.Template;
 import com.syang.syvillage.config.SyVillageConfig;
 import com.syang.syvillage.data.Craft;
 import com.syang.syvillage.item.Blueprint;
 import com.syang.syvillage.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.resources.Identifier;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -217,12 +220,32 @@ public class DraftingTableEntity extends BlockEntity implements Container, MenuP
         return getBlockPos().offset(offset);
     }
 
+    /**
+     * Where this drawing says the building goes, once the game has handed us the building.
+     *
+     * <p>Ours are read from our own jar; the game's villages are in its jar, which is another
+     * module whose data packages are closed to us. {@link Template#ensure} pulls one through
+     * the game's own structure manager and caches it, and that is why expansion can stay pure -
+     * by the time it runs, the shape is already here.
+     */
     public @Nullable Placement placement() {
         if (drawing.isEmpty() || level == null) {
             return null;
         }
+        Identifier id = Blueprint.templateOf(drawing);
+        if (level instanceof ServerLevel server) {
+            try {
+                Template.ensure(server.getStructureManager(), id);
+            } catch (RuntimeException noSuchBuilding) {
+                // A drawing of something this game does not have - an older world, or a data
+                // pack that went away. Say so once rather than throwing every tick.
+                SyVillage.LOGGER.warn("A drawing on the table at {} is of {}, which this game"
+                        + " does not have", worldPosition, id);
+                return null;
+            }
+        }
         BlockPos corner = corner();
-        return new Placement(Blueprint.templateOf(drawing), corner, rotation,
+        return new Placement(id, corner, rotation,
                 Craft.of(level.getBiome(corner)), corner.getY());
     }
 

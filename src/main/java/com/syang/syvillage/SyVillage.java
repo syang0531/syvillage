@@ -4,6 +4,7 @@ import com.syang.syvillage.config.SyVillageClientConfig;
 import com.syang.syvillage.config.SyVillageConfig;
 import com.syang.syvillage.registry.ModBlocks;
 import com.syang.syvillage.registry.ModCreativeTabs;
+import com.syang.syvillage.registry.ModComponents;
 import com.syang.syvillage.registry.ModItems;
 import com.syang.syvillage.registry.ModMenus;
 import com.syang.syvillage.net.SyVillageNetwork;
@@ -35,6 +36,7 @@ public class SyVillage {
         container.registerConfig(ModConfig.Type.CLIENT, SyVillageClientConfig.SPEC);
         ModBlocks.register(modBus);
         ModItems.register(modBus);
+        ModComponents.register(modBus);
         ModVillagers.register(modBus);
         ModMenus.register(modBus);
         ModCreativeTabs.register(modBus);

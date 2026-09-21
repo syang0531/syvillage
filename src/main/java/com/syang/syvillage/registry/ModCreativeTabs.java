@@ -1,48 +1,52 @@
 package com.syang.syvillage.registry;
 
 import com.syang.syvillage.SyVillage;
-import net.minecraft.world.item.CreativeModeTabs;
+import com.syang.syvillage.item.Blueprint;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * Putting the mod's blocks somewhere a player can find them.
+ * The mod's own tab, because by now it has enough in it to need one.
  *
- * <p>Registering a block gets it into the game; it does not get it into the creative menu, and
- * the creative search only knows about items that are in some tab. Both workstations were
- * invisible in creative and unfindable by search, which reads as "the mod did not load" rather
- * than as a missing eight lines.
+ * <p>It used to hang its handful of things off vanilla's tabs, which was right while there were
+ * five of them. There are a hundred and sixty-eight drawings now, and putting those in
+ * <em>Building Blocks</em> would bury somebody else's tab under this mod.
+ *
+ * <p>Order is deliberate: the two tables and the statue first, because they are what a player
+ * has to place before a drawing means anything, then the drawings behind them.
  */
 public final class ModCreativeTabs {
 
+    public static final DeferredRegister<CreativeModeTab> TABS =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, SyVillage.MODID);
+
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB = TABS.register(
+            "syvillage", () -> CreativeModeTab.builder()
+                    .title(Component.translatable("syvillage.title"))
+                    .icon(() -> new ItemStack(ModBlocks.LORDS_TABLE.get()))
+                    .withTabsBefore(ResourceKey.create(Registries.CREATIVE_MODE_TAB,
+                            Identifier.withDefaultNamespace("spawn_eggs")))
+                    .displayItems((parameters, output) -> {
+                        output.accept(ModBlocks.VILLAGE_HEAD_TABLE.get());
+                        output.accept(ModBlocks.LORDS_TABLE.get());
+                        output.accept(ModBlocks.GUARDIAN_STATUE.get());
+                        output.accept(ModItems.FREEMANS_CHARTER.get());
+                        output.accept(ModItems.LORDS_SEAL.get());
+                        output.accept(ModItems.GOLEM_HEART.get());
+                        Blueprint.everything().forEach(output::accept);
+                    })
+                    .build());
+
     private ModCreativeTabs() {}
 
-    /** Listens on the mod bus, alongside the registers, rather than by annotation. */
     public static void register(IEventBus modBus) {
-        modBus.addListener(ModCreativeTabs::onBuildContents);
-    }
-
-    private static void onBuildContents(BuildCreativeModeTabContentsEvent event) {
-        // Functional blocks, next to the vanilla workstations, because that is what they are:
-        // a villager claims one and takes the job.
-        if (event.getTabKey().equals(CreativeModeTabs.FUNCTIONAL_BLOCKS)) {
-            event.accept(ModBlocks.VILLAGE_HEAD_TABLE.get());
-            event.accept(ModBlocks.LORDS_TABLE.get());
-            event.accept(ModBlocks.GUARDIAN_STATUE.get());
-        }
-        // Ingredients, because that is what they are: each is the one thing a recipe needs that
-        // nobody can craft and a villager sells.
-        if (event.getTabKey().equals(CreativeModeTabs.INGREDIENTS)) {
-            event.accept(ModItems.LORDS_SEAL.get());
-            event.accept(ModItems.GOLEM_HEART.get());
-        }
-        // The charter is a spawn egg with a different picture on it, so it goes with those.
-        if (event.getTabKey().equals(CreativeModeTabs.SPAWN_EGGS)) {
-            event.accept(ModItems.FREEMANS_CHARTER.get());
-        }
-        // A blueprint is used on a block and becomes blocks, so it sits with building things.
-        if (event.getTabKey().equals(CreativeModeTabs.BUILDING_BLOCKS)) {
-            event.accept(ModItems.BLUEPRINT.get());
-        }
+        TABS.register(modBus);
     }
 }

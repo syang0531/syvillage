@@ -138,3 +138,14 @@ tasks.register('publishCurseForge', TaskPublishCurseForge) {
     // CurseForge refuses a file with no environment tag (error 1021).
     mainFile.addEnvironment('Client', 'Server')
 }
+
+// The blueprint catalogue is generated from the game's own structures by CatalogueTest, which
+// writes it when it is missing or when this property says so, and otherwise checks it. A test
+// rather than a standalone program because that is the only place the game is bootstrapped, and
+// a property forwarded here rather than a task of its own because the test task carries the
+// module opens the game needs.
+//
+//   ./gradlew test -Psyvillage.writeCatalogue
+tasks.named('test') {
+    systemProperty 'syvillage.writeCatalogue', project.hasProperty('syvillage.writeCatalogue')
+}
