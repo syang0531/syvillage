@@ -1,7 +1,14 @@
 package com.syang.syvillage.net;
 
+import com.syang.syvillage.build.Dark;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
@@ -33,5 +40,41 @@ public final class SyVillageNetwork {
                         DraftingCommand.apply(payload, player);
                     }
                 }));
+        registrar.playToClient(DarkMarks.TYPE, DarkMarks.CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    // Named inside the branch, not at the top of the file: a dedicated server
+                    // must never load a class that imports the client.
+                    if (FMLEnvironment.getDist().isClient()) {
+                        com.syang.syvillage.client.DarkGizmos.show(payload.marks());
+                    }
+                }));
+    }
+
+    /**
+     * Answer somebody who asked where it is still dark.
+     *
+     * <p>The count goes in chat because that is the part that matters - nought means finished,
+     * and nothing else in the game will ever tell you that. The places go as marks because a
+     * number alone is not somewhere you can walk to.
+     */
+    public static void survey(ServerPlayer player, BlockPos centre) {
+        Dark.Survey survey = Dark.read((ServerLevel) player.level(), centre);
+        PacketDistributor.sendToPlayer(player, new DarkMarks(survey.marks()));
+        player.sendSystemMessage(describe(survey));
+    }
+
+    private static Component describe(Dark.Survey survey) {
+        if (survey.walked() == 0) {
+            return Component.translatable("syvillage.dark.nowhere")
+                    .withStyle(ChatFormatting.GRAY);
+        }
+        if (survey.safe()) {
+            return Component.translatable("syvillage.dark.none", survey.walked())
+                    .withStyle(ChatFormatting.GREEN);
+        }
+        return Component.translatable(survey.aroundVillage()
+                        ? "syvillage.dark.found" : "syvillage.dark.found_here",
+                        survey.count(), survey.walked())
+                .withStyle(ChatFormatting.LIGHT_PURPLE);
     }
 }

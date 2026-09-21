@@ -24,5 +24,9 @@
   "item.syvillage.blueprint.of": "Blueprint: %s",
   "item.syvillage.blueprint.extent": "%s blocks",
   "item.syvillage.blueprint.beds": "%s bed(s)",
-  "item.syvillage.blueprint.workstation": "Has a workstation"
+  "item.syvillage.blueprint.workstation": "Has a workstation",
+  "syvillage.dark.found": "%s place(s) a monster could stand up in, of %s walked.",
+  "syvillage.dark.found_here": "%s place(s) a monster could stand up in, of %s walked. No village here yet, so all the ground was looked at.",
+  "syvillage.dark.none": "Nowhere within reach is dark. %s columns walked.",
+  "syvillage.dark.nowhere": "Nothing walkable from here."
 }

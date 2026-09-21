@@ -24,5 +24,9 @@
   "item.syvillage.blueprint.of": "도면: %s",
   "item.syvillage.blueprint.extent": "%s 칸",
   "item.syvillage.blueprint.beds": "침대 %s개",
-  "item.syvillage.blueprint.workstation": "작업 블록 있음"
+  "item.syvillage.blueprint.workstation": "작업 블록 있음",
+  "syvillage.dark.found": "몹이 설 수 있는 자리 %s곳. %s칸을 걸었습니다.",
+  "syvillage.dark.found_here": "몹이 설 수 있는 자리 %s곳. %s칸을 걸었습니다. 아직 마을이 없어서 걸어간 땅 전부를 봤습니다.",
+  "syvillage.dark.none": "걸어갈 수 있는 곳 중 어두운 자리가 없습니다. %s칸을 걸었습니다.",
+  "syvillage.dark.nowhere": "여기서 걸어갈 수 있는 땅이 없습니다."
 }

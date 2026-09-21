@@ -37,6 +37,11 @@ public final class SyVillageConfig {
     public static final ModConfigSpec.IntValue DRAWING_REFRESH_TICKS;
     public static final ModConfigSpec.IntValue DRAWING_WATCH_RANGE;
 
+    // [dark] - the question the mod exists to answer
+    public static final ModConfigSpec.IntValue MIN_LIGHT_LEVEL;
+    public static final ModConfigSpec.IntValue DARK_SURVEY_RADIUS;
+    public static final ModConfigSpec.IntValue DARK_AROUND_POI;
+
     // [guardian] - the statue that keeps a golem
     public static final ModConfigSpec.IntValue GUARD_CHECK_TICKS;
 
@@ -79,6 +84,31 @@ public final class SyVillageConfig {
                         "re-reading. Beyond this the outline is still drawn from what the table",
                         "last worked out; it simply stops checking.")
                 .defineInRange("drawingWatchRange", 48, 8, 256);
+        b.pop();
+
+        b.comment("Finding the places a monster can still stand up in, which is the question",
+                        "this mod was started to answer.")
+                .push("dark");
+        MIN_LIGHT_LEVEL = b.comment("Block light at or above which a place counts as lit.",
+                        "",
+                        "Hostile mobs need block light 0, so 1 would be the whole truth. A",
+                        "little more is asked for because a torch a creeper takes out should",
+                        "not turn a village that was safe into one that is not, and because a",
+                        "lantern is fifteen and carries fourteen blocks - the headroom is",
+                        "nearly free.")
+                .defineInRange("minLightLevel", 4, 1, 15);
+        DARK_SURVEY_RADIUS = b.comment("How far the survey walks from the bell or statue it was",
+                        "asked at. Walked, not measured: it stops at water, at cliffs and at",
+                        "anything a villager could not walk over either.")
+                .defineInRange("darkSurveyRadius", 48, 8, 128);
+        DARK_AROUND_POI = b.comment("How far from a bed, a job site or a meeting point still",
+                        "counts as the village.",
+                        "",
+                        "The village's own shape, in other words, which vanilla already knows -",
+                        "we ask rather than declaring a radius. Where there is no village yet,",
+                        "somebody's first bell on empty ground, the whole walk is surveyed",
+                        "instead: that ground has mobs on it too.")
+                .defineInRange("darkAroundPoi", 16, 4, 64);
         b.pop();
 
         b.comment("The guardian statue.").push("guardian");
