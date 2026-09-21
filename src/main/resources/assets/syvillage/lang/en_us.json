@@ -15,11 +15,10 @@
   "syvillage.facing.west": "west",
   "syvillage.drafting.title": "Drawing Board",
   "syvillage.drafting.offset": "Offset from the table (X / Y / Z)",
-  "syvillage.drafting.empty": "No drawing pinned to it.",
+  "syvillage.drafting.empty": "Slot empty",
   "syvillage.drafting.turn": "Facing: %s",
   "syvillage.drafting.showing": "Outline: shown",
   "syvillage.drafting.hidden": "Outline: hidden",
-  "syvillage.drafting.take": "Take drawing",
   "syvillage.drafting.build": "Build",
   "syvillage.drafting.in_the_way": "%s block(s) are in the way."
 }

@@ -15,11 +15,10 @@
   "syvillage.facing.west": "서",
   "syvillage.drafting.title": "제도판",
   "syvillage.drafting.offset": "탁자에서의 상대 좌표 (X / Y / Z)",
-  "syvillage.drafting.empty": "도면이 꽂혀 있지 않습니다.",
+  "syvillage.drafting.empty": "비어 있음",
   "syvillage.drafting.turn": "방향: %s",
   "syvillage.drafting.showing": "윤곽: 켜짐",
   "syvillage.drafting.hidden": "윤곽: 꺼짐",
-  "syvillage.drafting.take": "도면 꺼내기",
   "syvillage.drafting.build": "짓기",
   "syvillage.drafting.in_the_way": "블록 %s칸이 자리를 차지합니다."
 }

@@ -4,7 +4,8 @@ import com.syang.syvillage.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -54,48 +55,27 @@ public class DraftingTable extends FacingTable implements EntityBlock {
     }
 
     /**
-     * Right-click to open the board; right-click holding a drawing to put it on the board first.
+     * Right-click opens the board. Whatever is in your hand stays there.
      *
-     * <p>One gesture, and which of the two it is depends on what is in your hand - the same rule
-     * a lectern and a jukebox use.
+     * <p>The drawing goes in by being dropped in its slot, which is how every other container
+     * in the game works and is the point of having a slot at all.
      */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
             Player player, BlockHitResult hit) {
-        return open(level, pos, player);
-    }
-
-    @Override
-    protected InteractionResult useItemOn(ItemStack held, BlockState state, Level level,
-            BlockPos pos, Player player, net.minecraft.world.InteractionHand hand,
-            BlockHitResult hit) {
-        if (!(level.getBlockEntity(pos) instanceof DraftingTableEntity table)) {
-            return InteractionResult.PASS;
-        }
-        if (table.accepts(held)) {
-            if (!level.isClientSide()) {
-                table.put(held.split(1));
-            }
-            return open(level, pos, player);
-        }
-        return open(level, pos, player);
-    }
-
-    private static InteractionResult open(Level level, BlockPos pos, Player player) {
-        if (!(level.getBlockEntity(pos) instanceof DraftingTableEntity)) {
-            return InteractionResult.PASS;
-        }
         if (level.isClientSide()) {
-            // The screen is the client's business and needs no menu: the table's state is already
-            // synced as block entity data, so there is nothing to open a container for.
-            com.syang.syvillage.client.DraftingScreens.open(pos);
+            return InteractionResult.SUCCESS;
+        }
+        if (level.getBlockEntity(pos) instanceof DraftingTableEntity table
+                && player instanceof ServerPlayer opening) {
+            opening.openMenu(table, pos);
         }
         return InteractionResult.SUCCESS;
     }
 
     /** A broken table gives its drawing back rather than eating it. */
     @Override
-    protected void affectNeighborsAfterRemoval(BlockState state, net.minecraft.server.level.ServerLevel level,
+    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level,
             BlockPos pos, boolean movedByPiston) {
         if (level.getBlockEntity(pos) instanceof DraftingTableEntity table) {
             table.dropDrawing(level, pos);

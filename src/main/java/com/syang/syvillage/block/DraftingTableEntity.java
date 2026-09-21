@@ -15,7 +15,13 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.Container;
 import net.minecraft.world.Containers;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -42,7 +48,7 @@ import org.jspecify.annotations.Nullable;
  * <p>Two buildings laid out at once means two tables. That is a limit made of a thing rather
  * than of a number, which is the kind this mod prefers.
  */
-public class DraftingTableEntity extends BlockEntity {
+public class DraftingTableEntity extends BlockEntity implements Container, MenuProvider {
 
     /** Where the drawing sits when nobody has moved it: one step diagonally off the table. */
     public static final BlockPos DEFAULT_OFFSET = new BlockPos(1, 0, 1);
@@ -61,24 +67,86 @@ public class DraftingTableEntity extends BlockEntity {
 
     // ---- what the board holds
 
-    public boolean accepts(ItemStack stack) {
-        return drawing.isEmpty() && stack.getItem() instanceof Blueprint;
-    }
-
     public ItemStack drawing() {
         return drawing;
     }
 
-    public void put(ItemStack stack) {
-        drawing = stack;
-        refresh();
+    /**
+     * One slot, and it takes drawings only.
+     *
+     * <p>A slot rather than a button, because a button that says "take" tells the player nothing
+     * about what is on the board. A furnace shows what is burning; a silhouette on its own does
+     * not tell one house from another.
+     */
+    @Override
+    public int getContainerSize() {
+        return 1;
     }
 
-    public ItemStack takeDrawing() {
-        ItemStack taken = drawing;
+    @Override
+    public boolean isEmpty() {
+        return drawing.isEmpty();
+    }
+
+    @Override
+    public ItemStack getItem(int slot) {
+        return slot == 0 ? drawing : ItemStack.EMPTY;
+    }
+
+    @Override
+    public ItemStack removeItem(int slot, int count) {
+        ItemStack taken = slot == 0 ? drawing.split(count) : ItemStack.EMPTY;
+        if (!taken.isEmpty()) {
+            refresh();
+        }
+        return taken;
+    }
+
+    @Override
+    public ItemStack removeItemNoUpdate(int slot) {
+        ItemStack taken = getItem(slot);
         drawing = ItemStack.EMPTY;
         refresh();
         return taken;
+    }
+
+    @Override
+    public void setItem(int slot, ItemStack stack) {
+        if (slot == 0) {
+            drawing = stack;
+            refresh();
+        }
+    }
+
+    @Override
+    public boolean canPlaceItem(int slot, ItemStack stack) {
+        return slot == 0 && stack.getItem() instanceof Blueprint;
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        return Container.stillValidBlockEntity(this, player);
+    }
+
+    @Override
+    public void setChanged() {
+        super.setChanged();
+    }
+
+    @Override
+    public void clearContent() {
+        drawing = ItemStack.EMPTY;
+        refresh();
+    }
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable("syvillage.drafting.title");
+    }
+
+    @Override
+    public AbstractContainerMenu createMenu(int id, Inventory inventory, Player player) {
+        return new DraftingMenu(id, inventory, this, worldPosition);
     }
 
     /** A broken table hands its drawing back rather than eating it. */

@@ -4,6 +4,7 @@ import com.syang.syvillage.config.SyVillageConfig;
 import com.syang.syvillage.registry.ModBlocks;
 import com.syang.syvillage.registry.ModCreativeTabs;
 import com.syang.syvillage.registry.ModItems;
+import com.syang.syvillage.registry.ModMenus;
 import com.syang.syvillage.net.SyVillageNetwork;
 import com.syang.syvillage.registry.ModVillagers;
 import net.neoforged.bus.api.IEventBus;
@@ -32,6 +33,7 @@ public class SyVillage {
         ModBlocks.register(modBus);
         ModItems.register(modBus);
         ModVillagers.register(modBus);
+        ModMenus.register(modBus);
         ModCreativeTabs.register(modBus);
         SyVillageNetwork.register(modBus);
     }

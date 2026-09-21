@@ -1,20 +1,23 @@
 package com.syang.syvillage.client;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
+import com.syang.syvillage.registry.ModMenus;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 /**
- * The one line the block needs from the client.
+ * Which screen belongs to the board's menu.
  *
- * <p>Kept apart from the screen itself so that the block - which is common code - names a class
- * with no client imports of its own to reach past. A dedicated server never loads either of
- * them, because it never takes the branch that calls this.
+ * <p>Registered from the mod's constructor rather than by annotation. 26.2 took the bus
+ * parameter off {@code @EventBusSubscriber}, and whether what is left reaches a mod-bus event
+ * like this one is not something to guess at when being wrong means the screen is silently
+ * missing and opening the table crashes.
  */
 public final class DraftingScreens {
 
     private DraftingScreens() {}
 
-    public static void open(BlockPos table) {
-        Minecraft.getInstance().setScreenAndShow(new DraftingScreen(table));
+    public static void register(IEventBus modBus) {
+        modBus.addListener(RegisterMenuScreensEvent.class,
+                event -> event.register(ModMenus.DRAFTING.get(), DraftingScreen::new));
     }
 }

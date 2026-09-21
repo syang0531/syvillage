@@ -8,7 +8,6 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 
 /**
  * A button on the drawing board, pressed.
@@ -27,7 +26,6 @@ public record DraftingCommand(BlockPos table, int action, BlockPos offset)
     public static final int MOVE = 1;
     public static final int SHOW = 2;
     public static final int BUILD = 3;
-    public static final int TAKE = 4;
 
     public static final Type<DraftingCommand> TYPE = new Type<>(
             Identifier.fromNamespaceAndPath(SyVillage.MODID, "drafting_command"));
@@ -59,12 +57,6 @@ public record DraftingCommand(BlockPos table, int action, BlockPos offset)
             case MOVE -> board.moveTo(command.offset());
             case SHOW -> board.toggleShowing();
             case BUILD -> board.build();
-            case TAKE -> {
-                ItemStack taken = board.takeDrawing();
-                if (!taken.isEmpty() && !player.getInventory().add(taken)) {
-                    player.drop(taken, false);
-                }
-            }
             default -> { }
         }
     }

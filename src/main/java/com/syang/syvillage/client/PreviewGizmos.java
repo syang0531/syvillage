@@ -46,9 +46,22 @@ public final class PreviewGizmos {
     private static final int BOX = 0xFFE8EDF2;
     private static final int READY = 0xFF4CC26A;
     private static final int BLOCKED = 0xFFD9483B;
-    /** The massing. Alpha low enough to see the ground and the building behind it through. */
-    private static final int MASS_READY = 0x3348C46A;
-    private static final int MASS_BLOCKED = 0x33D9483B;
+    /**
+     * The massing. Faint, because there is a lot of it and the player is looking <em>through</em>
+     * it at the ground - a seventeen by seventeen tower at a third opacity fills the screen, and
+     * from inside the footprint it is a wall of colour. This is the one shape whose job is to be
+     * noticed and then seen past.
+     */
+    private static final int MASS_READY = 0x1A48C46A;
+    private static final int MASS_BLOCKED = 0x1AD9483B;
+
+    /**
+     * A block that is actually in the way, filled rather than outlined.
+     *
+     * <p>The opposite reading of the same trade: there are a handful of these and each one is
+     * somewhere the player has to walk to. Solid enough to pick out of the massing around it.
+     */
+    private static final int IN_THE_WAY = 0x99D9483B;
 
     private static final float BOX_WIDTH = 2.0f;
     private static final float BORDER_WIDTH = 3.5f;
@@ -77,9 +90,10 @@ public final class PreviewGizmos {
         massAndBorder(outline, ok);
 
         int[] blocked = outline.blocked();
+        GizmoStyle inTheWay = GizmoStyle.strokeAndFill(BLOCKED, BOX_WIDTH, IN_THE_WAY);
         for (int i = 0; i + 2 < blocked.length; i += 3) {
             Gizmos.cuboid(new AABB(new BlockPos(blocked[i], blocked[i + 1], blocked[i + 2])),
-                    GizmoStyle.stroke(BLOCKED, BOX_WIDTH)).setAlwaysOnTop();
+                    inTheWay).setAlwaysOnTop();
         }
     }
 
