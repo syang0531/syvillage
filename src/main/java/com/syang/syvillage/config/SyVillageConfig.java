@@ -31,6 +31,10 @@ public final class SyVillageConfig {
     public static final ModConfigSpec.IntValue SURVEY_SCAN_HEIGHT;
     public static final ModConfigSpec.IntValue CLEAR_HEIGHT;
 
+    // [blueprint] - putting a structure down, and looking at it first
+    public static final ModConfigSpec.IntValue RAISE_BLOCKS_PER_TICK;
+    public static final ModConfigSpec.IntValue PREVIEW_SECONDS;
+
     // [guardian] - the statue that keeps a golem
     public static final ModConfigSpec.IntValue GUARD_CHECK_TICKS;
 
@@ -47,6 +51,20 @@ public final class SyVillageConfig {
                         "must not make a site unbuildable - and the price of that is felling it",
                         "before building.")
                 .defineInRange("clearHeight", 16, 0, 64);
+        b.pop();
+
+        b.comment("Blueprints: putting a structure down, and looking at it first.")
+                .push("blueprint");
+        RAISE_BLOCKS_PER_TICK = b.comment("Blocks laid per tick while a structure goes up.",
+                        "Purely a flourish - every block is settled before the first one lands,",
+                        "and if the server stops the rest appear at once. 40 puts a tower up",
+                        "over about two seconds. 20000 is instant.")
+                .defineInRange("raiseBlocksPerTick", 40, 1, 20000);
+        PREVIEW_SECONDS = b.comment("How long a preview stays good for. Clicking the same spot",
+                        "again inside this window is the confirmation that builds; after it,",
+                        "the click is a fresh preview instead. Short on purpose: a stale",
+                        "outline must not turn a stray click into two thousand blocks.")
+                .defineInRange("previewSeconds", 10, 1, 120);
         b.pop();
 
         b.comment("The guardian statue.").push("guardian");

@@ -67,38 +67,6 @@ class TemplateTest {
     }
 
     @Test
-    @DisplayName("the probe column is solid from the ground and as tall as any such")
-    void theProbeIsSolidMasonry() {
-        for (String name : new String[] {"gatehouse", "tower"}) {
-            Template template = Template.of(name);
-            int[] probe = template.probe();
-            assertTrue(template.solidToTop(probe[0], probe[1]), name);
-            for (int[] column : template.columns()) {
-                if (template.solidToTop(column[0], column[1])) {
-                    assertTrue(template.topOf(column[0], column[1]) <= probe[2], name);
-                }
-            }
-        }
-        // And the arch is not solid: that is the column the old gatehouse levelled itself on.
-        Template gate = Template.of("gatehouse");
-        assertFalse(gate.solidToTop(gate.sizeX() / 2, gate.sizeZ() / 2), "the way through");
-    }
-
-    @Test
-    @DisplayName("turning follows the game's convention: clockwise takes north to east")
-    void turningMatchesBlockStates() {
-        assertArrayEquals(new int[] {1, 0}, Template.turn(0, -1, Rotation.CLOCKWISE_90));
-        assertArrayEquals(new int[] {0, 1}, Template.turn(0, -1, Rotation.CLOCKWISE_180));
-        assertArrayEquals(new int[] {-1, 0}, Template.turn(0, -1, Rotation.COUNTERCLOCKWISE_90));
-
-        BlockState north = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
-                .setValue(StairBlock.FACING, Direction.NORTH);
-        assertEquals(Direction.EAST, north.rotate(Rotation.CLOCKWISE_90).getValue(StairBlock.FACING),
-                "so a stair turned with the offset it sits at still faces the same way relative"
-                        + " to the structure");
-    }
-
-    @Test
     @DisplayName("materials change by family and keep their properties")
     void remappingKeepsTheFamily() {
         BlockState stair = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
@@ -120,24 +88,4 @@ class TemplateTest {
                 Template.remap(Blocks.STONE_BRICKS.defaultBlockState(), Craft.PLAINS).getBlock());
     }
 
-    @Test
-    @DisplayName("the ways in are on the lowest layer, and both templates have them")
-    void theWaysInAreOnTheGround() {
-        for (String name : new String[] {"gatehouse", "tower"}) {
-            Template template = Template.of(name);
-            assertFalse(template.entrances().isEmpty(), name + " has no way in");
-            for (int[] column : template.entrances()) {
-                assertTrue(template.hasBase(column[0], column[1]),
-                        name + ": a way in with nothing on the lowest layer at "
-                                + column[0] + "," + column[1]);
-            }
-        }
-        // The gatehouse's ways in include its road: the fence gates across the arch.
-        Template gate = Template.of("gatehouse");
-        boolean onTheRoad = false;
-        for (int[] column : gate.entrances()) {
-            onTheRoad |= column[0] == gate.sizeX() / 2;
-        }
-        assertTrue(onTheRoad, "the arch's fence gates are ways in, so the floor is the road's");
-    }
 }

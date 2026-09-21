@@ -308,140 +308,15 @@ public final class Template {
         return top;
     }
 
-    /**
-     * Whether a column is the structure's masonry from the ground all the way up.
-     *
-     * <p>These are the columns a structure is levelled against and asked about. A column with
-     * an archway or a stair in it reads wrong twice over: the footing walk down through our
-     * masonry stops at the first hole, and a probe above it finds air where the deck should be.
-     * The old gatehouse was rebuilt in place nineteen times over exactly that.
-     */
-    public boolean solidToTop(int x, int z) {
-        int top = topOf(x, z);
-        if (top < 0) {
-            return false;
-        }
-        boolean[] filled = new boolean[top + 1];
+    /** The lowest block in a column, or -1 for none. */
+    public int bottomOf(int x, int z) {
+        int bottom = -1;
         for (Piece piece : pieces) {
-            if (piece.x() == x && piece.z() == z && piece.state().is(Blocks.STONE_BRICKS)) {
-                filled[piece.y()] = true;
+            if (piece.x() == x && piece.z() == z && (bottom < 0 || piece.y() < bottom)) {
+                bottom = piece.y();
             }
         }
-        for (boolean f : filled) {
-            if (!f) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * The columns whose lowest layer is a way in: a stair's first tread, a fence, a fence gate.
-     *
-     * <p>These are what a structure is levelled against. A gatehouse whose floor was the
-     * highest ground under it stood with its arch a storey above the road on any hillside,
-     * its stairs starting in mid-air and its gates opening onto nothing; a tower did the same
-     * with its ground stairs. The way in has to be on the ground, and that is the whole rule -
-     * the template says where the ways in are by what it puts on its lowest layer, so redrawing
-     * it moves the rule with it.
-     */
-    public List<int[]> entrances() {
-        List<int[]> out = new ArrayList<>();
-        boolean[][] seen = new boolean[sizeX][sizeZ];
-        for (Piece piece : pieces) {
-            Block block = piece.state().getBlock();
-            boolean threshold = piece.y() == 0 && (block instanceof StairBlock
-                    || block instanceof FenceBlock || block instanceof FenceGateBlock);
-            // A vanilla house's door stands on its floor, which is layer 0; the door itself is
-            // on layer 1. It is a way in all the same.
-            boolean door = piece.y() <= 1 && block instanceof DoorBlock
-                    && piece.state().getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER;
-            if (threshold || door) {
-                seen[piece.x()][piece.z()] = true;
-            }
-        }
-        for (int[] column : columns()) {
-            if (seen[column[0]][column[1]]) {
-                out.add(column);
-            }
-        }
-        return Collections.unmodifiableList(out);
-    }
-
-    /** Whether the template puts any block at all on its lowest layer in this column. */
-    public boolean hasBase(int x, int z) {
-        for (Piece piece : pieces) {
-            if (piece.x() == x && piece.z() == z && piece.y() == 0) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * The column "is it standing" is asked of: solid from the ground, and as tall as any such.
-     *
-     * <p>Returned as {@code {x, z, top}}. Chosen from the template rather than written down,
-     * so that a redrawn template cannot leave the probe pointing at a column that is no longer
-     * there.
-     */
-    public int[] probe() {
-        int[] best = null;
-        for (int[] column : columns()) {
-            if (!solidToTop(column[0], column[1])) {
-                continue;
-            }
-            int top = topOf(column[0], column[1]);
-            if (best == null || top > best[2]) {
-                best = new int[] {column[0], column[1], top};
-            }
-        }
-        if (best == null) {
-            throw new IllegalStateException(id + " has no column solid from the ground");
-        }
-        return best;
-    }
-
-    /**
-     * A template-frame vector turned about the origin.
-     *
-     * <p>The same convention as {@link BlockState#rotate}: clockwise-90 turns north into east.
-     * Used for the offset of a template from the bell, so that a gatehouse authored facing
-     * north and placed with the east rotation stands east of the bell facing east.
-     */
-    public static int[] turn(int dx, int dz, Rotation rotation) {
-        return switch (rotation) {
-            case NONE -> new int[] {dx, dz};
-            case CLOCKWISE_90 -> new int[] {-dz, dx};
-            case CLOCKWISE_180 -> new int[] {-dx, -dz};
-            case COUNTERCLOCKWISE_90 -> new int[] {dz, -dx};
-        };
-    }
-
-    /**
-     * The template's blocks in the world, turned and re-materialed.
-     *
-     * @param bell     what the offset is measured from
-     * @param origin   where the template's (0, 0) sits relative to the bell, in the frame it was
-     *                 authored in
-     * @param floor    the world y the template's lowest layer stands on: layer 0 goes at
-     *                 {@code floor + 1}
-     */
-    public List<BuildOp> place(BlockPos bell, int[] origin, Rotation rotation, Craft craft,
-            int floor) {
-        List<BuildOp> ops = new ArrayList<>(pieces.size());
-        for (Piece piece : pieces) {
-            int[] v = turn(origin[0] + piece.x(), origin[1] + piece.z(), rotation);
-            ops.add(new BuildOp(new BlockPos(bell.getX() + v[0], floor + 1 + piece.y(),
-                    bell.getZ() + v[1]), remap(piece.state().rotate(rotation), craft)));
-        }
-        return ops;
-    }
-
-    /** Where one template column lands in the world. */
-    public static BlockPos columnAt(BlockPos bell, int[] origin, Rotation rotation, int x, int z) {
-        int[] v = turn(origin[0] + x, origin[1] + z, rotation);
-        return new BlockPos(bell.getX() + v[0], bell.getY(), bell.getZ() + v[1]);
+        return bottom;
     }
 
     // ---- turned inside its own box, for a template placed by its corner rather than about
@@ -477,15 +352,6 @@ public final class Template {
     public BlockPos columnAt(BlockPos origin, Rotation rotation, int x, int z) {
         int[] v = turnInBox(x, z, rotation);
         return new BlockPos(origin.getX() + v[0], origin.getY(), origin.getZ() + v[1]);
-    }
-
-    /** Every occupied column in the world, in {@link #columns} order. */
-    public List<BlockPos> columnsAt(BlockPos origin, Rotation rotation) {
-        List<BlockPos> out = new ArrayList<>();
-        for (int[] column : columns()) {
-            out.add(columnAt(origin, rotation, column[0], column[1]));
-        }
-        return out;
     }
 
     /**
@@ -538,16 +404,5 @@ public final class Template {
     private static <T extends Comparable<T>> BlockState copy(BlockState from, BlockState to,
             Property<T> property) {
         return to.setValue(property, from.getValue(property));
-    }
-
-    /** Whether the block at a template position is what the author built it in. */
-    public static boolean isMasonry(BlockState state) {
-        return state.is(Blocks.STONE_BRICKS);
-    }
-
-    /** For a test: whether this block is one the family table changes. */
-    public static boolean isRemapped(Block block) {
-        return block == Blocks.STONE_BRICKS || block == Blocks.STONE_BRICK_STAIRS
-                || block == Blocks.OAK_FENCE || block == Blocks.OAK_FENCE_GATE;
     }
 }

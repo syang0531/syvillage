@@ -1,6 +1,7 @@
 package com.syang.syvillage.registry;
 
 import com.syang.syvillage.SyVillage;
+import com.syang.syvillage.item.Blueprint;
 import com.syang.syvillage.item.FreemansCharter;
 import java.util.function.Function;
 import net.minecraft.core.registries.Registries;
@@ -38,6 +39,9 @@ public final class ModItems {
     /** Sold by the village head. Used on the ground it is a villager. */
     public static final DeferredItem<Item> FREEMANS_CHARTER = register("freemans_charter",
             FreemansCharter::new);
+
+    /** A building, drawn. Used on a block it is the building. */
+    public static final DeferredItem<Item> BLUEPRINT = register("blueprint", Blueprint::new);
 
     private ModItems() {}
 

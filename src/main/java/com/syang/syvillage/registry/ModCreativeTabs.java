@@ -40,5 +40,9 @@ public final class ModCreativeTabs {
         if (event.getTabKey().equals(CreativeModeTabs.SPAWN_EGGS)) {
             event.accept(ModItems.FREEMANS_CHARTER.get());
         }
+        // A blueprint is used on a block and becomes blocks, so it sits with building things.
+        if (event.getTabKey().equals(CreativeModeTabs.BUILDING_BLOCKS)) {
+            event.accept(ModItems.BLUEPRINT.get());
+        }
     }
 }
