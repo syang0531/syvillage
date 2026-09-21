@@ -10,7 +10,7 @@
   "item.syvillage.freemans_charter": "자유민의 증서",
   "item.syvillage.blueprint": "도면",
   "syvillage.blueprint.ready": "%s을(를) 여기 세웁니다. 다시 누르면 지어집니다.",
-  "syvillage.blueprint.floating": "%s을(를) 여기 세웁니다. 기둥 %s개가 허공에 뜹니다. 다시 누르면 지어집니다.",
+  "syvillage.blueprint.floating": "%s을(를) 여기 세웁니다. 가장 깊은 곳이 땅에서 %s칸 떠 있습니다. 다시 누르면 지어집니다.",
   "syvillage.blueprint.blocked": "블록 %s칸이 자리를 차지합니다. 첫 자리는 %s, %s, %s.",
   "syvillage.blueprint.raised": "%s — 블록 %s개."
 }

@@ -103,9 +103,9 @@ public final class Blueprint extends Item {
                             first.getX(), first.getY(), first.getZ())
                     .withStyle(ChatFormatting.RED);
         }
-        if (survey.floating() > 0) {
+        if (survey.gap() > 0) {
             return Component.translatable("syvillage.blueprint.floating", template.name(),
-                            survey.floating())
+                            survey.gap())
                     .withStyle(ChatFormatting.YELLOW);
         }
         return Component.translatable("syvillage.blueprint.ready", template.name())

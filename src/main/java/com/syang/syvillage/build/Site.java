@@ -17,8 +17,13 @@ import net.minecraft.server.level.ServerLevel;
  *
  * <p>Support is not asked about, for the same reason the bed does not ask: a bed placed at a
  * cliff edge hangs its head over the drop, and a house may too. What a structure stands on is
- * the player's business. {@link Survey#floating} counts the columns that will hang, and says
- * so, and does not refuse.
+ * the player's business. {@link Survey#gap} says how far the worst of it hangs, and does not
+ * refuse.
+ *
+ * <p>It counted the columns with nothing under them first, and in a real world that came back
+ * as two hundred and twenty out of two hundred and twenty-one every single time. The count was
+ * correct and it said nothing: the floor is one flat plane and the ground is not, so nearly
+ * every column has air under it somewhere. One depth is a number a player can act on.
  *
  * <p><b>Occupied means the column's span, not the box.</b> From the lowest block the template
  * puts in that column to the highest, including the air between them: a house whose walls clear
@@ -33,11 +38,11 @@ public final class Site {
     /**
      * What a placement would do here.
      *
-     * @param blocked  the occupied positions, in template order, capped at {@link #REPORTED}
-     * @param floating columns whose lowest block will have nothing under it
+     * @param blocked the occupied positions, in template order, capped at {@link #REPORTED}
+     * @param gap     the deepest run of air between the structure and the ground under it
      */
     public record Survey(Placement placement, List<BlockPos> blocked, int blockedCount,
-            int floating) {
+            int gap) {
 
         public boolean buildable() {
             return blockedCount == 0;
@@ -56,7 +61,7 @@ public final class Site {
         Template template = placement.template();
         List<BlockPos> blocked = new ArrayList<>();
         int blockedCount = 0;
-        int floating = 0;
+        int gap = 0;
 
         for (int[] column : template.columns()) {
             BlockPos at = template.columnAt(placement.origin(), placement.rotation(),
@@ -77,11 +82,15 @@ public final class Site {
                     }
                 }
             }
-            BlockPos under = new BlockPos(at.getX(), placement.floor() + bottom - 1, at.getZ());
-            if (level.hasChunkAt(under) && level.getBlockState(under).canBeReplaced()) {
-                floating++;
+            // How far this column's lowest block stands above the terrain under it. Read down
+            // through our own masonry, so a tower set on a wall is standing on something rather
+            // than hanging over it (principle eight).
+            if (level.hasChunkAt(at)) {
+                int ground = Terrain.footingAt(level, at.getX(), at.getZ(),
+                        placement.palette().wall());
+                gap = Math.max(gap, placement.floor() + bottom - 1 - ground);
             }
         }
-        return new Survey(placement, List.copyOf(blocked), blockedCount, floating);
+        return new Survey(placement, List.copyOf(blocked), blockedCount, gap);
     }
 }

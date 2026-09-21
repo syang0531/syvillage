@@ -10,7 +10,7 @@
   "item.syvillage.freemans_charter": "Freeman's Charter",
   "item.syvillage.blueprint": "Blueprint",
   "syvillage.blueprint.ready": "%s will stand here. Click again to raise it.",
-  "syvillage.blueprint.floating": "%s will stand here, with %s column(s) over air. Click again to raise it.",
+  "syvillage.blueprint.floating": "%s will stand here, %s block(s) clear of the ground at the deepest. Click again to raise it.",
   "syvillage.blueprint.blocked": "%s block(s) are in the way, the first at %s, %s, %s.",
   "syvillage.blueprint.raised": "%s: %s blocks."
 }
