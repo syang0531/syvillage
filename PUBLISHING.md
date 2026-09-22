@@ -19,7 +19,7 @@
 5. 생성 후 운영진 **승인 대기** 상태가 됩니다 (몇 시간~며칠). 승인 전에도 아래 단계는 진행 가능하므로 **지금 신청해두는 편이 낫습니다**
 6. 프로젝트 페이지에서 **숫자 Project ID** 확인
 
-> 등록정보 문서의 본문은 2026-09-18에 출시 범위(M1~M6)에 맞춰 다시 썼습니다.
+> 등록정보 문서의 본문은 2026-09-21에 0.3의 범위에 맞춰 다시 썼고, 2026-09-22에 1.0.0 기준으로 검토했습니다.
 
 ### A-2. `gradle.properties` 채우기
 ```properties
@@ -42,19 +42,19 @@ https://console.curseforge.com → 계정 메뉴 → **API Tokens** → 새 토�
 ## B. 새 버전 배포
 
 ```bash
-# 1) CHANGELOG.md 맨 위에 "## 0.1.1" 구간 추가
+# 1) CHANGELOG.md 맨 위에 "## 1.0.0" 구간 추가
 # 2) gradle.properties의 mod_version 갱신 (CI가 태그에서 다시 뽑으므로 표시용)
 git add -A
-git commit -m "Release 0.1.1"
+git commit -m "Release 1.0.0"
 git push
-git tag v0.1.1
-git push origin v0.1.1
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 `v*` 태그가 올라가면 `.github/workflows/release.yml`이 돕니다.
 
-1. 태그에서 버전(`0.1.1`)을 뽑아 `./gradlew build -Pmod_version=0.1.1`
-2. `CHANGELOG.md`에서 `## 0.1.1` 구간을 뽑아 변경 내역으로 사용 (구간이 없으면 기본 문구로 대체)
+1. 태그에서 버전(`1.0.0`)을 뽑아 `./gradlew build -Pmod_version=1.0.0`
+2. `CHANGELOG.md`에서 `## 1.0.0` 구간을 뽑아 변경 내역으로 사용 (구간이 없으면 기본 문구로 대체)
 3. `./gradlew publishCurseForge`로 업로드
 4. jar와 변경 내역이 담긴 GitHub Release 생성
 
@@ -69,14 +69,14 @@ CURSEFORGE_TOKEN=xxxx RELEASE_TYPE=beta ./gradlew publishCurseForge --no-configu
 
 ## 배포 전 점검
 
-`docs/roadmap.md` M6의 완료 기준과 중복되지만, 배포 직전에 반드시 확인할 것만 추립니다.
+배포 직전에 반드시 확인할 것만 추렸습니다. 0.2 시절의 로드맵 M6과 중복되던 기준은 그 로드맵과 함께 `docs/history/`로 갔습니다.
 
 - [x] `curseforge_project_id`가 실제 값인가 — `1696659`
 - [x] CurseForge에 게임 버전 `26.2`가 있는가 — 있다 (2026-09-18 확인). 없으면 `addGameVersion`이 실패한다
 - [x] `mod_version`과 태그가 일치하는가 — CI가 태그에서 뽑으므로 어긋날 수 없다
 - [x] **모드를 제거했을 때 남는 것**을 CurseForge 설명에 적었는가 — 마을이 지은 것은 전부 평범한 블록이라 그대로 남고, 이 모드의 블록은 탁자 둘·수호상뿐. 주민은 바닐라 주민이라 아무 일도 없다
-- [x] 등록되지 않은 바닐라 마을이 완전히 바닐라로 동작하는가 — 등록된 정주지만 틱을 탄다
-- [ ] 전용 서버에서 클라이언트 크래시가 없는가 — 아직 안 해봤다. 서버 전용 코드가 없어 위험은 낮지만, 첫 릴리스 뒤 한 번 볼 것
+- [x] 바닐라 마을이 완전히 바닐라로 동작하는가 — 0.3부터 **등록이라는 것 자체가 없다.** 틱을 타는 것은 플레이어가 지은 탁자와 수호상뿐이고, 둘 다 없는 마을은 이 모드가 손대지 않는다
+- [x] 전용 서버에서 클라이언트 크래시가 없는가 — 2026-09-22에 `./gradlew runServer`로 확인했다. 모드가 올라오고(`FMLModContainer ... com.syang.syvillage.SyVillage`) 서버가 `Done (0.309s)`까지 갔으며, `net.minecraft.client`를 찾는 상황도 오류도 없었다
 - [x] `logo.png`를 `src/main/resources/`에 넣고 `neoforge.mods.toml`의 `logoFile`을 되살렸는가
 - [x] `CURSEFORGE_TOKEN` 시크릿이 등록돼 있는가 — 저장소 소유자가 직접. 평문으로 노출된 적 있는 토큰은 재발급. **값이 비어 있으면** 실행 로그의 env에 `***` 대신 공백이 찍히고 CurseForge가 401을 낸다 — 첫 업로드가 그렇게 두 번 실패했다
 - [x] 파일에 환경 태그(Client/Server)가 붙는가 — `build.gradle`의 `addEnvironment`. 없으면 CurseForge가 error 1021로 거부한다

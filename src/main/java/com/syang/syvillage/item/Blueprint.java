@@ -65,7 +65,7 @@ public final class Blueprint extends Item {
     public Component getName(ItemStack stack) {
         Drawing drawing = drawingOf(stack);
         return drawing == null ? super.getName(stack)
-                : Component.translatable("item.syvillage.blueprint.of", drawing.title());
+                : Component.translatable("item.syvillage.blueprint.of", drawing.name());
     }
 
     /**

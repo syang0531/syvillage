@@ -86,6 +86,7 @@
 | Java | 25 |
 | 빌드 | `./gradlew build` |
 | 실행 | `./gradlew runClient` |
+| 언어 | 한국어 · English — 도면 171장의 이름까지 |
 
 ## 문서
 

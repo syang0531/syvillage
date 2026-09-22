@@ -7,9 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.syang.syvillage.data.Catalogue;
+import com.syang.syvillage.data.Drawing;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -69,5 +72,28 @@ class LangTest {
         }
         // That the sweep read a file at all, rather than an empty object.
         assertTrue(en.has("syvillage.title"), "the sweep found no keys at all");
+    }
+
+    /**
+     * Every building the architect can draw has a word for every part of its name.
+     *
+     * <p>A missing word is the quiet failure here: the name falls back to the path's own
+     * spelling, which is English, and English is what the developer is reading anyway. So the
+     * catalogue is walked rather than the language file - a building the game adds and we have
+     * no word for fails here, not in somebody's Korean client.
+     */
+    @Test
+    @DisplayName("every building in the catalogue is made of words both languages know")
+    void everyBuildingHasItsWords() {
+        JsonObject en = lang("en_us");
+        JsonObject ko = lang("ko_kr");
+        List<Drawing> all = Catalogue.all();
+        assertFalse(all.isEmpty(), "the catalogue is empty, so this test checked nothing");
+        for (Drawing drawing : all) {
+            for (String key : drawing.nameKeys()) {
+                assertTrue(en.has(key), drawing.template() + " needs " + key + " in en_us");
+                assertTrue(ko.has(key), drawing.template() + " needs " + key + " in ko_kr");
+            }
+        }
     }
 }
