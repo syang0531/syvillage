@@ -42,13 +42,13 @@ https://console.curseforge.com → 계정 메뉴 → **API Tokens** → 새 토�
 ## B. 새 버전 배포
 
 ```bash
-# 1) CHANGELOG.md 맨 위에 "## 1.0.0" 구간 추가
+# 1) CHANGELOG.md 맨 위에 "## <버전>" 구간 추가
 # 2) gradle.properties의 mod_version 갱신 (CI가 태그에서 다시 뽑으므로 표시용)
 git add -A
-git commit -m "Release 1.0.0"
+git commit -m "Release <버전>"
 git push
-git tag v1.0.0
-git push origin v1.0.0
+git tag v<버전>
+git push origin v<버전>
 ```
 
 `v*` 태그가 올라가면 `.github/workflows/release.yml`이 돕니다.
