@@ -2,7 +2,10 @@
 
 마인크래프트 자바 에디션 모드. **마을에 대해 플레이어가 할 수 없는 것만 준다.**
 
-마을을 키우는 것은 당신이다. 이 모드는 연장을 준다. **자동으로 해주는 것은 없다.**
+마을을 키우는 것은 당신이다. 이 모드는 연장을 준다 — 마을 건물 전부의 도면, 떠나지 않는 골렘, 이주하는 가족.
+**자동으로 해주는 것은 없다.**
+
+Minecraft **26.2** / **NeoForge 26.2.0.88** 모드 · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/syvillage) · MIT
 
 ## 해결하려는 문제
 
@@ -96,4 +99,6 @@
 - [CLAUDE.md](CLAUDE.md) — 작업 지침과 불변 원칙
 - [docs/history/](docs/history/) — 폐기된 설계
 
-MIT.
+## 라이선스
+
+MIT — [LICENSE](LICENSE).
